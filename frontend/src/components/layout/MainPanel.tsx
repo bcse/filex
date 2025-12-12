@@ -1,24 +1,78 @@
-import React from 'react';
-import { ChevronRight, Home, RefreshCw } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
+import { ChevronRight, Home, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SearchBar } from './SearchBar';
+import { Toolbar } from './Toolbar';
 import { FileTable } from '@/components/table/FileTable';
 import { useNavigationStore } from '@/stores/navigation';
-import { useQueryClient } from '@tanstack/react-query';
+import { useUpload } from '@/hooks/useDirectory';
 
 export function MainPanel() {
   const { currentPath, setCurrentPath } = useNavigationStore();
-  const queryClient = useQueryClient();
-  
+  const [isDragging, setIsDragging] = useState(false);
+  const upload = useUpload();
+
   // Parse breadcrumb segments
   const segments = currentPath.split('/').filter(Boolean);
-  
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['directory', currentPath] });
-  };
+
+  // Drag and drop handlers
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set isDragging to false if we're leaving the drop zone entirely
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        await upload.mutateAsync({ targetPath: currentPath, files });
+      }
+    },
+    [currentPath, upload]
+  );
   
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div
+      className="flex-1 flex flex-col min-w-0 relative"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Drop overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 z-50 bg-primary/10 border-2 border-dashed border-primary flex items-center justify-center">
+          <div className="flex flex-col items-center gap-2 text-primary">
+            <Upload className="w-12 h-12" />
+            <span className="text-lg font-medium">Drop files to upload</span>
+          </div>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex items-center justify-between px-4 py-2 border-b">
         {/* Breadcrumbs */}
@@ -56,14 +110,7 @@ export function MainPanel() {
         
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={handleRefresh}
-          >
-            <RefreshCw className="w-4 h-4" />
-          </Button>
+          <Toolbar />
           <SearchBar />
         </div>
       </div>

@@ -19,6 +19,9 @@ pub struct Config {
     
     /// Indexer scan interval in seconds
     pub index_interval_secs: u64,
+
+    /// Static files directory (frontend build)
+    pub static_path: PathBuf,
 }
 
 impl Config {
@@ -48,6 +51,10 @@ impl Config {
                 .ok()
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(300), // 5 minutes
+
+            static_path: std::env::var("FM_STATIC_PATH")
+                .map(PathBuf::from)
+                .unwrap_or_else(|_| PathBuf::from("./static")),
         }
     }
     

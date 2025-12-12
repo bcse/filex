@@ -162,5 +162,6 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
-test_data/
-test.db
+static/
+testdata/
+filemanager.db

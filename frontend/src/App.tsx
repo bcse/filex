@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'sonner';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { MainPanel } from '@/components/layout/MainPanel';
 
@@ -18,6 +19,7 @@ function App() {
         <Sidebar />
         <MainPanel />
       </div>
+      <Toaster position="bottom-right" richColors />
     </QueryClientProvider>
   );
 }

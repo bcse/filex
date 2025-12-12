@@ -1,10 +1,22 @@
-import React, { useMemo, useCallback, useRef } from 'react';
+import React, { useMemo, useCallback, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowUp, ArrowDown, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigationStore } from '@/stores/navigation';
-import { useDirectory } from '@/hooks/useDirectory';
+import { useDirectory, useRename } from '@/hooks/useDirectory';
+import { useKeyboard } from '@/hooks/useKeyboard';
 import { columns } from './columns';
+import { FileContextMenu } from './FileContextMenu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import type { FileEntry, SortField, SortOrder } from '@/types/file';
 
 function sortEntries(entries: FileEntry[], field: SortField, order: SortOrder): FileEntry[] {
@@ -59,15 +71,45 @@ export function FileTable() {
     toggleSelection,
     sortConfig,
     setSortConfig,
+    clearSelection,
   } = useNavigationStore();
-  
+
   const { data, isLoading, error } = useDirectory(currentPath);
+  const rename = useRename();
+
+  // Rename dialog state
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const [renamePath, setRenamePath] = useState('');
   
   const sortedEntries = useMemo(() => {
     if (!data?.entries) return [];
     return sortEntries(data.entries, sortConfig.field, sortConfig.order);
   }, [data?.entries, sortConfig]);
-  
+
+  // Handle rename triggered by F2 key
+  const handleRenameRequest = useCallback((path: string) => {
+    const name = path.split('/').pop() || '';
+    setRenamePath(path);
+    setRenameValue(name);
+    setRenameOpen(true);
+  }, []);
+
+  const handleConfirmRename = useCallback(async () => {
+    if (!renameValue.trim() || !renamePath) return;
+    await rename.mutateAsync({ path: renamePath, newName: renameValue.trim() });
+    clearSelection();
+    setRenameOpen(false);
+    setRenamePath('');
+    setRenameValue('');
+  }, [rename, renamePath, renameValue, clearSelection]);
+
+  // Keyboard navigation
+  useKeyboard({
+    entries: sortedEntries,
+    onRename: handleRenameRequest,
+  });
+
   const rowVirtualizer = useVirtualizer({
     count: sortedEntries.length,
     getScrollElement: () => parentRef.current,
@@ -157,28 +199,37 @@ export function FileTable() {
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const entry = sortedEntries[virtualRow.index];
             const isSelected = selectedFiles.has(entry.path);
-            
+
             return (
-              <div
+              <FileContextMenu
                 key={entry.path}
-                className={cn(
-                  'grid gap-2 px-2 items-center text-sm border-b border-transparent hover:bg-accent cursor-pointer absolute top-0 left-0 w-full',
-                  isSelected && 'bg-accent'
-                )}
-                style={{
-                  gridTemplateColumns: gridTemplate,
-                  height: `${virtualRow.size}px`,
-                  transform: `translateY(${virtualRow.start}px)`,
+                entry={entry}
+                onSelect={() => {
+                  if (!selectedFiles.has(entry.path)) {
+                    selectFile(entry.path);
+                  }
                 }}
-                onClick={(e) => handleRowClick(entry, e)}
-                onDoubleClick={() => handleRowDoubleClick(entry)}
               >
-                {columns.map((column) => (
-                  <div key={column.key} className="truncate">
-                    {column.render(entry)}
-                  </div>
-                ))}
-              </div>
+                <div
+                  className={cn(
+                    'grid gap-2 px-2 items-center text-sm border-b border-transparent hover:bg-accent cursor-pointer absolute top-0 left-0 w-full',
+                    isSelected && 'bg-accent'
+                  )}
+                  style={{
+                    gridTemplateColumns: gridTemplate,
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                  onClick={(e) => handleRowClick(entry, e)}
+                  onDoubleClick={() => handleRowDoubleClick(entry)}
+                >
+                  {columns.map((column) => (
+                    <div key={column.key} className="truncate">
+                      {column.render(entry)}
+                    </div>
+                  ))}
+                </div>
+              </FileContextMenu>
             );
           })}
         </div>
@@ -189,6 +240,35 @@ export function FileTable() {
           </div>
         )}
       </div>
+
+      {/* Rename Dialog triggered by F2 */}
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Rename</DialogTitle>
+            <DialogDescription>Enter a new name.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              placeholder="New name"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleConfirmRename();
+              }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmRename} disabled={!renameValue.trim()}>
+              Rename
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

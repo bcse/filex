@@ -6,6 +6,7 @@ use axum::{
 use sqlx::sqlite::SqlitePoolOptions;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
+use tower_http::services::{ServeDir, ServeFile};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use filemanager_backend::{
@@ -88,11 +89,19 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/index/trigger", post(api::system::trigger_index))
         .with_state(indexer.clone());
 
+    // Static file serving for frontend
+    let static_path = config.static_path.clone();
+    let index_file = static_path.join("index.html");
+
+    let serve_dir = ServeDir::new(&static_path)
+        .not_found_service(ServeFile::new(&index_file));
+
     // Build router
     let app = Router::new()
         .route("/api/health", get(api::system::health))
         .merge(app_routes)
         .merge(index_routes)
+        .fallback_service(serve_dir)
         .layer(cors)
         .layer(TraceLayer::new_for_http());
 
