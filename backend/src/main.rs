@@ -1,17 +1,17 @@
-use std::sync::Arc;
 use axum::{
-    routing::{get, post, delete},
     Router,
+    routing::{delete, get, post},
 };
 use sqlx::sqlite::SqlitePoolOptions;
+use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
-use tower_http::trace::TraceLayer;
 use tower_http::services::{ServeDir, ServeFile};
+use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use filemanager_backend::{
-    config::Config,
     api::{self, AppState},
+    config::Config,
     db,
     services::{FilesystemService, IndexerService},
 };
@@ -20,15 +20,17 @@ use filemanager_backend::{
 async fn main() -> anyhow::Result<()> {
     // Initialize logging
     tracing_subscriber::registry()
-        .with(tracing_subscriber::EnvFilter::try_from_default_env()
-            .unwrap_or_else(|_| "filemanager_backend=debug,tower_http=debug".into()))
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "filemanager_backend=debug,tower_http=debug".into()),
+        )
         .with(tracing_subscriber::fmt::layer())
         .init();
 
     // Load configuration
     dotenvy::dotenv().ok();
     let config = Config::from_env();
-    
+
     tracing::info!("Starting FileManager backend");
     tracing::info!("Root path: {:?}", config.root_path);
     tracing::info!("Database: {:?}", config.database_path);
@@ -77,6 +79,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/search", get(api::search::search_files))
         .route("/api/files/mkdir", post(api::files::create_directory))
         .route("/api/files/rename", post(api::files::rename))
+        .route("/api/files/copy", post(api::files::copy_entry))
         .route("/api/files/move", post(api::files::move_entry))
         .route("/api/files/delete", delete(api::files::delete))
         .route("/api/files/download", get(api::files::download))
@@ -93,8 +96,7 @@ async fn main() -> anyhow::Result<()> {
     let static_path = config.static_path.clone();
     let index_file = static_path.join("index.html");
 
-    let serve_dir = ServeDir::new(&static_path)
-        .not_found_service(ServeFile::new(&index_file));
+    let serve_dir = ServeDir::new(&static_path).not_found_service(ServeFile::new(&index_file));
 
     // Build router
     let app = Router::new()
@@ -108,7 +110,7 @@ async fn main() -> anyhow::Result<()> {
     // Start server
     let addr = config.server_addr();
     tracing::info!("Listening on {}", addr);
-    
+
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     axum::serve(listener, app).await?;
 

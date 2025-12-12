@@ -37,7 +37,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useNavigationStore } from '@/stores/navigation';
-import { useDelete, useRename, useMove } from '@/hooks/useDirectory';
+import { useDelete, useRename, useMove, useCopy } from '@/hooks/useDirectory';
 import { api } from '@/api/client';
 import type { FileEntry } from '@/types/file';
 
@@ -65,6 +65,7 @@ export function FileContextMenu({ entry, children, onSelect }: FileContextMenuPr
   const deleteFile = useDelete();
   const rename = useRename();
   const move = useMove();
+  const copy = useCopy();
 
   const selectedArray = Array.from(selectedFiles);
   const isSelected = selectedFiles.has(entry.path);
@@ -106,8 +107,7 @@ export function FileContextMenu({ entry, children, onSelect }: FileContextMenuPr
       const targetPath = entry.path === '/' ? `/${fileName}` : `${entry.path}/${fileName}`;
 
       if (clipboard.operation === 'copy') {
-        // TODO: Implement copy endpoint
-        console.log('Copy not yet implemented:', filePath, '->', targetPath);
+        await copy.mutateAsync({ from: filePath, to: targetPath });
       } else if (clipboard.operation === 'cut') {
         await move.mutateAsync({ from: filePath, to: targetPath });
       }

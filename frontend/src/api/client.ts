@@ -74,6 +74,15 @@ export const api = {
     return handleResponse(response);
   },
 
+  async copy(from: string, to: string): Promise<SuccessResponse> {
+    const response = await fetch(`${API_BASE}/files/copy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to }),
+    });
+    return handleResponse(response);
+  },
+
   async delete(path: string): Promise<SuccessResponse> {
     const response = await fetch(`${API_BASE}/files/delete`, {
       method: 'DELETE',

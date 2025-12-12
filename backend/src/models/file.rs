@@ -11,7 +11,7 @@ pub struct FileEntry {
     pub created: Option<DateTime<Utc>>,
     pub modified: Option<DateTime<Utc>>,
     pub mime_type: Option<String>,
-    
+
     // Media metadata (from index, if available)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub width: Option<u32>,

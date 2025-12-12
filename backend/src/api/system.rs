@@ -1,10 +1,6 @@
-use std::sync::Arc;
-use axum::{
-    extract::State,
-    http::StatusCode,
-    Json,
-};
+use axum::{Json, extract::State, http::StatusCode};
 use serde::Serialize;
+use std::sync::Arc;
 
 use crate::services::{IndexerService, MetadataService};
 
@@ -30,9 +26,7 @@ pub async fn health() -> Json<HealthResponse> {
 }
 
 /// Get indexer status
-pub async fn index_status(
-    State(indexer): State<Arc<IndexerService>>,
-) -> Json<IndexStatusResponse> {
+pub async fn index_status(State(indexer): State<Arc<IndexerService>>) -> Json<IndexStatusResponse> {
     Json(IndexStatusResponse {
         is_running: indexer.is_running().await,
     })
@@ -47,8 +41,6 @@ pub async fn trigger_index(
     tokio::spawn(async move {
         let _ = indexer_clone.run_full_index().await;
     });
-    
-    Ok(Json(IndexStatusResponse {
-        is_running: true,
-    }))
+
+    Ok(Json(IndexStatusResponse { is_running: true }))
 }

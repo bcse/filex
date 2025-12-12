@@ -1,16 +1,16 @@
-use std::sync::Arc;
-use std::collections::HashMap;
 use axum::{
+    Json,
     extract::{Query, State},
     http::StatusCode,
-    Json,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::sqlite::SqlitePool;
+use std::collections::HashMap;
+use std::sync::Arc;
 
+use crate::db;
 use crate::models::{FileEntry, TreeNode};
 use crate::services::FilesystemService;
-use crate::db;
 
 pub struct AppState {
     pub fs: FilesystemService,
@@ -39,27 +39,30 @@ pub async fn list_directory(
     Query(query): Query<ListQuery>,
 ) -> Result<Json<ListResponse>, (StatusCode, Json<ErrorResponse>)> {
     let path = query.path.unwrap_or_else(|| "/".to_string());
-    
+
     // Get file list from filesystem
     let mut entries = state.fs.list_directory(&path).map_err(|e| {
         let (status, msg) = match &e {
-            crate::services::filesystem::FsError::NotFound(_) => (StatusCode::NOT_FOUND, e.to_string()),
-            crate::services::filesystem::FsError::PermissionDenied(_) => (StatusCode::FORBIDDEN, e.to_string()),
-            crate::services::filesystem::FsError::PathEscape => (StatusCode::FORBIDDEN, "Access denied".to_string()),
+            crate::services::filesystem::FsError::NotFound(_) => {
+                (StatusCode::NOT_FOUND, e.to_string())
+            }
+            crate::services::filesystem::FsError::PermissionDenied(_) => {
+                (StatusCode::FORBIDDEN, e.to_string())
+            }
+            crate::services::filesystem::FsError::PathEscape => {
+                (StatusCode::FORBIDDEN, "Access denied".to_string())
+            }
             _ => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
         };
         (status, Json(ErrorResponse { error: msg }))
     })?;
-    
+
     // Enrich with indexed media metadata
     let paths: Vec<String> = entries.iter().map(|e| e.path.clone()).collect();
-    
+
     if let Ok(indexed) = db::get_metadata_for_paths(&state.pool, &paths).await {
-        let indexed_map: HashMap<_, _> = indexed
-            .into_iter()
-            .map(|f| (f.path.clone(), f))
-            .collect();
-        
+        let indexed_map: HashMap<_, _> = indexed.into_iter().map(|f| (f.path.clone(), f)).collect();
+
         for entry in &mut entries {
             if let Some(indexed) = indexed_map.get(&entry.path) {
                 entry.width = indexed.width.map(|w| w as u32);
@@ -68,7 +71,7 @@ pub async fn list_directory(
             }
         }
     }
-    
+
     Ok(Json(ListResponse { path, entries }))
 }
 
@@ -78,10 +81,15 @@ pub async fn get_tree(
     Query(query): Query<ListQuery>,
 ) -> Result<Json<Vec<TreeNode>>, (StatusCode, Json<ErrorResponse>)> {
     let path = query.path.unwrap_or_else(|| "/".to_string());
-    
+
     let nodes = state.fs.get_tree_node(&path).map_err(|e| {
-        (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() }))
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
     })?;
-    
+
     Ok(Json(nodes))
 }

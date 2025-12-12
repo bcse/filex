@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { useNavigationStore } from '@/stores/navigation';
-import { useDelete, useMove } from '@/hooks/useDirectory';
+import { useDelete, useMove, useCopy } from '@/hooks/useDirectory';
 import { api } from '@/api/client';
 import type { FileEntry } from '@/types/file';
 
@@ -25,6 +25,7 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
 
   const deleteFile = useDelete();
   const move = useMove();
+  const copy = useCopy();
 
   // Get the focused index based on selection
   const getFocusedIndex = useCallback(() => {
@@ -171,7 +172,9 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
               if (clipboard.operation === 'cut') {
                 await move.mutateAsync({ from: filePath, to: targetPath });
               }
-              // TODO: Copy operation requires backend endpoint
+              if (clipboard.operation === 'copy') {
+                await copy.mutateAsync({ from: filePath, to: targetPath });
+              }
             }
             if (clipboard.operation === 'cut') {
               clearClipboard();
@@ -201,6 +204,7 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
       currentPath,
       deleteFile,
       move,
+      copy,
       onRename,
     ]
   );

@@ -1,5 +1,5 @@
-use sqlx::sqlite::SqlitePool;
 use crate::models::IndexedFile;
+use sqlx::sqlite::SqlitePool;
 
 /// Search files by path pattern
 pub async fn search_files(
@@ -51,10 +51,7 @@ pub async fn get_metadata_for_paths(
 }
 
 /// Upsert a file record
-pub async fn upsert_file(
-    pool: &SqlitePool,
-    file: &IndexedFile,
-) -> Result<(), sqlx::Error> {
+pub async fn upsert_file(pool: &SqlitePool, file: &IndexedFile) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
         INSERT INTO indexed_files (path, name, is_dir, size, created_at, modified_at, mime_type, width, height, duration, indexed_at)
@@ -94,10 +91,11 @@ pub async fn remove_missing_files(
     existing_paths: &[String],
 ) -> Result<u64, sqlx::Error> {
     // This is a simplified version - in production you might want batching
-    let result = sqlx::query("DELETE FROM indexed_files WHERE path NOT IN (SELECT value FROM json_each(?))")
-        .bind(serde_json::to_string(existing_paths).unwrap_or_default())
-        .execute(pool)
-        .await?;
+    let result =
+        sqlx::query("DELETE FROM indexed_files WHERE path NOT IN (SELECT value FROM json_each(?))")
+            .bind(serde_json::to_string(existing_paths).unwrap_or_default())
+            .execute(pool)
+            .await?;
 
     Ok(result.rows_affected())
 }

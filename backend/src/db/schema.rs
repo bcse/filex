@@ -1,4 +1,4 @@
-use sqlx::{sqlite::SqlitePool, Error};
+use sqlx::{Error, sqlite::SqlitePool};
 
 pub async fn init_db(pool: &SqlitePool) -> Result<(), Error> {
     sqlx::query(

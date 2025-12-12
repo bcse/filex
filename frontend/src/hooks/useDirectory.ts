@@ -72,6 +72,24 @@ export function useMove() {
   });
 }
 
+export function useCopy() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ from, to }: { from: string; to: string }) =>
+      api.copy(from, to),
+    onSuccess: (_, { from }) => {
+      const name = from.split('/').pop();
+      toast.success(`Copied "${name}"`);
+      queryClient.invalidateQueries({ queryKey: ['directory'] });
+      queryClient.invalidateQueries({ queryKey: ['tree'] });
+    },
+    onError: (error) => {
+      toast.error(`Failed to copy: ${error.message}`);
+    },
+  });
+}
+
 export function useDelete() {
   const queryClient = useQueryClient();
 
