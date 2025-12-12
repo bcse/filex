@@ -1,5 +1,5 @@
 # Build stage for frontend
-FROM node:20-alpine AS frontend-builder
+FROM node:25 AS frontend-builder
 
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
@@ -8,7 +8,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Build stage for backend
-FROM rust:1.75-bookworm AS backend-builder
+FROM rust:1 AS backend-builder
 
 WORKDIR /app/backend
 COPY backend/Cargo.toml backend/Cargo.lock* ./
@@ -22,7 +22,7 @@ COPY backend/src ./src
 RUN touch src/main.rs && cargo build --release
 
 # Runtime stage
-FROM debian:bookworm-slim
+FROM debian:stable-slim
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
