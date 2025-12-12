@@ -1,0 +1,35 @@
+flowchart TB
+    subgraph Browser["Browser (SPA)"]
+        subgraph UI["User Interface"]
+            Sidebar["Sidebar<br/>Directory Tree"]
+            Toolbar["Toolbar<br/>Actions"]
+            Search["Search Bar"]
+        end
+        Table["File Table<br/>(Virtualized)"]
+    end
+
+    subgraph Backend["Backend (Rust/Axum)"]
+        API["API Layer"]
+        
+        subgraph Services["Services"]
+            FS["Filesystem<br/>Service"]
+            Indexer["Indexer<br/>(Background)"]
+            Meta["Metadata<br/>Service"]
+        end
+        
+        subgraph Storage["Storage"]
+            SQLite["SQLite<br/>(FTS5 Index)"]
+            FFprobe["FFprobe"]
+        end
+    end
+    
+    Volumes[("Mounted Volumes<br/>/data")]
+
+    Browser <-->|"HTTP/JSON"| API
+    API --> FS
+    API --> SQLite
+    FS --> Volumes
+    Indexer --> Volumes
+    Indexer --> Meta
+    Meta --> FFprobe
+    Indexer --> SQLite

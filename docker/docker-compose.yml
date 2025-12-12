@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  filemanager:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: filemanager
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount your data directories here
+      - /path/to/your/files:/data:rw
+      # Persist the database
+      - filemanager_data:/app/data
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - FM_ROOT_PATH=/data
+      - FM_ENABLE_INDEXER=true
+      - FM_INDEX_INTERVAL=300
+      - RUST_LOG=info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  filemanager_data:

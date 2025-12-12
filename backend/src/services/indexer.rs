@@ -1,0 +1,187 @@
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Duration;
+use sqlx::sqlite::SqlitePool;
+use tokio::sync::RwLock;
+use tracing::{info, warn, error, debug};
+use walkdir::WalkDir;
+use chrono::{DateTime, Utc};
+
+use crate::config::Config;
+use crate::db;
+use crate::models::IndexedFile;
+use crate::services::metadata::MetadataService;
+
+pub struct IndexerService {
+    pool: SqlitePool,
+    root: PathBuf,
+    is_running: Arc<RwLock<bool>>,
+}
+
+#[derive(Debug, Default)]
+pub struct IndexStats {
+    pub files_scanned: u64,
+    pub files_indexed: u64,
+    pub files_updated: u64,
+    pub errors: u64,
+}
+
+impl IndexerService {
+    pub fn new(pool: SqlitePool, config: &Config) -> Self {
+        Self {
+            pool,
+            root: config.root_path.clone(),
+            is_running: Arc::new(RwLock::new(false)),
+        }
+    }
+    
+    /// Start the background indexer loop
+    pub async fn start_background_loop(self: Arc<Self>, interval_secs: u64) {
+        let interval = Duration::from_secs(interval_secs);
+        
+        info!("Starting background indexer with {}s interval", interval_secs);
+        
+        loop {
+            match self.run_full_index().await {
+                Ok(stats) => {
+                    info!(
+                        "Index complete: {} scanned, {} indexed, {} errors",
+                        stats.files_scanned, stats.files_indexed, stats.errors
+                    );
+                }
+                Err(e) => {
+                    error!("Indexer error: {}", e);
+                }
+            }
+            
+            tokio::time::sleep(interval).await;
+        }
+    }
+    
+    /// Run a full index of all files
+    pub async fn run_full_index(&self) -> Result<IndexStats, anyhow::Error> {
+        // Check if already running
+        {
+            let mut running = self.is_running.write().await;
+            if *running {
+                warn!("Indexer already running, skipping");
+                return Ok(IndexStats::default());
+            }
+            *running = true;
+        }
+        
+        let stats = self.do_index().await;
+        
+        // Mark as not running
+        {
+            let mut running = self.is_running.write().await;
+            *running = false;
+        }
+        
+        stats
+    }
+    
+    async fn do_index(&self) -> Result<IndexStats, anyhow::Error> {
+        let mut stats = IndexStats::default();
+        
+        let root = self.root.canonicalize()?;
+        
+        info!("Starting index of {:?}", root);
+        
+        for entry in WalkDir::new(&root)
+            .follow_links(false)
+            .into_iter()
+            .filter_entry(|e| !Self::is_hidden(e))
+        {
+            let entry = match entry {
+                Ok(e) => e,
+                Err(e) => {
+                    debug!("Walk error: {}", e);
+                    stats.errors += 1;
+                    continue;
+                }
+            };
+            
+            stats.files_scanned += 1;
+            
+            let path = entry.path();
+            let metadata = match entry.metadata() {
+                Ok(m) => m,
+                Err(e) => {
+                    debug!("Metadata error for {:?}: {}", path, e);
+                    stats.errors += 1;
+                    continue;
+                }
+            };
+            
+            // Build relative path
+            let relative_path = path
+                .strip_prefix(&root)
+                .map(|p| format!("/{}", p.display()))
+                .unwrap_or_else(|_| "/".to_string());
+            
+            let name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+            
+            // Extract media metadata if applicable
+            let media_meta = if metadata.is_file() {
+                MetadataService::extract(path).ok()
+            } else {
+                None
+            };
+            
+            let mime_type = if metadata.is_file() {
+                mime_guess::from_path(path)
+                    .first()
+                    .map(|m| m.to_string())
+            } else {
+                None
+            };
+            
+            let indexed_file = IndexedFile {
+                id: 0, // Will be set by DB
+                path: relative_path,
+                name,
+                is_dir: metadata.is_dir(),
+                size: if metadata.is_file() { Some(metadata.len() as i64) } else { None },
+                created_at: metadata.created().ok().map(|t| {
+                    DateTime::<Utc>::from(t).to_rfc3339()
+                }),
+                modified_at: metadata.modified().ok().map(|t| {
+                    DateTime::<Utc>::from(t).to_rfc3339()
+                }),
+                mime_type,
+                width: media_meta.as_ref().and_then(|m| m.width.map(|w| w as i32)),
+                height: media_meta.as_ref().and_then(|m| m.height.map(|h| h as i32)),
+                duration: media_meta.as_ref().and_then(|m| m.duration),
+                indexed_at: String::new(), // Set by DB
+            };
+            
+            if let Err(e) = db::upsert_file(&self.pool, &indexed_file).await {
+                debug!("DB error for {:?}: {}", path, e);
+                stats.errors += 1;
+                continue;
+            }
+            
+            stats.files_indexed += 1;
+        }
+        
+        Ok(stats)
+    }
+    
+    /// Check if entry should be skipped (hidden files)
+    fn is_hidden(entry: &walkdir::DirEntry) -> bool {
+        entry
+            .file_name()
+            .to_str()
+            .map(|s| s.starts_with('.'))
+            .unwrap_or(false)
+    }
+    
+    /// Check if indexer is currently running
+    pub async fn is_running(&self) -> bool {
+        *self.is_running.read().await
+    }
+}

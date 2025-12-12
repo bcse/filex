@@ -1,0 +1,15 @@
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant API
+    participant FS as Filesystem
+    participant DB as SQLite
+
+    User->>Frontend: Click folder
+    Frontend->>API: GET /api/browse?path=/photos
+    API->>FS: readdir() + stat()
+    FS-->>API: File entries
+    API->>DB: Query media metadata (if indexed)
+    DB-->>API: width, height, duration
+    API-->>Frontend: JSON response
+    Frontend-->>User: Render table
