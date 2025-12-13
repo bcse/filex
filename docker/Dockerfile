@@ -27,11 +27,14 @@ FROM debian:stable-slim
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
+    curl \
     ffmpeg \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN useradd -m -u 1000 filemanager
+# Create non-root user with default UID/GID
+RUN groupadd -g 1000 filemanager && \
+    useradd -u 1000 -g filemanager -m filemanager
 
 WORKDIR /app
 
@@ -39,11 +42,15 @@ WORKDIR /app
 COPY --from=backend-builder /app/backend/target/release/filemanager-backend /app/filemanager
 COPY --from=frontend-builder /app/frontend/dist /app/static
 
+# Copy entrypoint script
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 # Create directories
 RUN mkdir -p /app/data /data && \
     chown -R filemanager:filemanager /app /data
 
-# Environment variables
+# Environment variables with defaults
 ENV FM_ROOT_PATH=/data
 ENV FM_HOST=0.0.0.0
 ENV FM_PORT=3000
@@ -52,16 +59,15 @@ ENV FM_ENABLE_INDEXER=true
 ENV FM_INDEX_INTERVAL=300
 ENV RUST_LOG=info
 
-# The user can override PUID/PGID at runtime
+# UID/GID mapping (can be overridden at runtime)
 ENV PUID=1000
 ENV PGID=1000
 
-USER filemanager
-
 EXPOSE 3000
 
-# Health check
+# Health check using curl
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:3000/api/health || exit 1
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["/app/filemanager"]

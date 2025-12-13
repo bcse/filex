@@ -1,0 +1,67 @@
+# FileManager with Caddy Reverse Proxy
+#
+# Caddy provides automatic HTTPS with Let's Encrypt - no configuration needed!
+#
+# Usage:
+#   1. Replace 'files.example.com' with your domain in Caddyfile
+#   2. Ensure your domain points to this server
+#   3. Run: docker-compose -f docker-compose.caddy.yml up -d
+#   4. Caddy automatically obtains and renews SSL certificates
+
+services:
+  filemanager:
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile
+    container_name: filemanager
+    restart: unless-stopped
+    # No ports exposed - Caddy handles external traffic
+    expose:
+      - "3000"
+    volumes:
+      - /path/to/your/files:/data:rw
+      - filemanager_data:/app/data
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - FM_ROOT_PATH=/data
+      - FM_ENABLE_INDEXER=true
+      - FM_INDEX_INTERVAL=300
+      - RUST_LOG=info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - filemanager_network
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: filemanager_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"  # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - filemanager
+    networks:
+      - filemanager_network
+
+volumes:
+  filemanager_data:
+    name: filemanager_data
+  caddy_data:
+    name: caddy_data
+  caddy_config:
+    name: caddy_config
+
+networks:
+  filemanager_network:
+    name: filemanager_network

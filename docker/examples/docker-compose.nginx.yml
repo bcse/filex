@@ -1,0 +1,64 @@
+# FileManager with Nginx Reverse Proxy
+#
+# This example shows how to run FileManager behind nginx with SSL termination.
+#
+# Usage:
+#   1. Replace 'files.example.com' with your domain
+#   2. Ensure your domain points to this server
+#   3. Run: docker-compose -f docker-compose.nginx.yml up -d
+#   4. Nginx will automatically obtain SSL certificates via Let's Encrypt
+
+services:
+  filemanager:
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile
+    container_name: filemanager
+    restart: unless-stopped
+    # No ports exposed - nginx handles external traffic
+    expose:
+      - "3000"
+    volumes:
+      - /path/to/your/files:/data:rw
+      - filemanager_data:/app/data
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - FM_ROOT_PATH=/data
+      - FM_ENABLE_INDEXER=true
+      - FM_INDEX_INTERVAL=300
+      - RUST_LOG=info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - filemanager_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: filemanager_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      # For Let's Encrypt with certbot:
+      # - /etc/letsencrypt:/etc/letsencrypt:ro
+      # - certbot_webroot:/var/www/certbot:ro
+    depends_on:
+      - filemanager
+    networks:
+      - filemanager_network
+
+volumes:
+  filemanager_data:
+    name: filemanager_data
+
+networks:
+  filemanager_network:
+    name: filemanager_network

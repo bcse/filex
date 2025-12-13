@@ -98,9 +98,14 @@ async fn main() -> anyhow::Result<()> {
 
     let serve_dir = ServeDir::new(&static_path).not_found_service(ServeFile::new(&index_file));
 
+    // Health route with app state for database checks
+    let health_route = Router::new()
+        .route("/api/health", get(api::system::health))
+        .with_state(app_state.clone());
+
     // Build router
     let app = Router::new()
-        .route("/api/health", get(api::system::health))
+        .merge(health_route)
         .merge(app_routes)
         .merge(index_routes)
         .fallback_service(serve_dir)

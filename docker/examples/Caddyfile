@@ -1,0 +1,51 @@
+# Caddyfile for FileManager
+#
+# Caddy automatically:
+# - Obtains SSL certificates from Let's Encrypt
+# - Redirects HTTP to HTTPS
+# - Renews certificates before expiry
+# - Enables HTTP/2 and HTTP/3
+#
+# Replace 'files.example.com' with your domain name.
+
+files.example.com {
+    # Reverse proxy to FileManager
+    reverse_proxy filemanager:3000 {
+        # Health checks
+        health_uri /api/health
+        health_interval 30s
+        health_timeout 3s
+
+        # Headers
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Compression
+    encode gzip zstd
+
+    # Security headers
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Remove server header
+        -Server
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/filemanager.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+    }
+}
+
+# Optional: Local development without HTTPS
+# Uncomment and use for local testing
+#
+# :8080 {
+#     reverse_proxy filemanager:3000
+# }
