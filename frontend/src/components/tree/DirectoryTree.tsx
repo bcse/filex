@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTree, useMove } from '@/hooks/useDirectory';
@@ -17,6 +17,7 @@ function TreeNode({ node, depth, parentPath }: TreeNodeProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const { currentPath, setCurrentPath, clearSelection } = useNavigationStore();
   const move = useMove();
+  const itemRef = useRef<HTMLDivElement>(null);
 
   const normalizedPath = React.useMemo(() => {
     const pathLooksValid =
@@ -95,9 +96,27 @@ function TreeNode({ node, depth, parentPath }: TreeNodeProps) {
     }
   }, [clearSelection, move, normalizedPath]);
 
+  // Auto-expand to reveal the current path
+  useEffect(() => {
+    if (!node.has_children) return;
+    const isAncestorOrSelf =
+      currentPath === normalizedPath || currentPath.startsWith(`${normalizedPath}/`);
+    if (isAncestorOrSelf && !isExpanded) {
+      setIsExpanded(true);
+    }
+  }, [currentPath, isExpanded, node.has_children, normalizedPath]);
+
+  // Keep the selected node in view when navigating from elsewhere
+  useEffect(() => {
+    if (isSelected && itemRef.current) {
+      itemRef.current.scrollIntoView({ block: 'nearest' });
+    }
+  }, [isSelected]);
+
   return (
     <div>
       <div
+        ref={itemRef}
         className={cn(
           'flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-accent rounded-sm',
           isSelected && 'bg-accent',
