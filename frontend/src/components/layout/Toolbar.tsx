@@ -4,8 +4,7 @@ import {
   Trash2,
   Download,
   Upload,
-  Pencil,
-  RefreshCw,
+  TextCursorInput,
   Loader2,
   PanelRightOpen,
   PanelRightClose,
@@ -36,10 +35,8 @@ import { useNavigationStore } from '@/stores/navigation';
 import { usePreviewStore } from '@/stores/preview';
 import { useCreateDirectory, useDelete, useRename, useUploadWithProgress } from '@/hooks/useDirectory';
 import { api } from '@/api/client';
-import { useQueryClient } from '@tanstack/react-query';
 
 export function Toolbar() {
-  const queryClient = useQueryClient();
   const { currentPath, selectedFiles, clearSelection, viewMode, setViewMode } = useNavigationStore();
   const { isOpen: previewOpen, toggle: togglePreview } = usePreviewStore();
 
@@ -139,45 +136,36 @@ export function Toolbar() {
   };
 
   const isLoading = createDir.isPending || deleteFile.isPending || rename.isPending;
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const handleRefreshWithLoading = async () => {
-    setIsRefreshing(true);
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['directory', currentPath] }),
-      queryClient.invalidateQueries({ queryKey: ['tree'] }),
-    ]);
-    // Add a small delay for visual feedback
-    setTimeout(() => setIsRefreshing(false), 300);
-  };
 
   return (
     <>
       <div className="flex items-center gap-1">
         <Button
           variant="ghost"
-          size="sm"
-          className="h-8 px-2"
+          size="icon"
+          className="h-8 w-8"
           onClick={handleNewFolder}
           disabled={isLoading}
+          title="New folder"
         >
           {createDir.isPending ? (
-            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            <FolderPlus className="w-4 h-4 mr-1" />
+            <FolderPlus className="w-4 h-4" />
           )}
-          New Folder
+          <span className="sr-only">New folder</span>
         </Button>
 
         <Button
           variant="ghost"
-          size="sm"
-          className="h-8 px-2"
+          size="icon"
+          className="h-8 w-8"
           onClick={handleUploadClick}
           disabled={isLoading}
+          title="Upload"
         >
-          <Upload className="w-4 h-4 mr-1" />
-          Upload
+          <Upload className="w-4 h-4" />
+          <span className="sr-only">Upload</span>
         </Button>
 
         <input
@@ -192,56 +180,49 @@ export function Toolbar() {
 
         <Button
           variant="ghost"
-          size="sm"
-          className="h-8 px-2"
+          size="icon"
+          className="h-8 w-8"
           onClick={handleRename}
           disabled={!singleSelection || isLoading}
+          title="Rename"
         >
           {rename.isPending ? (
-            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            <Pencil className="w-4 h-4 mr-1" />
+            <TextCursorInput className="w-4 h-4" />
           )}
-          Rename
+          <span className="sr-only">Rename</span>
         </Button>
-
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 px-2"
-          onClick={handleDownload}
-          disabled={!hasSelection || isLoading}
-        >
-          <Download className="w-4 h-4 mr-1" />
-          Download
-        </Button>
-
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-          onClick={handleDelete}
-          disabled={!hasSelection || isLoading}
-        >
-          {deleteFile.isPending ? (
-            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-          ) : (
-            <Trash2 className="w-4 h-4 mr-1" />
-          )}
-          Delete
-        </Button>
-
-        <div className="w-px h-6 bg-border mx-1" />
 
         <Button
           variant="ghost"
           size="icon"
           className="h-8 w-8"
-          onClick={handleRefreshWithLoading}
-          disabled={isLoading || isRefreshing}
+          onClick={handleDownload}
+          disabled={!hasSelection || isLoading}
+          title="Download"
         >
-          <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <Download className="w-4 h-4" />
+          <span className="sr-only">Download</span>
         </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+          onClick={handleDelete}
+          disabled={!hasSelection || isLoading}
+          title="Delete"
+        >
+          {deleteFile.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Trash2 className="w-4 h-4" />
+          )}
+          <span className="sr-only">Delete</span>
+        </Button>
+
+        <div className="w-px h-6 bg-border mx-1" />
 
         <Button
           variant="ghost"

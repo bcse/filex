@@ -12,23 +12,18 @@ export function IndexerStatus() {
   return (
     <Button
       variant="ghost"
-      size="sm"
-      className={cn(
-        'h-8 px-2 gap-1.5',
-        isRunning && 'text-primary'
-      )}
+      size="icon"
+      className={cn('h-8 w-8', isRunning && 'text-primary')}
       onClick={() => triggerIndex.mutate()}
       disabled={isRunning || triggerIndex.isPending}
-      title={isRunning ? 'Indexing in progress...' : 'Click to start indexing'}
+      title={isRunning ? 'Indexing in progress...' : 'Start indexing'}
     >
       {isLoading || isRunning || triggerIndex.isPending ? (
         <Loader2 className="w-4 h-4 animate-spin" />
       ) : (
         <Database className="w-4 h-4" />
       )}
-      <span className="text-xs">
-        {isRunning ? 'Indexing...' : 'Index'}
-      </span>
+      <span className="sr-only">{isRunning ? 'Indexing in progress' : 'Start indexing'}</span>
     </Button>
   );
 }
