@@ -29,6 +29,8 @@ pub struct FilesystemService {
 
 impl FilesystemService {
     pub fn new(root: PathBuf) -> Self {
+        // Normalize the root path up front so relative paths strip correctly
+        let root = root.canonicalize().unwrap_or(root);
         Self { root }
     }
 
@@ -63,6 +65,10 @@ impl FilesystemService {
 
     /// Get relative path from root
     pub fn relative_path(&self, absolute: &Path) -> String {
+        let absolute = absolute
+            .canonicalize()
+            .unwrap_or_else(|_| absolute.to_path_buf());
+
         absolute
             .strip_prefix(&self.root)
             .map(|p| format!("/{}", p.display()))
