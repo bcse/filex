@@ -1,5 +1,5 @@
 use axum::{
-    Router,
+    Router, middleware,
     routing::{delete, get, post},
 };
 use sqlx::sqlite::SqlitePoolOptions;
@@ -10,7 +10,7 @@ use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use filemanager_backend::{
-    api::{self, AppState},
+    api::{self, AppState, AuthState},
     config::Config,
     db,
     services::{FilesystemService, IndexerService},
@@ -34,6 +34,14 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Starting FileManager backend");
     tracing::info!("Root path: {:?}", config.root_path);
     tracing::info!("Database: {:?}", config.database_path);
+    tracing::info!(
+        "Authentication: {}",
+        if config.auth.enabled {
+            "enabled"
+        } else {
+            "disabled"
+        }
+    );
 
     // Ensure database directory exists
     if let Some(parent) = config.database_path.parent() {
@@ -54,6 +62,9 @@ async fn main() -> anyhow::Result<()> {
     let fs = FilesystemService::new(config.root_path.clone());
     let indexer = Arc::new(IndexerService::new(pool.clone(), &config));
 
+    // Initialize auth state
+    let auth_state = Arc::new(AuthState::new(config.auth.clone()));
+
     // Start background indexer if enabled
     if config.enable_indexer {
         let indexer_clone = indexer.clone();
@@ -72,8 +83,8 @@ async fn main() -> anyhow::Result<()> {
         .allow_methods(Any)
         .allow_headers(Any);
 
-    // Routes that use the main application state
-    let app_routes = Router::new()
+    // Protected routes that require authentication
+    let protected_routes = Router::new()
         .route("/api/browse", get(api::browse::list_directory))
         .route("/api/tree", get(api::browse::get_tree))
         .route("/api/search", get(api::search::search_files))
@@ -84,13 +95,28 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/files/delete", delete(api::files::delete))
         .route("/api/files/download", get(api::files::download))
         .route("/api/files/upload/*path", post(api::files::upload))
-        .with_state(app_state.clone());
+        .with_state(app_state.clone())
+        .route_layer(middleware::from_fn_with_state(
+            auth_state.clone(),
+            api::auth::auth_middleware,
+        ));
 
-    // Routes that require indexer state
-    let index_routes = Router::new()
+    // Protected routes that require indexer state
+    let protected_index_routes = Router::new()
         .route("/api/index/status", get(api::system::index_status))
         .route("/api/index/trigger", post(api::system::trigger_index))
-        .with_state(indexer.clone());
+        .with_state(indexer.clone())
+        .route_layer(middleware::from_fn_with_state(
+            auth_state.clone(),
+            api::auth::auth_middleware,
+        ));
+
+    // Auth routes (not protected)
+    let auth_routes = Router::new()
+        .route("/api/auth/login", post(api::auth::login))
+        .route("/api/auth/logout", post(api::auth::logout))
+        .route("/api/auth/status", get(api::auth::auth_status))
+        .with_state(auth_state.clone());
 
     // Static file serving for frontend
     let static_path = config.static_path.clone();
@@ -98,7 +124,7 @@ async fn main() -> anyhow::Result<()> {
 
     let serve_dir = ServeDir::new(&static_path).not_found_service(ServeFile::new(&index_file));
 
-    // Health route with app state for database checks
+    // Health route with app state for database checks (not protected)
     let health_route = Router::new()
         .route("/api/health", get(api::system::health))
         .with_state(app_state.clone());
@@ -106,8 +132,9 @@ async fn main() -> anyhow::Result<()> {
     // Build router
     let app = Router::new()
         .merge(health_route)
-        .merge(app_routes)
-        .merge(index_routes)
+        .merge(auth_routes)
+        .merge(protected_routes)
+        .merge(protected_index_routes)
         .fallback_service(serve_dir)
         .layer(cors)
         .layer(TraceLayer::new_for_http());

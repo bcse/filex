@@ -169,6 +169,28 @@ export const api = {
     });
   },
 
+  // Authentication
+  async login(password: string): Promise<{ success: boolean; error?: string }> {
+    const response = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    return handleResponse(response);
+  },
+
+  async logout(): Promise<{ success: boolean }> {
+    const response = await fetch(`${API_BASE}/auth/logout`, {
+      method: 'POST',
+    });
+    return handleResponse(response);
+  },
+
+  async getAuthStatus(): Promise<{ authenticated: boolean; auth_required: boolean }> {
+    const response = await fetch(`${API_BASE}/auth/status`);
+    return handleResponse(response);
+  },
+
   // System
   async health(): Promise<{ status: string; version: string; ffprobe_available: boolean }> {
     const response = await fetch(`${API_BASE}/health`);

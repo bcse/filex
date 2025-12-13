@@ -6,11 +6,14 @@ import { Toolbar } from './Toolbar';
 import { IndexerStatus } from './IndexerStatus';
 import { FileTable } from '@/components/table/FileTable';
 import { FileGrid } from '@/components/table/FileGrid';
+import { UserMenu } from '@/components/auth/UserMenu';
 import { useNavigationStore } from '@/stores/navigation';
+import { useAuthStore } from '@/stores/auth';
 import { useUploadWithProgress } from '@/hooks/useDirectory';
 
 export function MainPanel() {
   const { currentPath, setCurrentPath, viewMode } = useNavigationStore();
+  const { authRequired, logout } = useAuthStore();
   const [isDragging, setIsDragging] = useState(false);
   const { uploadFiles } = useUploadWithProgress();
 
@@ -116,6 +119,12 @@ export function MainPanel() {
           <div className="w-px h-6 bg-border" />
           <IndexerStatus />
           <SearchBar />
+          {authRequired && logout && (
+            <>
+              <div className="w-px h-6 bg-border" />
+              <UserMenu onLogout={logout} />
+            </>
+          )}
         </div>
       </div>
       
