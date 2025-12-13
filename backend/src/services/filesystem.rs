@@ -169,6 +169,7 @@ impl FilesystemService {
     pub fn create_directory(&self, relative_path: &str) -> Result<(), FsError> {
         let parent = Path::new(relative_path).parent().unwrap_or(Path::new("/"));
         let parent_resolved = self.resolve_path(&parent.to_string_lossy())?;
+        let root_canonical = self.root.canonicalize()?;
 
         let new_dir = parent_resolved.join(
             Path::new(relative_path)
@@ -177,7 +178,7 @@ impl FilesystemService {
         );
 
         // Verify it would be under root
-        if !new_dir.starts_with(&self.root) {
+        if !new_dir.starts_with(&root_canonical) {
             return Err(FsError::PathEscape);
         }
 
