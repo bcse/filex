@@ -97,12 +97,23 @@ export const api = {
     return `${API_BASE}/files/download?${params}`;
   },
 
+  async getTextContent(path: string, maxBytes: number = 100000): Promise<string> {
+    const response = await fetch(this.getDownloadUrl(path));
+    if (!response.ok) {
+      throw new ApiError(response.status, 'Failed to fetch file content');
+    }
+    const blob = await response.blob();
+    // Only read up to maxBytes
+    const slice = blob.slice(0, maxBytes);
+    return slice.text();
+  },
+
   async upload(targetPath: string, files: FileList): Promise<SuccessResponse> {
     const formData = new FormData();
     for (const file of files) {
       formData.append('files', file);
     }
-    
+
     const response = await fetch(`${API_BASE}/files/upload${targetPath}`, {
       method: 'POST',
       body: formData,
@@ -110,9 +121,62 @@ export const api = {
     return handleResponse(response);
   },
 
+  uploadWithProgress(
+    targetPath: string,
+    file: File,
+    onProgress: (progress: number) => void
+  ): Promise<SuccessResponse> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const formData = new FormData();
+      formData.append('files', file);
+
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          const progress = Math.round((event.loaded / event.total) * 100);
+          onProgress(progress);
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            resolve(response);
+          } catch {
+            resolve({ success: true, path: targetPath, message: 'Upload complete' });
+          }
+        } else {
+          try {
+            const error = JSON.parse(xhr.responseText);
+            reject(new ApiError(xhr.status, error.error || 'Upload failed'));
+          } catch {
+            reject(new ApiError(xhr.status, 'Upload failed'));
+          }
+        }
+      });
+
+      xhr.addEventListener('error', () => {
+        reject(new ApiError(0, 'Network error'));
+      });
+
+      xhr.addEventListener('abort', () => {
+        reject(new ApiError(0, 'Upload cancelled'));
+      });
+
+      xhr.open('POST', `${API_BASE}/files/upload${targetPath}`);
+      xhr.send(formData);
+    });
+  },
+
   // System
   async health(): Promise<{ status: string; version: string; ffprobe_available: boolean }> {
     const response = await fetch(`${API_BASE}/health`);
+    return handleResponse(response);
+  },
+
+  async getIndexStatus(): Promise<{ is_running: boolean }> {
+    const response = await fetch(`${API_BASE}/index/status`);
     return handleResponse(response);
   },
 

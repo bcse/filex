@@ -1,28 +1,30 @@
 import { create } from 'zustand';
 import type { SortConfig } from '@/types/file';
 
+type ViewMode = 'table' | 'grid';
+
 interface NavigationState {
   // Current path
   currentPath: string;
   setCurrentPath: (path: string) => void;
-  
+
   // Selection
   selectedFiles: Set<string>;
   selectFile: (path: string, multi?: boolean) => void;
   selectRange: (paths: string[]) => void;
   clearSelection: () => void;
   toggleSelection: (path: string) => void;
-  
+
   // Sort
   sortConfig: SortConfig;
   setSortConfig: (config: SortConfig) => void;
-  
+
   // Search
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   isSearching: boolean;
   setIsSearching: (searching: boolean) => void;
-  
+
   // Clipboard (for copy/cut)
   clipboard: {
     files: string[];
@@ -31,10 +33,12 @@ interface NavigationState {
   copyFiles: (paths: string[]) => void;
   cutFiles: (paths: string[]) => void;
   clearClipboard: () => void;
-  
+
   // UI state
   sidebarWidth: number;
   setSidebarWidth: (width: number) => void;
+  viewMode: ViewMode;
+  setViewMode: (mode: ViewMode) => void;
 }
 
 export const useNavigationStore = create<NavigationState>((set) => ({
@@ -86,4 +90,9 @@ export const useNavigationStore = create<NavigationState>((set) => ({
   // UI state
   sidebarWidth: 250,
   setSidebarWidth: (width) => set({ sidebarWidth: width }),
+  viewMode: (typeof window !== 'undefined' ? localStorage.getItem('viewMode') as ViewMode : null) || 'table',
+  setViewMode: (mode) => {
+    localStorage.setItem('viewMode', mode);
+    set({ viewMode: mode });
+  },
 }));

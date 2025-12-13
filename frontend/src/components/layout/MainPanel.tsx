@@ -3,14 +3,16 @@ import { ChevronRight, Home, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SearchBar } from './SearchBar';
 import { Toolbar } from './Toolbar';
+import { IndexerStatus } from './IndexerStatus';
 import { FileTable } from '@/components/table/FileTable';
+import { FileGrid } from '@/components/table/FileGrid';
 import { useNavigationStore } from '@/stores/navigation';
-import { useUpload } from '@/hooks/useDirectory';
+import { useUploadWithProgress } from '@/hooks/useDirectory';
 
 export function MainPanel() {
-  const { currentPath, setCurrentPath } = useNavigationStore();
+  const { currentPath, setCurrentPath, viewMode } = useNavigationStore();
   const [isDragging, setIsDragging] = useState(false);
-  const upload = useUpload();
+  const { uploadFiles } = useUploadWithProgress();
 
   // Parse breadcrumb segments
   const segments = currentPath.split('/').filter(Boolean);
@@ -49,10 +51,10 @@ export function MainPanel() {
 
       const files = e.dataTransfer.files;
       if (files.length > 0) {
-        await upload.mutateAsync({ targetPath: currentPath, files });
+        await uploadFiles(currentPath, files);
       }
     },
-    [currentPath, upload]
+    [currentPath, uploadFiles]
   );
   
   return (
@@ -111,13 +113,15 @@ export function MainPanel() {
         {/* Actions */}
         <div className="flex items-center gap-2">
           <Toolbar />
+          <div className="w-px h-6 bg-border" />
+          <IndexerStatus />
           <SearchBar />
         </div>
       </div>
       
-      {/* File Table */}
-      <div className="flex-1 min-h-0">
-        <FileTable />
+      {/* File Table/Grid */}
+      <div className="flex-1 min-h-0 overflow-auto">
+        {viewMode === 'table' ? <FileTable /> : <FileGrid />}
       </div>
     </div>
   );

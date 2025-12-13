@@ -1,12 +1,13 @@
 import React, { useMemo, useCallback, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ArrowUp, ArrowDown, Loader2 } from 'lucide-react';
+import { ArrowUp, ArrowDown, Loader2, FolderOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigationStore } from '@/stores/navigation';
-import { useDirectory, useRename } from '@/hooks/useDirectory';
+import { useDirectory, useRename, useMove } from '@/hooks/useDirectory';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { columns } from './columns';
 import { FileContextMenu } from './FileContextMenu';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -76,11 +77,16 @@ export function FileTable() {
 
   const { data, isLoading, error } = useDirectory(currentPath);
   const rename = useRename();
+  const move = useMove();
 
   // Rename dialog state
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [renamePath, setRenamePath] = useState('');
+
+  // Drag and drop state
+  const [draggedPaths, setDraggedPaths] = useState<string[]>([]);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
   
   const sortedEntries = useMemo(() => {
     if (!data?.entries) return [];
@@ -140,7 +146,84 @@ export function FileTable() {
       window.open(`/api/files/download?path=${encodeURIComponent(entry.path)}`, '_blank');
     }
   }, [setCurrentPath]);
-  
+
+  // Drag handlers
+  const handleDragStart = useCallback((e: React.DragEvent, entry: FileEntry) => {
+    // If the dragged item is selected, drag all selected items
+    // Otherwise, just drag this item
+    const paths = selectedFiles.has(entry.path)
+      ? Array.from(selectedFiles)
+      : [entry.path];
+
+    setDraggedPaths(paths);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('application/x-file-paths', JSON.stringify(paths));
+
+    // Create a custom drag image
+    const dragEl = document.createElement('div');
+    dragEl.className = 'bg-background border rounded px-3 py-2 shadow-lg text-sm';
+    dragEl.textContent = paths.length > 1 ? `Moving ${paths.length} items` : entry.name;
+    dragEl.style.position = 'absolute';
+    dragEl.style.top = '-1000px';
+    document.body.appendChild(dragEl);
+    e.dataTransfer.setDragImage(dragEl, 0, 0);
+    setTimeout(() => document.body.removeChild(dragEl), 0);
+  }, [selectedFiles]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedPaths([]);
+    setDropTarget(null);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, entry: FileEntry) => {
+    // Only allow dropping on directories that aren't being dragged
+    if (!entry.is_dir || draggedPaths.includes(entry.path)) {
+      return;
+    }
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDropTarget(entry.path);
+  }, [draggedPaths]);
+
+  const handleDragLeave = useCallback(() => {
+    setDropTarget(null);
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent, targetEntry: FileEntry) => {
+    e.preventDefault();
+    setDropTarget(null);
+
+    if (!targetEntry.is_dir) return;
+
+    const data = e.dataTransfer.getData('application/x-file-paths');
+    if (!data) return;
+
+    try {
+      const paths: string[] = JSON.parse(data);
+
+      // Don't drop onto self or parent
+      if (paths.includes(targetEntry.path)) return;
+
+      // Move all files
+      for (const fromPath of paths) {
+        const fileName = fromPath.split('/').pop() || '';
+        const toPath = targetEntry.path === '/' ? `/${fileName}` : `${targetEntry.path}/${fileName}`;
+
+        // Don't move if target is a descendant of source
+        if (toPath.startsWith(fromPath + '/')) {
+          toast.error(`Cannot move "${fileName}" into itself`);
+          continue;
+        }
+
+        await move.mutateAsync({ from: fromPath, to: toPath });
+      }
+
+      clearSelection();
+    } catch (error) {
+      console.error('Drop failed:', error);
+    }
+  }, [move, clearSelection]);
+
   const gridTemplate = columns.map(c => c.width).join(' ');
   
   if (isLoading) {
@@ -213,7 +296,9 @@ export function FileTable() {
                 <div
                   className={cn(
                     'grid gap-2 px-2 items-center text-sm border-b border-transparent hover:bg-accent cursor-pointer absolute top-0 left-0 w-full',
-                    isSelected && 'bg-accent'
+                    isSelected && 'bg-accent',
+                    dropTarget === entry.path && 'bg-primary/20 border-primary border-2',
+                    draggedPaths.includes(entry.path) && 'opacity-50'
                   )}
                   style={{
                     gridTemplateColumns: gridTemplate,
@@ -222,6 +307,12 @@ export function FileTable() {
                   }}
                   onClick={(e) => handleRowClick(entry, e)}
                   onDoubleClick={() => handleRowDoubleClick(entry)}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, entry)}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={(e) => handleDragOver(e, entry)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, entry)}
                 >
                   {columns.map((column) => (
                     <div key={column.key} className="truncate">
@@ -235,8 +326,17 @@ export function FileTable() {
         </div>
         
         {sortedEntries.length === 0 && (
-          <div className="flex items-center justify-center h-32 text-muted-foreground">
-            This folder is empty
+          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+            <FolderOpen className="w-16 h-16 mb-4 opacity-30" />
+            <p className="text-lg font-medium mb-2">This folder is empty</p>
+            <p className="text-sm mb-4">Drag and drop files here to upload, or use the toolbar above</p>
+            <div className="flex gap-2 text-xs">
+              <kbd className="px-2 py-1 bg-muted rounded">Ctrl+V</kbd>
+              <span>to paste</span>
+              <span className="text-muted-foreground/50">|</span>
+              <kbd className="px-2 py-1 bg-muted rounded">Drop files</kbd>
+              <span>to upload</span>
+            </div>
           </div>
         )}
       </div>

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api } from '@/api/client';
+import { useUploadStore } from '@/stores/upload';
 
 export function useDirectory(path: string) {
   return useQuery({
@@ -122,4 +123,88 @@ export function useUpload() {
       toast.error(`Failed to upload: ${error.message}`);
     },
   });
+}
+
+export function useIndexerStatus() {
+  return useQuery({
+    queryKey: ['indexer-status'],
+    queryFn: () => api.getIndexStatus(),
+    refetchInterval: 5000, // Poll every 5 seconds
+    staleTime: 2000,
+  });
+}
+
+export function useIndexer() {
+  const queryClient = useQueryClient();
+
+  const triggerIndex = useMutation({
+    mutationFn: () => api.triggerIndex(),
+    onSuccess: () => {
+      toast.success('Indexing started');
+      // Immediately invalidate status to show it's running
+      queryClient.invalidateQueries({ queryKey: ['indexer-status'] });
+    },
+    onError: (error) => {
+      toast.error(`Failed to start indexing: ${error.message}`);
+    },
+  });
+
+  return { triggerIndex };
+}
+
+export function useUploadWithProgress() {
+  const queryClient = useQueryClient();
+  const { addUpload, updateProgress, setStatus } = useUploadStore();
+
+  const uploadFiles = async (targetPath: string, files: FileList | File[]) => {
+    const fileArray = Array.from(files);
+
+    // Add all files to the upload store
+    const uploadItems = fileArray.map((file) => ({
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${file.name}`,
+      name: file.name,
+      size: file.size,
+      progress: 0,
+      status: 'pending' as const,
+    }));
+
+    uploadItems.forEach((item) => addUpload(item));
+
+    // Upload files sequentially (could be parallel with Promise.all if desired)
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (let i = 0; i < fileArray.length; i++) {
+      const file = fileArray[i];
+      const uploadItem = uploadItems[i];
+
+      setStatus(uploadItem.id, 'uploading');
+
+      try {
+        await api.uploadWithProgress(targetPath, file, (progress) => {
+          updateProgress(uploadItem.id, progress);
+        });
+        setStatus(uploadItem.id, 'completed');
+        successCount++;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Upload failed';
+        setStatus(uploadItem.id, 'error', message);
+        errorCount++;
+      }
+    }
+
+    // Invalidate queries after all uploads
+    queryClient.invalidateQueries({ queryKey: ['directory', targetPath] });
+
+    // Show summary toast
+    if (successCount > 0 && errorCount === 0) {
+      toast.success(`Uploaded ${successCount} file${successCount > 1 ? 's' : ''}`);
+    } else if (successCount > 0 && errorCount > 0) {
+      toast.warning(`Uploaded ${successCount} file${successCount > 1 ? 's' : ''}, ${errorCount} failed`);
+    } else if (errorCount > 0) {
+      toast.error(`Failed to upload ${errorCount} file${errorCount > 1 ? 's' : ''}`);
+    }
+  };
+
+  return { uploadFiles };
 }

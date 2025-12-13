@@ -6,6 +6,11 @@ import {
   Upload,
   Pencil,
   RefreshCw,
+  Loader2,
+  PanelRightOpen,
+  PanelRightClose,
+  LayoutGrid,
+  LayoutList,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,13 +33,15 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useNavigationStore } from '@/stores/navigation';
-import { useCreateDirectory, useDelete, useRename, useUpload } from '@/hooks/useDirectory';
+import { usePreviewStore } from '@/stores/preview';
+import { useCreateDirectory, useDelete, useRename, useUploadWithProgress } from '@/hooks/useDirectory';
 import { api } from '@/api/client';
 import { useQueryClient } from '@tanstack/react-query';
 
 export function Toolbar() {
   const queryClient = useQueryClient();
-  const { currentPath, selectedFiles, clearSelection } = useNavigationStore();
+  const { currentPath, selectedFiles, clearSelection, viewMode, setViewMode } = useNavigationStore();
+  const { isOpen: previewOpen, toggle: togglePreview } = usePreviewStore();
 
   // Dialog states
   const [newFolderOpen, setNewFolderOpen] = useState(false);
@@ -50,16 +57,11 @@ export function Toolbar() {
   const createDir = useCreateDirectory();
   const deleteFile = useDelete();
   const rename = useRename();
-  const upload = useUpload();
+  const { uploadFiles } = useUploadWithProgress();
 
   const selectedArray = Array.from(selectedFiles);
   const hasSelection = selectedArray.length > 0;
   const singleSelection = selectedArray.length === 1;
-
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['directory', currentPath] });
-    queryClient.invalidateQueries({ queryKey: ['tree'] });
-  };
 
   // New Folder
   const handleNewFolder = () => {
@@ -130,13 +132,24 @@ export function Toolbar() {
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    await upload.mutateAsync({ targetPath: currentPath, files });
+    await uploadFiles(currentPath, files);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
-  const isLoading = createDir.isPending || deleteFile.isPending || rename.isPending || upload.isPending;
+  const isLoading = createDir.isPending || deleteFile.isPending || rename.isPending;
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefreshWithLoading = async () => {
+    setIsRefreshing(true);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['directory', currentPath] }),
+      queryClient.invalidateQueries({ queryKey: ['tree'] }),
+    ]);
+    // Add a small delay for visual feedback
+    setTimeout(() => setIsRefreshing(false), 300);
+  };
 
   return (
     <>
@@ -148,7 +161,11 @@ export function Toolbar() {
           onClick={handleNewFolder}
           disabled={isLoading}
         >
-          <FolderPlus className="w-4 h-4 mr-1" />
+          {createDir.isPending ? (
+            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+          ) : (
+            <FolderPlus className="w-4 h-4 mr-1" />
+          )}
           New Folder
         </Button>
 
@@ -180,7 +197,11 @@ export function Toolbar() {
           onClick={handleRename}
           disabled={!singleSelection || isLoading}
         >
-          <Pencil className="w-4 h-4 mr-1" />
+          {rename.isPending ? (
+            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+          ) : (
+            <Pencil className="w-4 h-4 mr-1" />
+          )}
           Rename
         </Button>
 
@@ -198,11 +219,15 @@ export function Toolbar() {
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+          className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
           onClick={handleDelete}
           disabled={!hasSelection || isLoading}
         >
-          <Trash2 className="w-4 h-4 mr-1" />
+          {deleteFile.isPending ? (
+            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+          ) : (
+            <Trash2 className="w-4 h-4 mr-1" />
+          )}
           Delete
         </Button>
 
@@ -212,10 +237,38 @@ export function Toolbar() {
           variant="ghost"
           size="icon"
           className="h-8 w-8"
-          onClick={handleRefresh}
-          disabled={isLoading}
+          onClick={handleRefreshWithLoading}
+          disabled={isLoading || isRefreshing}
         >
-          <RefreshCw className="w-4 h-4" />
+          <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => setViewMode(viewMode === 'table' ? 'grid' : 'table')}
+          title={viewMode === 'table' ? 'Switch to grid view' : 'Switch to list view'}
+        >
+          {viewMode === 'table' ? (
+            <LayoutGrid className="w-4 h-4" />
+          ) : (
+            <LayoutList className="w-4 h-4" />
+          )}
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={togglePreview}
+          title={previewOpen ? 'Hide preview panel' : 'Show preview panel'}
+        >
+          {previewOpen ? (
+            <PanelRightClose className="w-4 h-4" />
+          ) : (
+            <PanelRightOpen className="w-4 h-4" />
+          )}
         </Button>
       </div>
 

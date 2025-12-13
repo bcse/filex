@@ -1,18 +1,49 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Search, X, Loader2 } from 'lucide-react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { Search, X, Loader2, Folder, File, Image, Video, Music, FileText, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useNavigationStore } from '@/stores/navigation';
 import { useSearch } from '@/hooks/useSearch';
+import { cn } from '@/lib/utils';
+
+type FileFilter = 'all' | 'images' | 'videos' | 'audio' | 'documents';
+
+const FILTER_EXTENSIONS: Record<FileFilter, string[]> = {
+  all: [],
+  images: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'],
+  videos: ['mp4', 'mkv', 'avi', 'mov', 'webm', 'wmv', 'flv'],
+  audio: ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma'],
+  documents: ['pdf', 'doc', 'docx', 'txt', 'md', 'xls', 'xlsx', 'ppt', 'pptx'],
+};
+
+const FILTER_ICONS: Record<FileFilter, React.ComponentType<{ className?: string }>> = {
+  all: Filter,
+  images: Image,
+  videos: Video,
+  audio: Music,
+  documents: FileText,
+};
 
 export function SearchBar() {
   const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<FileFilter>('all');
   const [showResults, setShowResults] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
-  
-  const { setCurrentPath } = useNavigationStore();
+
+  const { setCurrentPath, selectFile } = useNavigationStore();
   const { data, isLoading } = useSearch(query, showResults);
+
+  // Filter results by file type
+  const filteredResults = useMemo(() => {
+    if (!data?.results || filter === 'all') return data?.results || [];
+    const extensions = FILTER_EXTENSIONS[filter];
+    return data.results.filter((result) => {
+      if (result.is_dir) return false;
+      const ext = result.name.split('.').pop()?.toLowerCase() || '';
+      return extensions.includes(ext);
+    });
+  }, [data?.results, filter]);
   
   const handleSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);
@@ -29,13 +60,17 @@ export function SearchBar() {
     if (isDir) {
       setCurrentPath(path);
     } else {
-      // Navigate to parent directory
+      // Navigate to parent directory and select the file
       const parent = path.split('/').slice(0, -1).join('/') || '/';
       setCurrentPath(parent);
+      // Use setTimeout to ensure the directory loads before selecting
+      setTimeout(() => {
+        selectFile(path);
+      }, 100);
     }
     setShowResults(false);
     setQuery('');
-  }, [setCurrentPath]);
+  }, [setCurrentPath, selectFile]);
   
   // Close on click outside
   useEffect(() => {
@@ -83,30 +118,72 @@ export function SearchBar() {
       {showResults && (
         <div
           ref={resultsRef}
-          className="absolute top-full mt-1 w-96 bg-background border rounded-md shadow-lg z-50 max-h-80 overflow-auto"
+          className="absolute top-full mt-1 w-96 bg-background border rounded-md shadow-lg z-50 max-h-96 overflow-hidden flex flex-col"
         >
-          {isLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : data?.results.length ? (
-            <div className="py-1">
-              {data.results.map((result) => (
+          {/* Filter chips */}
+          <div className="flex items-center gap-1 px-2 py-2 border-b bg-muted/30">
+            {(Object.keys(FILTER_EXTENSIONS) as FileFilter[]).map((filterKey) => {
+              const Icon = FILTER_ICONS[filterKey];
+              return (
                 <button
-                  key={result.path}
-                  className="w-full px-3 py-2 text-left hover:bg-accent flex flex-col"
-                  onClick={() => handleResultClick(result.path, result.is_dir)}
+                  key={filterKey}
+                  className={cn(
+                    'px-2 py-1 text-xs rounded-md flex items-center gap-1 transition-colors',
+                    filter === filterKey
+                      ? 'bg-primary text-primary-foreground'
+                      : 'hover:bg-accent'
+                  )}
+                  onClick={() => setFilter(filterKey)}
                 >
-                  <span className="text-sm font-medium truncate">{result.name}</span>
-                  <span className="text-xs text-muted-foreground truncate">{result.path}</span>
+                  <Icon className="w-3 h-3" />
+                  <span className="capitalize">{filterKey}</span>
                 </button>
-              ))}
+              );
+            })}
+          </div>
+
+          {/* Results */}
+          <div className="overflow-auto flex-1">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : filteredResults.length ? (
+              <div className="py-1">
+                {filteredResults.map((result) => (
+                  <button
+                    key={result.path}
+                    className="w-full px-3 py-2 text-left hover:bg-accent flex items-start gap-2"
+                    onClick={() => handleResultClick(result.path, result.is_dir)}
+                  >
+                    <div className="flex-shrink-0 mt-0.5">
+                      {result.is_dir ? (
+                        <Folder className="w-4 h-4 text-yellow-500" />
+                      ) : (
+                        <File className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium truncate block">{result.name}</span>
+                      <span className="text-xs text-muted-foreground truncate block">{result.path}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="py-4 text-center text-sm text-muted-foreground">
+                {data?.results?.length ? `No ${filter} files found` : 'No results found'}
+              </div>
+            )}
+          </div>
+
+          {/* Results count */}
+          {data?.results?.length ? (
+            <div className="px-3 py-1.5 text-xs text-muted-foreground border-t bg-muted/30">
+              {filteredResults.length} of {data.results.length} results
+              {filter !== 'all' && ` (filtered by ${filter})`}
             </div>
-          ) : (
-            <div className="py-4 text-center text-sm text-muted-foreground">
-              No results found
-            </div>
-          )}
+          ) : null}
         </div>
       )}
     </div>
