@@ -9,7 +9,7 @@ use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use filemanager_backend::{
+use filex_backend::{
     api::{self, AppState, AuthState},
     config::Config,
     db,
@@ -22,7 +22,7 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "filemanager_backend=debug,tower_http=debug".into()),
+                .unwrap_or_else(|_| "filex_backend=debug,tower_http=debug".into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
@@ -31,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
     let config = Config::from_env();
 
-    tracing::info!("Starting FileManager backend");
+    tracing::info!("Starting Filex backend");
     tracing::info!("Root path: {:?}", config.root_path);
     tracing::info!("Database: {:?}", config.database_path);
     tracing::info!(

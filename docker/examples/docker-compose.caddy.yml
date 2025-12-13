@@ -1,4 +1,4 @@
-# FileManager with Caddy Reverse Proxy
+# Filex with Caddy Reverse Proxy
 #
 # Caddy provides automatic HTTPS with Let's Encrypt - no configuration needed!
 #
@@ -9,18 +9,18 @@
 #   4. Caddy automatically obtains and renews SSL certificates
 
 services:
-  filemanager:
+  filex:
     build:
       context: ../..
       dockerfile: docker/Dockerfile
-    container_name: filemanager
+    container_name: filex
     restart: unless-stopped
     # No ports exposed - Caddy handles external traffic
     expose:
       - "3000"
     volumes:
       - /path/to/your/files:/data:rw
-      - filemanager_data:/app/data
+      - filex_data:/app/data
     environment:
       - PUID=1000
       - PGID=1000
@@ -35,11 +35,11 @@ services:
       retries: 3
       start_period: 10s
     networks:
-      - filemanager_network
+      - filex_network
 
   caddy:
     image: caddy:2-alpine
-    container_name: filemanager_caddy
+    container_name: filex_caddy
     restart: unless-stopped
     ports:
       - "80:80"
@@ -50,18 +50,18 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - filemanager
+      - filex
     networks:
-      - filemanager_network
+      - filex_network
 
 volumes:
-  filemanager_data:
-    name: filemanager_data
+  filex_data:
+    name: filex_data
   caddy_data:
     name: caddy_data
   caddy_config:
     name: caddy_config
 
 networks:
-  filemanager_network:
-    name: filemanager_network
+  filex_network:
+    name: filex_network

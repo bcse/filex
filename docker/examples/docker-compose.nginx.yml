@@ -1,6 +1,6 @@
-# FileManager with Nginx Reverse Proxy
+# Filex with Nginx Reverse Proxy
 #
-# This example shows how to run FileManager behind nginx with SSL termination.
+# This example shows how to run Filex behind nginx with SSL termination.
 #
 # Usage:
 #   1. Replace 'files.example.com' with your domain
@@ -9,18 +9,18 @@
 #   4. Nginx will automatically obtain SSL certificates via Let's Encrypt
 
 services:
-  filemanager:
+  filex:
     build:
       context: ../..
       dockerfile: docker/Dockerfile
-    container_name: filemanager
+    container_name: filex
     restart: unless-stopped
     # No ports exposed - nginx handles external traffic
     expose:
       - "3000"
     volumes:
       - /path/to/your/files:/data:rw
-      - filemanager_data:/app/data
+      - filex_data:/app/data
     environment:
       - PUID=1000
       - PGID=1000
@@ -35,11 +35,11 @@ services:
       retries: 3
       start_period: 10s
     networks:
-      - filemanager_network
+      - filex_network
 
   nginx:
     image: nginx:alpine
-    container_name: filemanager_nginx
+    container_name: filex_nginx
     restart: unless-stopped
     ports:
       - "80:80"
@@ -51,14 +51,14 @@ services:
       # - /etc/letsencrypt:/etc/letsencrypt:ro
       # - certbot_webroot:/var/www/certbot:ro
     depends_on:
-      - filemanager
+      - filex
     networks:
-      - filemanager_network
+      - filex_network
 
 volumes:
-  filemanager_data:
-    name: filemanager_data
+  filex_data:
+    name: filex_data
 
 networks:
-  filemanager_network:
-    name: filemanager_network
+  filex_network:
+    name: filex_network

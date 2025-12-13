@@ -1,4 +1,4 @@
-# FileManager Docker Compose Configuration
+# Filex Docker Compose Configuration
 #
 # Basic usage:
 #   docker-compose up -d
@@ -6,11 +6,11 @@
 # To use with your own files, uncomment and modify the volume mount below.
 
 services:
-  filemanager:
+  filex:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    container_name: filemanager
+    container_name: filex
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -24,7 +24,7 @@ services:
       # - /path/to/documents:/data/documents:rw
       #
       # Persist the database (recommended)
-      - filemanager_data:/app/data
+      - filex_data:/app/data
     environment:
       # UID/GID mapping - set these to match your host user
       # Run 'id' on your host to find your UID/GID
@@ -48,5 +48,5 @@ services:
       start_period: 10s
 
 volumes:
-  filemanager_data:
-    name: filemanager_data
+  filex_data:
+    name: filex_data

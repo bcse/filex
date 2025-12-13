@@ -33,13 +33,13 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user with default UID/GID
-RUN groupadd -g 1000 filemanager && \
-    useradd -u 1000 -g filemanager -m filemanager
+RUN groupadd -g 1000 filex && \
+    useradd -u 1000 -g filex -m filex
 
 WORKDIR /app
 
 # Copy built artifacts
-COPY --from=backend-builder /app/backend/target/release/filemanager-backend /app/filemanager
+COPY --from=backend-builder /app/backend/target/release/filex-backend /app/filex
 COPY --from=frontend-builder /app/frontend/dist /app/static
 
 # Copy entrypoint script
@@ -48,13 +48,13 @@ RUN chmod +x /entrypoint.sh
 
 # Create directories
 RUN mkdir -p /app/data /data && \
-    chown -R filemanager:filemanager /app /data
+    chown -R filex:filex /app /data
 
 # Environment variables with defaults
 ENV FM_ROOT_PATH=/data
 ENV FM_HOST=0.0.0.0
 ENV FM_PORT=3000
-ENV FM_DATABASE_PATH=/app/data/filemanager.db
+ENV FM_DATABASE_PATH=/app/data/filex.db
 ENV FM_ENABLE_INDEXER=true
 ENV FM_INDEX_INTERVAL=300
 ENV RUST_LOG=info
@@ -70,4 +70,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:3000/api/health || exit 1
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["/app/filemanager"]
+CMD ["/app/filex"]

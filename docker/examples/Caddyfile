@@ -1,4 +1,4 @@
-# Caddyfile for FileManager
+# Caddyfile for Filex
 #
 # Caddy automatically:
 # - Obtains SSL certificates from Let's Encrypt
@@ -9,8 +9,8 @@
 # Replace 'files.example.com' with your domain name.
 
 files.example.com {
-    # Reverse proxy to FileManager
-    reverse_proxy filemanager:3000 {
+    # Reverse proxy to Filex
+    reverse_proxy filex:3000 {
         # Health checks
         health_uri /api/health
         health_interval 30s
@@ -36,7 +36,7 @@ files.example.com {
 
     # Logging
     log {
-        output file /var/log/caddy/filemanager.log {
+        output file /var/log/caddy/filex.log {
             roll_size 10mb
             roll_keep 5
         }
@@ -47,5 +47,5 @@ files.example.com {
 # Uncomment and use for local testing
 #
 # :8080 {
-#     reverse_proxy filemanager:3000
+#     reverse_proxy filex:3000
 # }

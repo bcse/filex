@@ -71,7 +71,7 @@ impl Config {
 
             database_path: std::env::var("FM_DATABASE_PATH")
                 .map(PathBuf::from)
-                .unwrap_or_else(|_| PathBuf::from("/app/data/filemanager.db")),
+                .unwrap_or_else(|_| PathBuf::from("/app/data/filex.db")),
 
             enable_indexer: std::env::var("FM_ENABLE_INDEXER")
                 .map(|v| v == "true" || v == "1")
