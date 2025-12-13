@@ -9,16 +9,36 @@ import type { TreeNode as TreeNodeType } from '@/types/file';
 interface TreeNodeProps {
   node: TreeNodeType;
   depth: number;
+  parentPath: string;
 }
 
-function TreeNode({ node, depth }: TreeNodeProps) {
+function TreeNode({ node, depth, parentPath }: TreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const { currentPath, setCurrentPath, clearSelection } = useNavigationStore();
-  const { data: children, isLoading } = useTree(node.path, isExpanded && node.has_children);
   const move = useMove();
 
-  const isSelected = currentPath === node.path;
+  const normalizedPath = React.useMemo(() => {
+    const pathLooksValid =
+      node.path &&
+      node.path !== '/' &&
+      node.path !== '.' &&
+      node.path.includes(node.name);
+
+    const basePath = pathLooksValid
+      ? node.path
+      : `${parentPath === '/' ? '' : parentPath}/${node.name}`;
+
+    const withLeadingSlash = basePath.startsWith('/') ? basePath : `/${basePath}`;
+    return withLeadingSlash.replace(/\/+/g, '/');
+  }, [node.name, node.path, parentPath]);
+
+  const { data: children, isLoading } = useTree(
+    normalizedPath,
+    isExpanded && node.has_children
+  );
+
+  const isSelected = currentPath === normalizedPath;
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -28,7 +48,7 @@ function TreeNode({ node, depth }: TreeNodeProps) {
   };
 
   const handleSelect = () => {
-    setCurrentPath(node.path);
+    setCurrentPath(normalizedPath);
   };
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -55,10 +75,10 @@ function TreeNode({ node, depth }: TreeNodeProps) {
 
       for (const fromPath of paths) {
         const fileName = fromPath.split('/').pop() || '';
-        const toPath = node.path === '/' ? `/${fileName}` : `${node.path}/${fileName}`;
+        const toPath = normalizedPath === '/' ? `/${fileName}` : `${normalizedPath}/${fileName}`;
 
         // Don't move onto self
-        if (fromPath === node.path) continue;
+        if (fromPath === normalizedPath) continue;
 
         // Don't move if target is a descendant of source
         if (toPath.startsWith(fromPath + '/')) {
@@ -73,7 +93,7 @@ function TreeNode({ node, depth }: TreeNodeProps) {
     } catch (error) {
       console.error('Drop failed:', error);
     }
-  }, [node.path, move, clearSelection]);
+  }, [clearSelection, move, normalizedPath]);
 
   return (
     <div>
@@ -114,7 +134,7 @@ function TreeNode({ node, depth }: TreeNodeProps) {
       {isExpanded && children && (
         <div>
           {children.map((child) => (
-            <TreeNode key={child.path} node={child} depth={depth + 1} />
+            <TreeNode key={child.path || child.name} node={child} depth={depth + 1} parentPath={normalizedPath} />
           ))}
         </div>
       )}
@@ -195,7 +215,7 @@ export function DirectoryTree() {
         </div>
       ) : (
         rootNodes?.map((node) => (
-          <TreeNode key={node.path} node={node} depth={1} />
+          <TreeNode key={node.path || node.name} node={node} depth={1} parentPath="/" />
         ))
       )}
     </div>
