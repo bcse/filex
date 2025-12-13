@@ -6,7 +6,7 @@ type ViewMode = 'table' | 'grid';
 interface NavigationState {
   // Current path
   currentPath: string;
-  setCurrentPath: (path: string) => void;
+  setCurrentPath: (path: string, options?: { exitSearch?: boolean }) => void;
 
   // Selection
   selectedFiles: Set<string>;
@@ -44,7 +44,13 @@ interface NavigationState {
 export const useNavigationStore = create<NavigationState>((set) => ({
   // Current path
   currentPath: '/',
-  setCurrentPath: (path) => set({ currentPath: path, selectedFiles: new Set() }),
+  setCurrentPath: (path, options = { exitSearch: true }) =>
+    set((state) => ({
+      currentPath: path,
+      selectedFiles: new Set(),
+      isSearching: options.exitSearch ? false : state.isSearching,
+      searchQuery: options.exitSearch ? '' : state.searchQuery,
+    })),
   
   // Selection
   selectedFiles: new Set(),

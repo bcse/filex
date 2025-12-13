@@ -48,7 +48,7 @@ function TreeNode({ node, depth, parentPath }: TreeNodeProps) {
   };
 
   const handleSelect = () => {
-    setCurrentPath(normalizedPath);
+    setCurrentPath(normalizedPath, { exitSearch: true });
   };
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -195,7 +195,7 @@ export function DirectoryTree() {
           currentPath === '/' && 'bg-accent',
           isDragOver && 'bg-primary/20 ring-2 ring-primary'
         )}
-        onClick={() => setCurrentPath('/')}
+        onClick={() => setCurrentPath('/', { exitSearch: true })}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
