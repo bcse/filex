@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Upload } from 'lucide-react';
 import { FileTable } from '@/components/table/FileTable';
 import { FileGrid } from '@/components/table/FileGrid';
@@ -12,11 +12,17 @@ export function MainPanel() {
   const { uploadFiles } = useUploadWithProgress();
   const isSearchActive = isSearching && searchQuery.length >= 2;
 
-  // Drag and drop handlers
+  // Counter to handle nested elements - dragenter/dragleave fire for each child
+  const dragCounterRef = useRef(0);
+
+  // Drag and drop handlers using counter approach
+  // See: https://stackoverflow.com/questions/10867506
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.dataTransfer.types.includes('Files')) {
+
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes('Files') && dragCounterRef.current === 1) {
       setIsDragging(true);
     }
   }, []);
@@ -24,11 +30,9 @@ export function MainPanel() {
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Only set isDragging to false if we're leaving the drop zone entirely
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX;
-    const y = e.clientY;
-    if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
+
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
       setIsDragging(false);
     }
   }, []);
@@ -42,6 +46,9 @@ export function MainPanel() {
     async (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
+
+      // Reset counter on drop
+      dragCounterRef.current = 0;
       setIsDragging(false);
 
       const files = e.dataTransfer.files;
