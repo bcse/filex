@@ -143,6 +143,9 @@ impl IndexerService {
                 None
             };
 
+            // Check if it's an image (to skip duration storage)
+            let is_image = mime_type.as_ref().map(|m| m.starts_with("image/")).unwrap_or(false);
+
             let indexed_file = IndexedFile {
                 id: 0, // Will be set by DB
                 path: relative_path,
@@ -164,7 +167,12 @@ impl IndexerService {
                 mime_type,
                 width: media_meta.as_ref().and_then(|m| m.width.map(|w| w as i32)),
                 height: media_meta.as_ref().and_then(|m| m.height.map(|h| h as i32)),
-                duration: media_meta.as_ref().and_then(|m| m.duration),
+                // Skip duration for images (mostly 1 frame)
+                duration: if is_image {
+                    None
+                } else {
+                    media_meta.as_ref().and_then(|m| m.duration)
+                },
                 indexed_at: String::new(), // Set by DB
             };
 
