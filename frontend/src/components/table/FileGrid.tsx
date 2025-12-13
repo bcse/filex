@@ -74,21 +74,38 @@ export function FileGrid() {
     return sortEntries(data.entries, sortConfig.field, sortConfig.order);
   }, [data?.entries, sortConfig]);
 
+  const buildPath = useCallback((entry: FileEntry) => {
+    const pathLooksValid =
+      entry.path &&
+      entry.path !== '/' &&
+      entry.path !== '.' &&
+      entry.path.includes(entry.name);
+
+    const basePath = pathLooksValid
+      ? entry.path
+      : `${currentPath === '/' ? '' : currentPath}/${entry.name}`;
+
+    const withLeadingSlash = basePath.startsWith('/') ? basePath : `/${basePath}`;
+    return withLeadingSlash.replace(/\/+/g, '/');
+  }, [currentPath]);
+
   const handleClick = useCallback((entry: FileEntry, e: React.MouseEvent) => {
+    const path = buildPath(entry);
     if (e.ctrlKey || e.metaKey) {
-      toggleSelection(entry.path);
+      toggleSelection(path);
     } else {
-      selectFile(entry.path);
+      selectFile(path);
     }
-  }, [selectFile, toggleSelection]);
+  }, [buildPath, selectFile, toggleSelection]);
 
   const handleDoubleClick = useCallback((entry: FileEntry) => {
+    const path = buildPath(entry);
     if (entry.is_dir) {
-      setCurrentPath(entry.path);
+      setCurrentPath(path);
     } else {
-      window.open(api.getDownloadUrl(entry.path), '_blank');
+      window.open(api.getDownloadUrl(path), '_blank');
     }
-  }, [setCurrentPath]);
+  }, [buildPath, setCurrentPath]);
 
   if (isLoading) {
     return (
@@ -119,17 +136,19 @@ export function FileGrid() {
   return (
     <div className="p-4 grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4">
       {sortedEntries.map((entry) => {
-        const isSelected = selectedFiles.has(entry.path);
-        const Icon = getFileIcon(entry);
-        const showThumbnail = isImageFile(entry.name);
+        const resolvedPath = buildPath(entry);
+        const normalizedEntry = entry.path === resolvedPath ? entry : { ...entry, path: resolvedPath };
+        const isSelected = selectedFiles.has(resolvedPath);
+        const Icon = getFileIcon(normalizedEntry);
+        const showThumbnail = isImageFile(normalizedEntry.name);
 
         return (
           <FileContextMenu
-            key={entry.path}
-            entry={entry}
+            key={resolvedPath}
+            entry={normalizedEntry}
             onSelect={() => {
-              if (!selectedFiles.has(entry.path)) {
-                selectFile(entry.path);
+              if (!selectedFiles.has(resolvedPath)) {
+                selectFile(resolvedPath);
               }
             }}
           >
@@ -139,15 +158,15 @@ export function FileGrid() {
                 'hover:bg-accent',
                 isSelected && 'bg-accent ring-2 ring-primary'
               )}
-              onClick={(e) => handleClick(entry, e)}
-              onDoubleClick={() => handleDoubleClick(entry)}
+              onClick={(e) => handleClick(normalizedEntry, e)}
+              onDoubleClick={() => handleDoubleClick(normalizedEntry)}
             >
               {/* Thumbnail or Icon */}
               <div className="w-20 h-20 flex items-center justify-center mb-2 rounded overflow-hidden bg-muted/50">
                 {showThumbnail ? (
                   <img
-                    src={api.getDownloadUrl(entry.path)}
-                    alt={entry.name}
+                    src={api.getDownloadUrl(resolvedPath)}
+                    alt={normalizedEntry.name}
                     className="max-w-full max-h-full object-contain"
                     loading="lazy"
                   />

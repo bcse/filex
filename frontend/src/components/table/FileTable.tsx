@@ -7,6 +7,7 @@ import { useDirectory, useRename, useMove } from '@/hooks/useDirectory';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { columns } from './columns';
 import { FileContextMenu } from './FileContextMenu';
+import { api } from '@/api/client';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -93,6 +94,31 @@ export function FileTable() {
     return sortEntries(data.entries, sortConfig.field, sortConfig.order);
   }, [data?.entries, sortConfig]);
 
+  const buildPath = useCallback((entry: FileEntry) => {
+    const pathLooksValid =
+      entry.path &&
+      entry.path !== '/' &&
+      entry.path !== '.' &&
+      entry.path.includes(entry.name);
+
+    const basePath = pathLooksValid
+      ? entry.path
+      : `${currentPath === '/' ? '' : currentPath}/${entry.name}`;
+
+    const withLeadingSlash = basePath.startsWith('/') ? basePath : `/${basePath}`;
+    // Collapse duplicate slashes that might appear when stitching paths
+    return withLeadingSlash.replace(/\/+/g, '/');
+  }, [currentPath]);
+
+  const normalizedEntries = useMemo(
+    () =>
+      sortedEntries.map((entry) => {
+        const path = buildPath(entry);
+        return entry.path === path ? entry : { ...entry, path };
+      }),
+    [buildPath, sortedEntries]
+  );
+
   // Handle rename triggered by F2 key
   const handleRenameRequest = useCallback((path: string) => {
     const name = path.split('/').pop() || '';
@@ -112,12 +138,12 @@ export function FileTable() {
 
   // Keyboard navigation
   useKeyboard({
-    entries: sortedEntries,
+    entries: normalizedEntries,
     onRename: handleRenameRequest,
   });
 
   const rowVirtualizer = useVirtualizer({
-    count: sortedEntries.length,
+    count: normalizedEntries.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 36,
     overscan: 10,
@@ -129,31 +155,33 @@ export function FileTable() {
       order: sortConfig.field === field && sortConfig.order === 'asc' ? 'desc' : 'asc',
     });
   }, [sortConfig, setSortConfig]);
-  
+
   const handleRowClick = useCallback((entry: FileEntry, e: React.MouseEvent) => {
+    const path = buildPath(entry);
     if (e.ctrlKey || e.metaKey) {
-      toggleSelection(entry.path);
+      toggleSelection(path);
     } else {
-      selectFile(entry.path);
+      selectFile(path);
     }
-  }, [selectFile, toggleSelection]);
+  }, [buildPath, selectFile, toggleSelection]);
   
   const handleRowDoubleClick = useCallback((entry: FileEntry) => {
+    const path = buildPath(entry);
     if (entry.is_dir) {
-      setCurrentPath(entry.path);
+      setCurrentPath(path);
     } else {
-      // TODO: Preview or download
-      window.open(`/api/files/download?path=${encodeURIComponent(entry.path)}`, '_blank');
+      window.open(api.getDownloadUrl(path), '_blank');
     }
-  }, [setCurrentPath]);
+  }, [buildPath, setCurrentPath]);
 
   // Drag handlers
   const handleDragStart = useCallback((e: React.DragEvent, entry: FileEntry) => {
+    const path = buildPath(entry);
     // If the dragged item is selected, drag all selected items
     // Otherwise, just drag this item
-    const paths = selectedFiles.has(entry.path)
+    const paths = selectedFiles.has(path)
       ? Array.from(selectedFiles)
-      : [entry.path];
+      : [path];
 
     setDraggedPaths(paths);
     e.dataTransfer.effectAllowed = 'move';
@@ -168,7 +196,7 @@ export function FileTable() {
     document.body.appendChild(dragEl);
     e.dataTransfer.setDragImage(dragEl, 0, 0);
     setTimeout(() => document.body.removeChild(dragEl), 0);
-  }, [selectedFiles]);
+  }, [buildPath, selectedFiles]);
 
   const handleDragEnd = useCallback(() => {
     setDraggedPaths([]);
@@ -176,14 +204,15 @@ export function FileTable() {
   }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent, entry: FileEntry) => {
+    const path = buildPath(entry);
     // Only allow dropping on directories that aren't being dragged
-    if (!entry.is_dir || draggedPaths.includes(entry.path)) {
+    if (!entry.is_dir || draggedPaths.includes(path)) {
       return;
     }
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    setDropTarget(entry.path);
-  }, [draggedPaths]);
+    setDropTarget(path);
+  }, [buildPath, draggedPaths]);
 
   const handleDragLeave = useCallback(() => {
     setDropTarget(null);
@@ -194,6 +223,7 @@ export function FileTable() {
     setDropTarget(null);
 
     if (!targetEntry.is_dir) return;
+    const targetPath = buildPath(targetEntry);
 
     const data = e.dataTransfer.getData('application/x-file-paths');
     if (!data) return;
@@ -202,12 +232,12 @@ export function FileTable() {
       const paths: string[] = JSON.parse(data);
 
       // Don't drop onto self or parent
-      if (paths.includes(targetEntry.path)) return;
+      if (paths.includes(targetPath)) return;
 
       // Move all files
       for (const fromPath of paths) {
         const fileName = fromPath.split('/').pop() || '';
-        const toPath = targetEntry.path === '/' ? `/${fileName}` : `${targetEntry.path}/${fileName}`;
+        const toPath = targetPath === '/' ? `/${fileName}` : `${targetPath}/${fileName}`;
 
         // Don't move if target is a descendant of source
         if (toPath.startsWith(fromPath + '/')) {
@@ -222,7 +252,7 @@ export function FileTable() {
     } catch (error) {
       console.error('Drop failed:', error);
     }
-  }, [move, clearSelection]);
+  }, [buildPath, clearSelection, move]);
 
   const gridTemplate = columns.map(c => c.width).join(' ');
   
@@ -280,16 +310,18 @@ export function FileTable() {
           }}
         >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-            const entry = sortedEntries[virtualRow.index];
-            const isSelected = selectedFiles.has(entry.path);
+            const entry = normalizedEntries[virtualRow.index];
+            const resolvedPath = buildPath(entry);
+            const normalizedEntry = entry.path === resolvedPath ? entry : { ...entry, path: resolvedPath };
+            const isSelected = selectedFiles.has(resolvedPath);
 
             return (
               <FileContextMenu
-                key={entry.path}
-                entry={entry}
+                key={resolvedPath}
+                entry={normalizedEntry}
                 onSelect={() => {
-                  if (!selectedFiles.has(entry.path)) {
-                    selectFile(entry.path);
+                  if (!selectedFiles.has(resolvedPath)) {
+                    selectFile(resolvedPath);
                   }
                 }}
               >
@@ -297,26 +329,26 @@ export function FileTable() {
                   className={cn(
                     'grid gap-2 px-2 items-center text-sm border-b border-transparent hover:bg-accent cursor-pointer absolute top-0 left-0 w-full',
                     isSelected && 'bg-accent',
-                    dropTarget === entry.path && 'bg-primary/20 border-primary border-2',
-                    draggedPaths.includes(entry.path) && 'opacity-50'
+                    dropTarget === resolvedPath && 'bg-primary/20 border-primary border-2',
+                    draggedPaths.includes(resolvedPath) && 'opacity-50'
                   )}
                   style={{
                     gridTemplateColumns: gridTemplate,
                     height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
-                  onClick={(e) => handleRowClick(entry, e)}
-                  onDoubleClick={() => handleRowDoubleClick(entry)}
+                  onClick={(e) => handleRowClick(normalizedEntry, e)}
+                  onDoubleClick={() => handleRowDoubleClick(normalizedEntry)}
                   draggable
-                  onDragStart={(e) => handleDragStart(e, entry)}
+                  onDragStart={(e) => handleDragStart(e, normalizedEntry)}
                   onDragEnd={handleDragEnd}
-                  onDragOver={(e) => handleDragOver(e, entry)}
+                  onDragOver={(e) => handleDragOver(e, normalizedEntry)}
                   onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, entry)}
+                  onDrop={(e) => handleDrop(e, normalizedEntry)}
                 >
                   {columns.map((column) => (
                     <div key={column.key} className="truncate">
-                      {column.render(entry)}
+                      {column.render(normalizedEntry)}
                     </div>
                   ))}
                 </div>
@@ -325,7 +357,7 @@ export function FileTable() {
           })}
         </div>
         
-        {sortedEntries.length === 0 && (
+        {normalizedEntries.length === 0 && (
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
             <FolderOpen className="w-16 h-16 mb-4 opacity-30" />
             <p className="text-lg font-medium mb-2">This folder is empty</p>
