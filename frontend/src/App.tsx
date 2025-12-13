@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { Sidebar } from '@/components/layout/Sidebar';
+import { TopBar } from '@/components/layout/TopBar';
 import { MainPanel } from '@/components/layout/MainPanel';
-import { PreviewPanel } from '@/components/layout/PreviewPanel';
 import { UploadProgress } from '@/components/layout/UploadProgress';
 import { LoginPage } from '@/components/auth/LoginPage';
 import { api } from '@/api/client';
@@ -75,10 +75,12 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="h-screen flex bg-background text-foreground">
-        <Sidebar />
-        <MainPanel />
-        <PreviewPanel />
+      <div className="h-screen flex flex-col bg-background text-foreground">
+        <TopBar />
+        <div className="flex flex-1 min-h-0">
+          <Sidebar />
+          <MainPanel />
+        </div>
       </div>
       <UploadProgress />
       <Toaster position="bottom-right" richColors />

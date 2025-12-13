@@ -1,27 +1,15 @@
 import React, { useCallback, useRef, useEffect } from 'react';
-import { Sun, Moon } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
 import { DirectoryTree } from '@/components/tree/DirectoryTree';
 import { useNavigationStore } from '@/stores/navigation';
-import { useThemeStore, getEffectiveTheme } from '@/stores/theme';
 
 const MIN_WIDTH = 150;
 const MAX_WIDTH = 500;
 
 export function Sidebar() {
   const { sidebarWidth, setSidebarWidth } = useNavigationStore();
-  const { theme, setTheme } = useThemeStore();
   const isResizing = useRef(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-
-  const effectiveTheme = getEffectiveTheme(theme);
-  const toggleTheme = () => {
-    const next = effectiveTheme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-  };
-
-  const ThemeIcon = effectiveTheme === 'dark' ? Moon : Sun;
 
   const startResizing = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -70,18 +58,6 @@ export function Sidebar() {
       className="border-r bg-muted/30 flex flex-col relative"
       style={{ width: `${sidebarWidth}px`, minWidth: `${sidebarWidth}px` }}
     >
-      <div className="px-4 py-3 border-b flex items-center justify-between">
-        <h1 className="text-lg font-semibold">FileManager</h1>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={toggleTheme}
-          title={`Theme: ${effectiveTheme}${theme === 'system' ? ' (system)' : ''}`}
-        >
-          <ThemeIcon className="w-4 h-4" />
-        </Button>
-      </div>
       <ScrollArea className="flex-1">
         <DirectoryTree />
       </ScrollArea>

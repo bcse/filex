@@ -1,26 +1,16 @@
 import React, { useState, useCallback } from 'react';
-import { ChevronRight, Home, Upload } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { SearchBar } from './SearchBar';
-import { Toolbar } from './Toolbar';
-import { IndexerStatus } from './IndexerStatus';
+import { Upload } from 'lucide-react';
 import { FileTable } from '@/components/table/FileTable';
 import { FileGrid } from '@/components/table/FileGrid';
-import { UserMenu } from '@/components/auth/UserMenu';
 import { SearchResults } from '@/components/search/SearchResults';
 import { useNavigationStore } from '@/stores/navigation';
-import { useAuthStore } from '@/stores/auth';
 import { useUploadWithProgress } from '@/hooks/useDirectory';
 
 export function MainPanel() {
-  const { currentPath, setCurrentPath, viewMode, isSearching, searchQuery } = useNavigationStore();
-  const { authRequired, logout } = useAuthStore();
+  const { currentPath, viewMode, isSearching, searchQuery } = useNavigationStore();
   const [isDragging, setIsDragging] = useState(false);
   const { uploadFiles } = useUploadWithProgress();
   const isSearchActive = isSearching && searchQuery.length >= 2;
-
-  // Parse breadcrumb segments
-  const segments = currentPath.split('/').filter(Boolean);
 
   // Drag and drop handlers
   const handleDragEnter = useCallback((e: React.DragEvent) => {
@@ -79,70 +69,6 @@ export function MainPanel() {
           </div>
         </div>
       )}
-
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b">
-        {/* Breadcrumbs / Search label */}
-        <div className="flex items-center gap-1 text-sm">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setCurrentPath('/', { exitSearch: true })}
-          >
-            <Home className="w-4 h-4" />
-          </Button>
-
-          {isSearchActive ? (
-            <>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium">Search results</span>
-              {searchQuery && (
-                <span className="text-muted-foreground">for “{searchQuery}”</span>
-              )}
-            </>
-          ) : (
-            segments.map((segment, index) => {
-              const path = '/' + segments.slice(0, index + 1).join('/');
-              const isLast = index === segments.length - 1;
-              
-              return (
-                <React.Fragment key={path}>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                  {isLast ? (
-                    <span className="font-medium">{segment}</span>
-                  ) : (
-                    <button
-                      className="hover:underline text-muted-foreground hover:text-foreground"
-                      onClick={() => setCurrentPath(path)}
-                    >
-                      {segment}
-                    </button>
-                  )}
-                </React.Fragment>
-              );
-            })
-          )}
-        </div>
-        
-        {/* Actions */}
-        <div className="flex items-center gap-2 flex-1 justify-end">
-          {!isSearchActive && (
-            <>
-              <Toolbar />
-              <div className="w-px h-6 bg-border" />
-              <IndexerStatus />
-              {authRequired && logout && (
-                <>
-                  <div className="w-px h-6 bg-border" />
-                  <UserMenu onLogout={logout} />
-                </>
-              )}
-            </>
-          )}
-          <SearchBar />
-        </div>
-      </div>
       
       {/* File Table/Grid */}
       <div className="flex-1 min-h-0 overflow-auto">

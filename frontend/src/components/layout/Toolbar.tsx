@@ -6,8 +6,6 @@ import {
   Upload,
   TextCursorInput,
   Loader2,
-  PanelRightOpen,
-  PanelRightClose,
   LayoutGrid,
   LayoutList,
 } from 'lucide-react';
@@ -32,13 +30,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useNavigationStore } from '@/stores/navigation';
-import { usePreviewStore } from '@/stores/preview';
 import { useCreateDirectory, useDelete, useRename, useUploadWithProgress } from '@/hooks/useDirectory';
 import { api } from '@/api/client';
 
 export function Toolbar() {
   const { currentPath, selectedFiles, clearSelection, viewMode, setViewMode } = useNavigationStore();
-  const { isOpen: previewOpen, toggle: togglePreview } = usePreviewStore();
 
   // Dialog states
   const [newFolderOpen, setNewFolderOpen] = useState(false);
@@ -235,20 +231,6 @@ export function Toolbar() {
             <LayoutGrid className="w-4 h-4" />
           ) : (
             <LayoutList className="w-4 h-4" />
-          )}
-        </Button>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={togglePreview}
-          title={previewOpen ? 'Hide preview panel' : 'Show preview panel'}
-        >
-          {previewOpen ? (
-            <PanelRightClose className="w-4 h-4" />
-          ) : (
-            <PanelRightOpen className="w-4 h-4" />
           )}
         </Button>
       </div>
