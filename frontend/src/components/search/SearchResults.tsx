@@ -26,8 +26,16 @@ function toRow(entry: IndexedFile) {
 }
 
 export function SearchResults() {
-  const { searchQuery, setIsSearching, selectedFiles, selectFile, toggleSelection, setCurrentPath } =
-    useNavigationStore();
+  const {
+    searchQuery,
+    setIsSearching,
+    selectedFiles,
+    lastSelected,
+    selectFile,
+    selectRange,
+    toggleSelection,
+    setCurrentPath,
+  } = useNavigationStore();
   const { data, isLoading, error } = useSearch(searchQuery, true);
   const parentRef = useRef<HTMLDivElement>(null);
   const [sortConfig, setSortConfig] = useState<{ field: SortField | 'path'; order: SortOrder }>({
@@ -84,13 +92,25 @@ export function SearchResults() {
 
   const handleRowClick = useCallback(
     (row: ReturnType<typeof toRow>, e: React.MouseEvent) => {
+      if (e.shiftKey) {
+        const paths = rows.map((item) => item.path);
+        const anchor = lastSelected && paths.includes(lastSelected) ? lastSelected : row.path;
+        const start = paths.indexOf(anchor);
+        const end = paths.indexOf(row.path);
+        if (start !== -1 && end !== -1) {
+          const [from, to] = start < end ? [start, end] : [end, start];
+          const rangePaths = paths.slice(from, to + 1);
+          selectRange([...Array.from(selectedFiles), ...rangePaths]);
+          return;
+        }
+      }
       if (e.ctrlKey || e.metaKey) {
         toggleSelection(row.path);
       } else {
         selectFile(row.path);
       }
     },
-    [selectFile, toggleSelection]
+    [lastSelected, rows, selectFile, selectRange, selectedFiles, toggleSelection]
   );
 
   const handleRowDoubleClick = useCallback(

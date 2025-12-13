@@ -3,7 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowUp, ArrowDown, Loader2, FolderOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigationStore } from '@/stores/navigation';
-import { useDirectory, useRename, useMove } from '@/hooks/useDirectory';
+import { useDirectory, useRename, useMove, useCopy } from '@/hooks/useDirectory';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { columns } from './columns';
 import { FileContextMenu } from './FileContextMenu';
@@ -69,7 +69,9 @@ export function FileTable() {
     currentPath,
     setCurrentPath,
     selectedFiles,
+    lastSelected,
     selectFile,
+    selectRange,
     toggleSelection,
     sortConfig,
     setSortConfig,
@@ -79,6 +81,7 @@ export function FileTable() {
   const { data, isLoading, error } = useDirectory(currentPath);
   const rename = useRename();
   const move = useMove();
+  const copy = useCopy();
 
   // Rename dialog state
   const [renameOpen, setRenameOpen] = useState(false);
@@ -88,6 +91,12 @@ export function FileTable() {
   // Drag and drop state
   const [draggedPaths, setDraggedPaths] = useState<string[]>([]);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [dropPrompt, setDropPrompt] = useState<{
+    paths: string[];
+    targetPath: string;
+    x: number;
+    y: number;
+  } | null>(null);
   
   const sortedEntries = useMemo(() => {
     if (!data?.entries) return [];
@@ -118,6 +127,8 @@ export function FileTable() {
       }),
     [buildPath, sortedEntries]
   );
+
+  const orderedPaths = useMemo(() => normalizedEntries.map((entry) => entry.path), [normalizedEntries]);
 
   // Handle rename triggered by F2 key
   const handleRenameRequest = useCallback((path: string) => {
@@ -158,12 +169,23 @@ export function FileTable() {
 
   const handleRowClick = useCallback((entry: FileEntry, e: React.MouseEvent) => {
     const path = buildPath(entry);
+    if (e.shiftKey) {
+      const anchor = lastSelected && orderedPaths.includes(lastSelected) ? lastSelected : path;
+      const start = orderedPaths.indexOf(anchor);
+      const end = orderedPaths.indexOf(path);
+      if (start !== -1 && end !== -1) {
+        const [from, to] = start < end ? [start, end] : [end, start];
+        const rangePaths = orderedPaths.slice(from, to + 1);
+        selectRange([...Array.from(selectedFiles), ...rangePaths]);
+        return;
+      }
+    }
     if (e.ctrlKey || e.metaKey) {
       toggleSelection(path);
     } else {
       selectFile(path);
     }
-  }, [buildPath, selectFile, toggleSelection]);
+  }, [buildPath, lastSelected, orderedPaths, selectFile, selectRange, selectedFiles, toggleSelection]);
   
   const handleRowDoubleClick = useCallback((entry: FileEntry) => {
     const path = buildPath(entry);
@@ -184,18 +206,8 @@ export function FileTable() {
       : [path];
 
     setDraggedPaths(paths);
-    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.effectAllowed = 'copyMove';
     e.dataTransfer.setData('application/x-file-paths', JSON.stringify(paths));
-
-    // Create a custom drag image
-    const dragEl = document.createElement('div');
-    dragEl.className = 'bg-background border rounded px-3 py-2 shadow-lg text-sm';
-    dragEl.textContent = paths.length > 1 ? `Moving ${paths.length} items` : entry.name;
-    dragEl.style.position = 'absolute';
-    dragEl.style.top = '-1000px';
-    document.body.appendChild(dragEl);
-    e.dataTransfer.setDragImage(dragEl, 0, 0);
-    setTimeout(() => document.body.removeChild(dragEl), 0);
   }, [buildPath, selectedFiles]);
 
   const handleDragEnd = useCallback(() => {
@@ -210,7 +222,7 @@ export function FileTable() {
       return;
     }
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = 'copy';
     setDropTarget(path);
   }, [buildPath, draggedPaths]);
 
@@ -218,7 +230,39 @@ export function FileTable() {
     setDropTarget(null);
   }, []);
 
-  const handleDrop = useCallback(async (e: React.DragEvent, targetEntry: FileEntry) => {
+  const handleDropAction = useCallback(async (action: 'move' | 'copy') => {
+    if (!dropPrompt) return;
+    const { paths, targetPath } = dropPrompt;
+
+    try {
+      for (const fromPath of paths) {
+        const fileName = fromPath.split('/').pop() || '';
+        const toPath = targetPath === '/' ? `/${fileName}` : `${targetPath}/${fileName}`;
+
+        if (fromPath === toPath) continue;
+
+        // Prevent moving/copying into its own descendant
+        if (toPath.startsWith(fromPath + '/')) {
+          toast.error(`Cannot move "${fileName}" into itself`);
+          continue;
+        }
+
+        if (action === 'move') {
+          await move.mutateAsync({ from: fromPath, to: toPath });
+        } else {
+          await copy.mutateAsync({ from: fromPath, to: toPath });
+        }
+      }
+
+      clearSelection();
+    } catch (error) {
+      console.error('Drop action failed:', error);
+    } finally {
+      setDropPrompt(null);
+    }
+  }, [clearSelection, copy, dropPrompt, move]);
+
+  const handleDrop = useCallback((e: React.DragEvent, targetEntry: FileEntry) => {
     e.preventDefault();
     setDropTarget(null);
 
@@ -231,28 +275,19 @@ export function FileTable() {
     try {
       const paths: string[] = JSON.parse(data);
 
-      // Don't drop onto self or parent
+      // Don't drop onto self
       if (paths.includes(targetPath)) return;
 
-      // Move all files
-      for (const fromPath of paths) {
-        const fileName = fromPath.split('/').pop() || '';
-        const toPath = targetPath === '/' ? `/${fileName}` : `${targetPath}/${fileName}`;
-
-        // Don't move if target is a descendant of source
-        if (toPath.startsWith(fromPath + '/')) {
-          toast.error(`Cannot move "${fileName}" into itself`);
-          continue;
-        }
-
-        await move.mutateAsync({ from: fromPath, to: toPath });
-      }
-
-      clearSelection();
+      setDropPrompt({
+        paths,
+        targetPath,
+        x: e.clientX,
+        y: e.clientY,
+      });
     } catch (error) {
       console.error('Drop failed:', error);
     }
-  }, [buildPath, clearSelection, move]);
+  }, [buildPath]);
 
   const gridTemplate = columns.map(c => c.width).join(' ');
   
@@ -372,6 +407,29 @@ export function FileTable() {
           </div>
         )}
       </div>
+
+      {dropPrompt && (
+        <div className="fixed inset-0 z-50" onClick={() => setDropPrompt(null)}>
+          <div
+            className="absolute min-w-[8rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+            style={{ top: dropPrompt.y, left: dropPrompt.x }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="w-full cursor-pointer select-none rounded-sm px-2 py-1.5 text-sm text-left hover:bg-accent focus:outline-none focus:bg-accent"
+              onClick={() => handleDropAction('move')}
+            >
+              Move here
+            </button>
+            <button
+              className="w-full cursor-pointer select-none rounded-sm px-2 py-1.5 text-sm text-left hover:bg-accent focus:outline-none focus:bg-accent"
+              onClick={() => handleDropAction('copy')}
+            >
+              Copy here
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Rename Dialog triggered by F2 */}
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>

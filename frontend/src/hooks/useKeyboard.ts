@@ -14,6 +14,7 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
     currentPath,
     setCurrentPath,
     selectedFiles,
+    lastSelected,
     selectFile,
     selectRange,
     clearSelection,
@@ -30,9 +31,10 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
   // Get the focused index based on selection
   const getFocusedIndex = useCallback(() => {
     if (selectedFiles.size === 0) return -1;
-    const lastSelected = Array.from(selectedFiles).pop();
-    return entries.findIndex((e) => e.path === lastSelected);
-  }, [selectedFiles, entries]);
+    const anchor = lastSelected || Array.from(selectedFiles).pop();
+    if (!anchor) return -1;
+    return entries.findIndex((e) => e.path === anchor);
+  }, [selectedFiles, entries, lastSelected]);
 
   const handleKeyDown = useCallback(
     async (e: KeyboardEvent) => {

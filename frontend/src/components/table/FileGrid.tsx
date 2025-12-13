@@ -62,17 +62,14 @@ export function FileGrid() {
     currentPath,
     setCurrentPath,
     selectedFiles,
+    lastSelected,
     selectFile,
+    selectRange,
     toggleSelection,
     sortConfig,
   } = useNavigationStore();
 
   const { data, isLoading, error } = useDirectory(currentPath);
-
-  const sortedEntries = useMemo(() => {
-    if (!data?.entries) return [];
-    return sortEntries(data.entries, sortConfig.field, sortConfig.order);
-  }, [data?.entries, sortConfig]);
 
   const buildPath = useCallback((entry: FileEntry) => {
     const pathLooksValid =
@@ -89,14 +86,35 @@ export function FileGrid() {
     return withLeadingSlash.replace(/\/+/g, '/');
   }, [currentPath]);
 
+  const sortedEntries = useMemo(() => {
+    if (!data?.entries) return [];
+    return sortEntries(data.entries, sortConfig.field, sortConfig.order);
+  }, [data?.entries, sortConfig]);
+
+  const orderedPaths = useMemo(
+    () => sortedEntries.map((entry) => buildPath(entry)),
+    [sortedEntries, buildPath]
+  );
+
   const handleClick = useCallback((entry: FileEntry, e: React.MouseEvent) => {
     const path = buildPath(entry);
+    if (e.shiftKey) {
+      const anchor = lastSelected && orderedPaths.includes(lastSelected) ? lastSelected : path;
+      const start = orderedPaths.indexOf(anchor);
+      const end = orderedPaths.indexOf(path);
+      if (start !== -1 && end !== -1) {
+        const [from, to] = start < end ? [start, end] : [end, start];
+        const rangePaths = orderedPaths.slice(from, to + 1);
+        selectRange([...Array.from(selectedFiles), ...rangePaths]);
+        return;
+      }
+    }
     if (e.ctrlKey || e.metaKey) {
       toggleSelection(path);
     } else {
       selectFile(path);
     }
-  }, [buildPath, selectFile, toggleSelection]);
+  }, [buildPath, lastSelected, orderedPaths, selectFile, selectRange, selectedFiles, toggleSelection]);
 
   const handleDoubleClick = useCallback((entry: FileEntry) => {
     const path = buildPath(entry);

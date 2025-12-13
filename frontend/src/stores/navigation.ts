@@ -10,6 +10,7 @@ interface NavigationState {
 
   // Selection
   selectedFiles: Set<string>;
+  lastSelected: string | null;
   selectFile: (path: string, multi?: boolean) => void;
   selectRange: (paths: string[]) => void;
   clearSelection: () => void;
@@ -48,33 +49,47 @@ export const useNavigationStore = create<NavigationState>((set) => ({
     set((state) => ({
       currentPath: path,
       selectedFiles: new Set(),
+      lastSelected: null,
       isSearching: options.exitSearch ? false : state.isSearching,
       searchQuery: options.exitSearch ? '' : state.searchQuery,
     })),
   
   // Selection
   selectedFiles: new Set(),
+  lastSelected: null,
   selectFile: (path, multi = false) =>
     set((state) => {
       if (multi) {
         const newSelection = new Set(state.selectedFiles);
         newSelection.add(path);
-        return { selectedFiles: newSelection };
+        return { selectedFiles: newSelection, lastSelected: path };
       }
-      return { selectedFiles: new Set([path]) };
+      return { selectedFiles: new Set([path]), lastSelected: path };
     }),
   selectRange: (paths) =>
-    set({ selectedFiles: new Set(paths) }),
-  clearSelection: () => set({ selectedFiles: new Set() }),
+    set(() => {
+      const uniquePaths = Array.from(new Set(paths));
+      const last = paths.length ? paths[paths.length - 1] : null;
+      return {
+        selectedFiles: new Set(uniquePaths),
+        lastSelected: last,
+      };
+    }),
+  clearSelection: () => set({ selectedFiles: new Set(), lastSelected: null }),
   toggleSelection: (path) =>
     set((state) => {
       const newSelection = new Set(state.selectedFiles);
+      let nextLastSelected = state.lastSelected;
       if (newSelection.has(path)) {
         newSelection.delete(path);
+        if (state.lastSelected === path) {
+          nextLastSelected = newSelection.size ? Array.from(newSelection).pop() || null : null;
+        }
       } else {
         newSelection.add(path);
+        nextLastSelected = path;
       }
-      return { selectedFiles: newSelection };
+      return { selectedFiles: newSelection, lastSelected: nextLastSelected };
     }),
   
   // Sort

@@ -1,13 +1,5 @@
 import React, { useState } from 'react';
-import {
-  FolderOpen,
-  Download,
-  Copy,
-  Scissors,
-  Clipboard,
-  Pencil,
-  Trash2,
-} from 'lucide-react';
+import { FolderOpen, Download, Pencil, Trash2 } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -37,7 +29,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useNavigationStore } from '@/stores/navigation';
-import { useDelete, useRename, useMove, useCopy } from '@/hooks/useDirectory';
+import { useDelete, useRename } from '@/hooks/useDirectory';
 import { api } from '@/api/client';
 import type { FileEntry } from '@/types/file';
 
@@ -51,10 +43,6 @@ export function FileContextMenu({ entry, children, onSelect }: FileContextMenuPr
   const {
     setCurrentPath,
     selectedFiles,
-    copyFiles,
-    cutFiles,
-    clipboard,
-    clearClipboard,
     clearSelection,
   } = useNavigationStore();
 
@@ -64,19 +52,14 @@ export function FileContextMenu({ entry, children, onSelect }: FileContextMenuPr
 
   const deleteFile = useDelete();
   const rename = useRename();
-  const move = useMove();
-  const copy = useCopy();
 
   const selectedArray = Array.from(selectedFiles);
   const isSelected = selectedFiles.has(entry.path);
   const targetPaths = isSelected && selectedArray.length > 1 ? selectedArray : [entry.path];
 
   const handleOpen = () => {
-    if (entry.is_dir) {
-      setCurrentPath(entry.path);
-    } else {
-      window.open(api.getDownloadUrl(entry.path), '_blank');
-    }
+    if (!entry.is_dir) return;
+    setCurrentPath(entry.path);
   };
 
   const handleDownload = () => {
@@ -88,33 +71,6 @@ export function FileContextMenu({ entry, children, onSelect }: FileContextMenuPr
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-    }
-  };
-
-  const handleCopy = () => {
-    copyFiles(targetPaths);
-  };
-
-  const handleCut = () => {
-    cutFiles(targetPaths);
-  };
-
-  const handlePaste = async () => {
-    if (!clipboard.files.length || !entry.is_dir) return;
-
-    for (const filePath of clipboard.files) {
-      const fileName = filePath.split('/').pop() || '';
-      const targetPath = entry.path === '/' ? `/${fileName}` : `${entry.path}/${fileName}`;
-
-      if (clipboard.operation === 'copy') {
-        await copy.mutateAsync({ from: filePath, to: targetPath });
-      } else if (clipboard.operation === 'cut') {
-        await move.mutateAsync({ from: filePath, to: targetPath });
-      }
-    }
-
-    if (clipboard.operation === 'cut') {
-      clearClipboard();
     }
   };
 
@@ -151,38 +107,18 @@ export function FileContextMenu({ entry, children, onSelect }: FileContextMenuPr
           {children}
         </ContextMenuTrigger>
         <ContextMenuContent className="w-56">
-          <ContextMenuItem onClick={handleOpen}>
-            <FolderOpen className="mr-2 h-4 w-4" />
-            {entry.is_dir ? 'Open' : 'Open File'}
-            <ContextMenuShortcut>Enter</ContextMenuShortcut>
-          </ContextMenuItem>
+          {entry.is_dir && (
+            <ContextMenuItem onClick={handleOpen}>
+              <FolderOpen className="mr-2 h-4 w-4" />
+              Open
+              <ContextMenuShortcut>Enter</ContextMenuShortcut>
+            </ContextMenuItem>
+          )}
 
           {!entry.is_dir && (
             <ContextMenuItem onClick={handleDownload}>
               <Download className="mr-2 h-4 w-4" />
               Download
-            </ContextMenuItem>
-          )}
-
-          <ContextMenuSeparator />
-
-          <ContextMenuItem onClick={handleCopy}>
-            <Copy className="mr-2 h-4 w-4" />
-            Copy
-            <ContextMenuShortcut>⌘C</ContextMenuShortcut>
-          </ContextMenuItem>
-
-          <ContextMenuItem onClick={handleCut}>
-            <Scissors className="mr-2 h-4 w-4" />
-            Cut
-            <ContextMenuShortcut>⌘X</ContextMenuShortcut>
-          </ContextMenuItem>
-
-          {entry.is_dir && clipboard.files.length > 0 && (
-            <ContextMenuItem onClick={handlePaste}>
-              <Clipboard className="mr-2 h-4 w-4" />
-              Paste
-              <ContextMenuShortcut>⌘V</ContextMenuShortcut>
             </ContextMenuItem>
           )}
 
@@ -196,7 +132,7 @@ export function FileContextMenu({ entry, children, onSelect }: FileContextMenuPr
 
           <ContextMenuItem
             onClick={handleDelete}
-            className="text-red-600 focus:text-red-600 focus:bg-red-50"
+            className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:text-red-500 dark:focus:text-red-500 dark:focus:bg-red-950"
           >
             <Trash2 className="mr-2 h-4 w-4" />
             Delete
