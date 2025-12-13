@@ -7,14 +7,18 @@ interface ThemeState {
   setTheme: (theme: Theme) => void;
 }
 
-function getSystemTheme(): 'light' | 'dark' {
+export function getSystemTheme(): 'light' | 'dark' {
   if (typeof window === 'undefined') return 'light';
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
+export function getEffectiveTheme(theme: Theme): 'light' | 'dark' {
+  return theme === 'system' ? getSystemTheme() : theme;
+}
+
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
-  const effectiveTheme = theme === 'system' ? getSystemTheme() : theme;
+  const effectiveTheme = getEffectiveTheme(theme);
 
   if (effectiveTheme === 'dark') {
     root.classList.add('dark');

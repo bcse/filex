@@ -1,10 +1,10 @@
 import React, { useCallback, useRef, useEffect } from 'react';
-import { Sun, Moon, Monitor } from 'lucide-react';
+import { Sun, Moon } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { DirectoryTree } from '@/components/tree/DirectoryTree';
 import { useNavigationStore } from '@/stores/navigation';
-import { useThemeStore } from '@/stores/theme';
+import { useThemeStore, getEffectiveTheme } from '@/stores/theme';
 
 const MIN_WIDTH = 150;
 const MAX_WIDTH = 500;
@@ -15,14 +15,13 @@ export function Sidebar() {
   const isResizing = useRef(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-  const cycleTheme = () => {
-    const themes: Array<'light' | 'dark' | 'system'> = ['light', 'dark', 'system'];
-    const currentIndex = themes.indexOf(theme);
-    const nextIndex = (currentIndex + 1) % themes.length;
-    setTheme(themes[nextIndex]);
+  const effectiveTheme = getEffectiveTheme(theme);
+  const toggleTheme = () => {
+    const next = effectiveTheme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
   };
 
-  const ThemeIcon = theme === 'light' ? Sun : theme === 'dark' ? Moon : Monitor;
+  const ThemeIcon = effectiveTheme === 'dark' ? Moon : Sun;
 
   const startResizing = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -77,8 +76,8 @@ export function Sidebar() {
           variant="ghost"
           size="icon"
           className="h-8 w-8"
-          onClick={cycleTheme}
-          title={`Theme: ${theme}`}
+          onClick={toggleTheme}
+          title={`Theme: ${effectiveTheme}${theme === 'system' ? ' (system)' : ''}`}
         >
           <ThemeIcon className="w-4 h-4" />
         </Button>
