@@ -23,6 +23,7 @@ pub struct IndexStats {
     pub files_scanned: u64,
     pub files_indexed: u64,
     pub files_updated: u64,
+    pub files_removed: u64,
     pub errors: u64,
 }
 
@@ -48,8 +49,8 @@ impl IndexerService {
             match self.run_full_index().await {
                 Ok(stats) => {
                     info!(
-                        "Index complete: {} scanned, {} indexed, {} errors",
-                        stats.files_scanned, stats.files_indexed, stats.errors
+                        "Index complete: {} scanned, {} indexed, {} removed, {} errors",
+                        stats.files_scanned, stats.files_indexed, stats.files_removed, stats.errors
                     );
                 }
                 Err(e) => {
@@ -86,6 +87,7 @@ impl IndexerService {
 
     async fn do_index(&self) -> Result<IndexStats, anyhow::Error> {
         let mut stats = IndexStats::default();
+        let mut indexed_paths = Vec::new();
 
         let root = self.root.canonicalize()?;
 
@@ -172,7 +174,17 @@ impl IndexerService {
                 continue;
             }
 
+            indexed_paths.push(indexed_file.path.clone());
+
             stats.files_indexed += 1;
+        }
+
+        match db::remove_missing_files(&self.pool, &indexed_paths).await {
+            Ok(removed) => stats.files_removed = removed,
+            Err(e) => {
+                debug!("Cleanup error: {}", e);
+                stats.errors += 1;
+            }
         }
 
         Ok(stats)

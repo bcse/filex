@@ -11,6 +11,7 @@ use tokio::fs::File;
 use tokio_util::io::ReaderStream;
 
 use crate::api::{AppState, ErrorResponse};
+use crate::db;
 
 #[derive(Debug, Deserialize)]
 pub struct CreateDirRequest {
@@ -89,6 +90,17 @@ pub async fn rename(
         )
     })?;
 
+    db::rename_path(&state.pool, &req.path, &new_path, &req.new_name)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
+
     Ok(Json(SuccessResponse {
         success: true,
         path: Some(new_path),
@@ -109,6 +121,22 @@ pub async fn move_entry(
             }),
         )
     })?;
+
+    let new_name = std::path::Path::new(&new_path)
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| req.to.clone());
+
+    db::rename_path(&state.pool, &req.from, &new_path, &new_name)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
 
     Ok(Json(SuccessResponse {
         success: true,
@@ -161,6 +189,17 @@ pub async fn delete(
             }),
         )
     })?;
+
+    db::delete_by_path(&state.pool, &req.path)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
 
     Ok(Json(SuccessResponse {
         success: true,
