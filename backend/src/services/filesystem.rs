@@ -27,6 +27,11 @@ pub struct FilesystemService {
     root: PathBuf,
 }
 
+pub struct OperationResult {
+    pub path: String,
+    pub performed: bool,
+}
+
 impl FilesystemService {
     pub fn new(root: PathBuf) -> Self {
         // Normalize the root path up front so relative paths strip correctly
@@ -230,7 +235,12 @@ impl FilesystemService {
     }
 
     /// Move a file or directory
-    pub fn move_entry(&self, from: &str, to_dir: &str) -> Result<String, FsError> {
+    pub fn move_entry(
+        &self,
+        from: &str,
+        to_dir: &str,
+        overwrite: bool,
+    ) -> Result<OperationResult, FsError> {
         let source = self.resolve_path(from)?;
         let file_name = source
             .file_name()
@@ -242,13 +252,36 @@ impl FilesystemService {
             return Err(FsError::PermissionDenied("Cannot move root".to_string()));
         }
 
+        if dest_path.exists() {
+            if overwrite {
+                if dest_path.is_dir() {
+                    fs::remove_dir_all(&dest_path)?;
+                } else {
+                    fs::remove_file(&dest_path)?;
+                }
+            } else {
+                return Ok(OperationResult {
+                    path: self.relative_path(&dest_path),
+                    performed: false,
+                });
+            }
+        }
+
         fs::rename(&source, &dest_path)?;
 
-        Ok(self.relative_path(&dest_path))
+        Ok(OperationResult {
+            path: self.relative_path(&dest_path),
+            performed: true,
+        })
     }
 
     /// Copy a file or directory recursively
-    pub fn copy_entry(&self, from: &str, to_dir: &str) -> Result<String, FsError> {
+    pub fn copy_entry(
+        &self,
+        from: &str,
+        to_dir: &str,
+        overwrite: bool,
+    ) -> Result<OperationResult, FsError> {
         let source = self.resolve_path(from)?;
         let file_name = source
             .file_name()
@@ -262,9 +295,27 @@ impl FilesystemService {
             ));
         }
 
+        if dest_path.exists() {
+            if overwrite {
+                if dest_path.is_dir() {
+                    fs::remove_dir_all(&dest_path)?;
+                } else {
+                    fs::remove_file(&dest_path)?;
+                }
+            } else {
+                return Ok(OperationResult {
+                    path: self.relative_path(&dest_path),
+                    performed: false,
+                });
+            }
+        }
+
         self.copy_recursive(&source, &dest_path)?;
 
-        Ok(self.relative_path(&dest_path))
+        Ok(OperationResult {
+            path: self.relative_path(&dest_path),
+            performed: true,
+        })
     }
 
     fn copy_recursive(&self, source: &Path, dest: &Path) -> Result<(), FsError> {

@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { useTree, useMove, useCopy } from '@/hooks/useDirectory';
 import { useNavigationStore } from '@/stores/navigation';
 import type { TreeNode as TreeNodeType } from '@/types/file';
-import { DropPrompt, DropPromptState, performDropAction } from '@/components/dnd/DropPrompt';
+import { DropPrompt, DropPromptState, DropAction, performDropAction } from '@/components/dnd/DropPrompt';
 
 interface TreeNodeProps {
   node: TreeNodeType;
@@ -165,7 +165,7 @@ export function DirectoryTree() {
     setDropPrompt({ paths, targetPath, x, y });
   }, []);
 
-  const handleDropAction = useCallback(async (action: 'move' | 'copy') => {
+  const handleDropAction = useCallback(async (action: DropAction) => {
     await performDropAction({
       action,
       dropPrompt,

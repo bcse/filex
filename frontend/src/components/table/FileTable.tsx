@@ -20,7 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { FileEntry, SortField, SortOrder } from '@/types/file';
-import { DropPrompt, DropPromptState, performDropAction } from '@/components/dnd/DropPrompt';
+import { DropPrompt, DropPromptState, DropAction, performDropAction } from '@/components/dnd/DropPrompt';
 
 function sortEntries(entries: FileEntry[], field: SortField, order: SortOrder): FileEntry[] {
   const sorted = [...entries].sort((a, b) => {
@@ -228,7 +228,7 @@ export function FileTable() {
     setDropTarget(null);
   }, []);
 
-  const handleDropAction = useCallback(async (action: 'move' | 'copy') => {
+  const handleDropAction = useCallback(async (action: DropAction) => {
     await performDropAction({
       action,
       dropPrompt,

@@ -1,4 +1,12 @@
 import { toast } from 'sonner';
+import { Files, FolderInput } from 'lucide-react';
+
+export type DropOperation = 'move' | 'copy';
+export type ConflictStrategy = 'overwrite' | 'skip';
+export type DropAction = {
+  operation: DropOperation;
+  strategy: ConflictStrategy;
+};
 
 export type DropPromptState = {
   paths: string[];
@@ -10,7 +18,7 @@ export type DropPromptState = {
 interface DropPromptProps {
   dropPrompt: DropPromptState;
   onClose: () => void;
-  onAction: (action: 'move' | 'copy') => void;
+  onAction: (action: DropAction) => void;
 }
 
 export function DropPrompt({ dropPrompt, onClose, onAction }: DropPromptProps) {
@@ -19,21 +27,37 @@ export function DropPrompt({ dropPrompt, onClose, onAction }: DropPromptProps) {
   return (
     <div className="fixed inset-0 z-50" onClick={onClose}>
       <div
-        className="absolute min-w-[8rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+        className="absolute z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-sm text-popover-foreground shadow-md"
         style={{ top: dropPrompt.y, left: dropPrompt.x }}
         onClick={(e) => e.stopPropagation()}
       >
         <button
-          className="w-full cursor-pointer select-none rounded-sm px-2 py-1.5 text-sm text-left hover:bg-accent focus:outline-none focus:bg-accent"
-          onClick={() => onAction('move')}
+          className="flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm text-left hover:bg-accent focus:outline-none focus:bg-accent"
+          onClick={() => onAction({ operation: 'copy', strategy: 'overwrite' })}
         >
-          Move here
+          <Files className="mr-2 h-4 w-4" />
+          Copy & Overwrite
         </button>
         <button
-          className="w-full cursor-pointer select-none rounded-sm px-2 py-1.5 text-sm text-left hover:bg-accent focus:outline-none focus:bg-accent"
-          onClick={() => onAction('copy')}
+          className="flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm text-left hover:bg-accent focus:outline-none focus:bg-accent"
+          onClick={() => onAction({ operation: 'copy', strategy: 'skip' })}
         >
-          Copy here
+          <Files className="mr-2 h-4 w-4" />
+          Copy & Skip
+        </button>
+        <button
+          className="flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm text-left hover:bg-accent focus:outline-none focus:bg-accent"
+          onClick={() => onAction({ operation: 'move', strategy: 'overwrite' })}
+        >
+          <FolderInput className="mr-2 h-4 w-4" />
+          Move & Overwrite
+        </button>
+        <button
+          className="flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm text-left hover:bg-accent focus:outline-none focus:bg-accent"
+          onClick={() => onAction({ operation: 'move', strategy: 'skip' })}
+        >
+          <FolderInput className="mr-2 h-4 w-4" />
+          Move & Skip
         </button>
       </div>
     </div>
@@ -41,7 +65,7 @@ export function DropPrompt({ dropPrompt, onClose, onAction }: DropPromptProps) {
 }
 
 type MutationHandler = {
-  mutateAsync: (params: { from: string; to: string }) => Promise<unknown>;
+  mutateAsync: (params: { from: string; to: string; overwrite?: boolean }) => Promise<unknown>;
 };
 
 export async function performDropAction({
@@ -51,7 +75,7 @@ export async function performDropAction({
   copy,
   clearSelection,
 }: {
-  action: 'move' | 'copy';
+  action: DropAction;
   dropPrompt: DropPromptState;
   move: MutationHandler;
   copy: MutationHandler;
@@ -72,10 +96,12 @@ export async function performDropAction({
         continue;
       }
 
-      if (action === 'move') {
-        await move.mutateAsync({ from: fromPath, to: toPath });
+      const overwrite = action.strategy === 'overwrite';
+
+      if (action.operation === 'move') {
+        await move.mutateAsync({ from: fromPath, to: toPath, overwrite });
       } else {
-        await copy.mutateAsync({ from: fromPath, to: toPath });
+        await copy.mutateAsync({ from: fromPath, to: toPath, overwrite });
       }
     }
 

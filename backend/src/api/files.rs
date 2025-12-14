@@ -28,12 +28,16 @@ pub struct RenameRequest {
 pub struct MoveRequest {
     pub from: String,
     pub to: String,
+    #[serde(default)]
+    pub overwrite: bool,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct CopyRequest {
     pub from: String,
     pub to: String,
+    #[serde(default)]
+    pub overwrite: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -53,6 +57,8 @@ pub struct SuccessResponse {
     pub path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub performed: Option<bool>,
 }
 
 /// Create a new directory
@@ -73,6 +79,7 @@ pub async fn create_directory(
         success: true,
         path: Some(req.path),
         message: Some("Directory created".to_string()),
+        performed: None,
     }))
 }
 
@@ -105,6 +112,7 @@ pub async fn rename(
         success: true,
         path: Some(new_path),
         message: Some("Renamed successfully".to_string()),
+        performed: None,
     }))
 }
 
@@ -113,22 +121,9 @@ pub async fn move_entry(
     State(state): State<Arc<AppState>>,
     Json(req): Json<MoveRequest>,
 ) -> Result<Json<SuccessResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let new_path = state.fs.move_entry(&req.from, &req.to).map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-    })?;
-
-    let new_name = std::path::Path::new(&new_path)
-        .file_name()
-        .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or_else(|| req.to.clone());
-
-    db::rename_path(&state.pool, &req.from, &new_path, &new_name)
-        .await
+    let result = state
+        .fs
+        .move_entry(&req.from, &req.to, req.overwrite)
         .map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -138,10 +133,36 @@ pub async fn move_entry(
             )
         })?;
 
+    if result.performed {
+        let new_name = std::path::Path::new(&result.path)
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| req.to.clone());
+
+        db::rename_path(&state.pool, &req.from, &result.path, &new_name)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?;
+    }
+
     Ok(Json(SuccessResponse {
         success: true,
-        path: Some(new_path),
-        message: Some("Moved successfully".to_string()),
+        path: Some(result.path),
+        message: Some(
+            if result.performed {
+                "Moved successfully"
+            } else {
+                "Skipped (already exists)"
+            }
+            .to_string(),
+        ),
+        performed: Some(result.performed),
     }))
 }
 
@@ -150,24 +171,35 @@ pub async fn copy_entry(
     State(state): State<Arc<AppState>>,
     Json(req): Json<CopyRequest>,
 ) -> Result<Json<SuccessResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let new_path = state.fs.copy_entry(&req.from, &req.to).map_err(|e| {
-        let status = match &e {
-            crate::services::filesystem::FsError::NotFound(_) => StatusCode::NOT_FOUND,
-            crate::services::filesystem::FsError::PermissionDenied(_) => StatusCode::FORBIDDEN,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        };
-        (
-            status,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-    })?;
+    let result = state
+        .fs
+        .copy_entry(&req.from, &req.to, req.overwrite)
+        .map_err(|e| {
+            let status = match &e {
+                crate::services::filesystem::FsError::NotFound(_) => StatusCode::NOT_FOUND,
+                crate::services::filesystem::FsError::PermissionDenied(_) => StatusCode::FORBIDDEN,
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            };
+            (
+                status,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
 
     Ok(Json(SuccessResponse {
         success: true,
-        path: Some(new_path),
-        message: Some("Copied successfully".to_string()),
+        path: Some(result.path),
+        message: Some(
+            if result.performed {
+                "Copied successfully"
+            } else {
+                "Skipped (already exists)"
+            }
+            .to_string(),
+        ),
+        performed: Some(result.performed),
     }))
 }
 
@@ -205,6 +237,7 @@ pub async fn delete(
         success: true,
         path: Some(req.path),
         message: Some("Deleted successfully".to_string()),
+        performed: None,
     }))
 }
 
@@ -343,5 +376,6 @@ pub async fn upload(
         success: true,
         path: Some(target_path),
         message: Some(format!("Uploaded {} file(s)", uploaded.len())),
+        performed: None,
     }))
 }

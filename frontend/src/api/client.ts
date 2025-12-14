@@ -65,20 +65,20 @@ export const api = {
     return handleResponse(response);
   },
 
-  async move(from: string, to: string): Promise<SuccessResponse> {
+  async move(from: string, to: string, overwrite = false): Promise<SuccessResponse> {
     const response = await fetch(`${API_BASE}/files/move`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to }),
+      body: JSON.stringify({ from, to, overwrite }),
     });
     return handleResponse(response);
   },
 
-  async copy(from: string, to: string): Promise<SuccessResponse> {
+  async copy(from: string, to: string, overwrite = false): Promise<SuccessResponse> {
     const response = await fetch(`${API_BASE}/files/copy`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to }),
+      body: JSON.stringify({ from, to, overwrite }),
     });
     return handleResponse(response);
   },

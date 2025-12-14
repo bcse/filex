@@ -59,11 +59,15 @@ export function useMove() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ from, to }: { from: string; to: string }) =>
-      api.move(from, to),
-    onSuccess: (_, { from }) => {
+    mutationFn: ({ from, to, overwrite = false }: { from: string; to: string; overwrite?: boolean }) =>
+      api.move(from, to, overwrite),
+    onSuccess: (data, { from }) => {
       const name = from.split('/').pop();
-      toast.success(`Moved "${name}"`);
+      if (data?.performed === false) {
+        toast.info(`Skipped moving "${name}" (already exists)`);
+      } else {
+        toast.success(`Moved "${name}"`);
+      }
       queryClient.invalidateQueries({ queryKey: ['directory'] });
       queryClient.invalidateQueries({ queryKey: ['tree'] });
     },
@@ -77,11 +81,15 @@ export function useCopy() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ from, to }: { from: string; to: string }) =>
-      api.copy(from, to),
-    onSuccess: (_, { from }) => {
+    mutationFn: ({ from, to, overwrite = false }: { from: string; to: string; overwrite?: boolean }) =>
+      api.copy(from, to, overwrite),
+    onSuccess: (data, { from }) => {
       const name = from.split('/').pop();
-      toast.success(`Copied "${name}"`);
+      if (data?.performed === false) {
+        toast.info(`Skipped copying "${name}" (already exists)`);
+      } else {
+        toast.success(`Copied "${name}"`);
+      }
       queryClient.invalidateQueries({ queryKey: ['directory'] });
       queryClient.invalidateQueries({ queryKey: ['tree'] });
     },

@@ -54,6 +54,7 @@ export interface SuccessResponse {
   success: boolean;
   path?: string;
   message?: string;
+  performed?: boolean;
 }
 
 export type SortField = 'name' | 'size' | 'created' | 'modified' | 'mime_type' | 'width' | 'height' | 'duration';
