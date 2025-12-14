@@ -99,6 +99,20 @@ pub async fn get_metadata_for_paths(
     query_builder.fetch_all(pool).await
 }
 
+/// Get a file's size and modified_at for change detection
+pub async fn get_file_by_path(
+    pool: &SqlitePool,
+    path: &str,
+) -> Result<Option<(Option<i64>, Option<String>)>, sqlx::Error> {
+    let row: Option<(Option<i64>, Option<String>)> =
+        sqlx::query_as("SELECT size, modified_at FROM indexed_files WHERE path = ?")
+            .bind(path)
+            .fetch_optional(pool)
+            .await?;
+
+    Ok(row)
+}
+
 /// Upsert a file record
 pub async fn upsert_file(pool: &SqlitePool, file: &IndexedFile) -> Result<(), sqlx::Error> {
     sqlx::query(

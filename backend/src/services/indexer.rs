@@ -136,6 +136,29 @@ impl IndexerService {
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_default();
 
+            // Compute current filesystem size and mtime for change detection
+            let fs_size = if metadata.is_file() {
+                Some(metadata.len() as i64)
+            } else {
+                None
+            };
+            let fs_modified = metadata
+                .modified()
+                .ok()
+                .map(|t| DateTime::<Utc>::from(t).to_rfc3339());
+
+            // Check if file is unchanged (skip expensive FFprobe extraction)
+            if let Ok(Some((db_size, db_modified))) =
+                db::get_file_by_path(&self.pool, &relative_path).await
+            {
+                if db_size == fs_size && db_modified == fs_modified {
+                    // File unchanged, add to indexed_paths and skip processing
+                    indexed_paths.push(relative_path);
+                    stats.files_skipped += 1;
+                    continue;
+                }
+            }
+
             // Extract media metadata if applicable
             let media_meta = if metadata.is_file() {
                 MetadataService::extract(path).ok()
@@ -160,19 +183,12 @@ impl IndexerService {
                 path: relative_path,
                 name,
                 is_dir: metadata.is_dir(),
-                size: if metadata.is_file() {
-                    Some(metadata.len() as i64)
-                } else {
-                    None
-                },
+                size: fs_size,
                 created_at: metadata
                     .created()
                     .ok()
                     .map(|t| DateTime::<Utc>::from(t).to_rfc3339()),
-                modified_at: metadata
-                    .modified()
-                    .ok()
-                    .map(|t| DateTime::<Utc>::from(t).to_rfc3339()),
+                modified_at: fs_modified,
                 mime_type,
                 width: media_meta.as_ref().and_then(|m| m.width.map(|w| w as i32)),
                 height: media_meta.as_ref().and_then(|m| m.height.map(|h| h as i32)),
