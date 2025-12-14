@@ -1,11 +1,11 @@
 use chrono::{DateTime, Utc};
+use ignore::WalkBuilder;
 use sqlx::sqlite::SqlitePool;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
-use walkdir::WalkDir;
 
 use crate::config::Config;
 use crate::db;
@@ -24,6 +24,7 @@ pub struct IndexStats {
     pub files_indexed: u64,
     pub files_updated: u64,
     pub files_removed: u64,
+    pub files_skipped: u64,
     pub errors: u64,
 }
 
@@ -49,8 +50,12 @@ impl IndexerService {
             match self.run_full_index().await {
                 Ok(stats) => {
                     info!(
-                        "Index complete: {} scanned, {} indexed, {} removed, {} errors",
-                        stats.files_scanned, stats.files_indexed, stats.files_removed, stats.errors
+                        "Index complete: {} scanned, {} indexed, {} skipped, {} removed, {} errors",
+                        stats.files_scanned,
+                        stats.files_indexed,
+                        stats.files_skipped,
+                        stats.files_removed,
+                        stats.errors
                     );
                 }
                 Err(e) => {
@@ -93,10 +98,11 @@ impl IndexerService {
 
         info!("Starting index of {:?}", root);
 
-        for entry in WalkDir::new(&root)
+        for entry in WalkBuilder::new(&root)
             .follow_links(false)
-            .into_iter()
-            .filter_entry(|e| !Self::is_hidden(e))
+            .hidden(true) // Skip hidden files (starting with .)
+            .add_custom_ignore_filename(".fxignore")
+            .build()
         {
             let entry = match entry {
                 Ok(e) => e,
@@ -144,7 +150,10 @@ impl IndexerService {
             };
 
             // Check if it's an image (to skip duration storage)
-            let is_image = mime_type.as_ref().map(|m| m.starts_with("image/")).unwrap_or(false);
+            let is_image = mime_type
+                .as_ref()
+                .map(|m| m.starts_with("image/"))
+                .unwrap_or(false);
 
             let indexed_file = IndexedFile {
                 id: 0, // Will be set by DB
@@ -196,15 +205,6 @@ impl IndexerService {
         }
 
         Ok(stats)
-    }
-
-    /// Check if entry should be skipped (hidden files)
-    fn is_hidden(entry: &walkdir::DirEntry) -> bool {
-        entry
-            .file_name()
-            .to_str()
-            .map(|s| s.starts_with('.'))
-            .unwrap_or(false)
     }
 
     /// Check if indexer is currently running
