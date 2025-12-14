@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { useNavigationStore } from '@/stores/navigation';
-import { useDelete, useMove, useCopy } from '@/hooks/useDirectory';
+import { useMove, useCopy } from '@/hooks/useDirectory';
 import { api } from '@/api/client';
 import type { FileEntry } from '@/types/file';
 
@@ -22,9 +22,9 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
     cutFiles,
     clipboard,
     clearClipboard,
+    setDeleteConfirmOpen,
   } = useNavigationStore();
 
-  const deleteFile = useDelete();
   const move = useMove();
   const copy = useCopy();
 
@@ -117,11 +117,7 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
         case 'Delete': {
           if (selectedFiles.size > 0) {
             e.preventDefault();
-            const paths = Array.from(selectedFiles);
-            for (const path of paths) {
-              await deleteFile.mutateAsync(path);
-            }
-            clearSelection();
+            setDeleteConfirmOpen(true);
           }
           break;
         }
@@ -204,7 +200,7 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
       clipboard,
       clearClipboard,
       currentPath,
-      deleteFile,
+      setDeleteConfirmOpen,
       move,
       copy,
       onRename,

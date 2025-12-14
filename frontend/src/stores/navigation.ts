@@ -35,6 +35,10 @@ interface NavigationState {
   cutFiles: (paths: string[]) => void;
   clearClipboard: () => void;
 
+  // Delete confirmation
+  deleteConfirmOpen: boolean;
+  setDeleteConfirmOpen: (open: boolean) => void;
+
   // UI state
   sidebarWidth: number;
   setSidebarWidth: (width: number) => void;
@@ -107,7 +111,11 @@ export const useNavigationStore = create<NavigationState>((set) => ({
   copyFiles: (paths) => set({ clipboard: { files: paths, operation: 'copy' } }),
   cutFiles: (paths) => set({ clipboard: { files: paths, operation: 'cut' } }),
   clearClipboard: () => set({ clipboard: { files: [], operation: null } }),
-  
+
+  // Delete confirmation
+  deleteConfirmOpen: false,
+  setDeleteConfirmOpen: (open) => set({ deleteConfirmOpen: open }),
+
   // UI state
   sidebarWidth: 250,
   setSidebarWidth: (width) => set({ sidebarWidth: width }),

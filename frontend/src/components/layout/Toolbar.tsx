@@ -34,12 +34,11 @@ import { useCreateDirectory, useDelete, useRename, useUploadWithProgress } from 
 import { api } from '@/api/client';
 
 export function Toolbar() {
-  const { currentPath, selectedFiles, clearSelection, viewMode, setViewMode } = useNavigationStore();
+  const { currentPath, selectedFiles, clearSelection, viewMode, setViewMode, deleteConfirmOpen, setDeleteConfirmOpen } = useNavigationStore();
 
   // Dialog states
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-  const [deleteOpen, setDeleteOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
 
@@ -75,7 +74,7 @@ export function Toolbar() {
   // Delete
   const handleDelete = () => {
     if (!hasSelection) return;
-    setDeleteOpen(true);
+    setDeleteConfirmOpen(true);
   };
 
   const handleConfirmDelete = async () => {
@@ -83,7 +82,7 @@ export function Toolbar() {
       await deleteFile.mutateAsync(path);
     }
     clearSelection();
-    setDeleteOpen(false);
+    setDeleteConfirmOpen(false);
   };
 
   // Rename
@@ -298,7 +297,7 @@ export function Toolbar() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete {selectedArray.length} item{selectedArray.length > 1 ? 's' : ''}?</AlertDialogTitle>
