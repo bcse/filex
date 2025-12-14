@@ -9,7 +9,6 @@ import { useColumnResize } from '@/hooks/useColumnResize';
 import { columns } from './columns';
 import { FileContextMenu } from './FileContextMenu';
 import { api } from '@/api/client';
-import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { FileEntry, SortField, SortOrder } from '@/types/file';
+import { DropPrompt, DropPromptState, performDropAction } from '@/components/dnd/DropPrompt';
 
 function sortEntries(entries: FileEntry[], field: SortField, order: SortOrder): FileEntry[] {
   const sorted = [...entries].sort((a, b) => {
@@ -94,12 +94,7 @@ export function FileTable() {
   // Drag and drop state
   const [draggedPaths, setDraggedPaths] = useState<string[]>([]);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
-  const [dropPrompt, setDropPrompt] = useState<{
-    paths: string[];
-    targetPath: string;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [dropPrompt, setDropPrompt] = useState<DropPromptState>(null);
   
   const sortedEntries = useMemo(() => {
     if (!data?.entries) return [];
@@ -234,35 +229,14 @@ export function FileTable() {
   }, []);
 
   const handleDropAction = useCallback(async (action: 'move' | 'copy') => {
-    if (!dropPrompt) return;
-    const { paths, targetPath } = dropPrompt;
-
-    try {
-      for (const fromPath of paths) {
-        const fileName = fromPath.split('/').pop() || '';
-        const toPath = targetPath === '/' ? `/${fileName}` : `${targetPath}/${fileName}`;
-
-        if (fromPath === toPath) continue;
-
-        // Prevent moving/copying into its own descendant
-        if (toPath.startsWith(fromPath + '/')) {
-          toast.error(`Cannot move "${fileName}" into itself`);
-          continue;
-        }
-
-        if (action === 'move') {
-          await move.mutateAsync({ from: fromPath, to: toPath });
-        } else {
-          await copy.mutateAsync({ from: fromPath, to: toPath });
-        }
-      }
-
-      clearSelection();
-    } catch (error) {
-      console.error('Drop action failed:', error);
-    } finally {
-      setDropPrompt(null);
-    }
+    await performDropAction({
+      action,
+      dropPrompt,
+      move,
+      copy,
+      clearSelection,
+    });
+    setDropPrompt(null);
   }, [clearSelection, copy, dropPrompt, move]);
 
   const handleDrop = useCallback((e: React.DragEvent, targetEntry: FileEntry) => {
@@ -431,28 +405,11 @@ export function FileTable() {
         </div>
       </div>
 
-      {dropPrompt && (
-        <div className="fixed inset-0 z-50" onClick={() => setDropPrompt(null)}>
-          <div
-            className="absolute min-w-[8rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
-            style={{ top: dropPrompt.y, left: dropPrompt.x }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              className="w-full cursor-pointer select-none rounded-sm px-2 py-1.5 text-sm text-left hover:bg-accent focus:outline-none focus:bg-accent"
-              onClick={() => handleDropAction('move')}
-            >
-              Move here
-            </button>
-            <button
-              className="w-full cursor-pointer select-none rounded-sm px-2 py-1.5 text-sm text-left hover:bg-accent focus:outline-none focus:bg-accent"
-              onClick={() => handleDropAction('copy')}
-            >
-              Copy here
-            </button>
-          </div>
-        </div>
-      )}
+      <DropPrompt
+        dropPrompt={dropPrompt}
+        onClose={() => setDropPrompt(null)}
+        onAction={handleDropAction}
+      />
 
       {/* Rename Dialog triggered by F2 */}
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>

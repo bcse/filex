@@ -1,22 +1,22 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useTree, useMove } from '@/hooks/useDirectory';
+import { useTree, useMove, useCopy } from '@/hooks/useDirectory';
 import { useNavigationStore } from '@/stores/navigation';
-import { toast } from 'sonner';
 import type { TreeNode as TreeNodeType } from '@/types/file';
+import { DropPrompt, DropPromptState, performDropAction } from '@/components/dnd/DropPrompt';
 
 interface TreeNodeProps {
   node: TreeNodeType;
   depth: number;
   parentPath: string;
+  onDropPrompt: (paths: string[], targetPath: string, x: number, y: number) => void;
 }
 
-function TreeNode({ node, depth, parentPath }: TreeNodeProps) {
+function TreeNode({ node, depth, parentPath, onDropPrompt }: TreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
-  const { currentPath, setCurrentPath, clearSelection } = useNavigationStore();
-  const move = useMove();
+  const { currentPath, setCurrentPath } = useNavigationStore();
   const itemRef = useRef<HTMLDivElement>(null);
 
   const normalizedPath = React.useMemo(() => {
@@ -55,7 +55,7 @@ function TreeNode({ node, depth, parentPath }: TreeNodeProps) {
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (e.dataTransfer.types.includes('application/x-file-paths')) {
       e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
+      e.dataTransfer.dropEffect = 'copy';
       setIsDragOver(true);
     }
   }, []);
@@ -64,7 +64,7 @@ function TreeNode({ node, depth, parentPath }: TreeNodeProps) {
     setIsDragOver(false);
   }, []);
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
+  const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
 
@@ -74,27 +74,13 @@ function TreeNode({ node, depth, parentPath }: TreeNodeProps) {
     try {
       const paths: string[] = JSON.parse(data);
 
-      for (const fromPath of paths) {
-        const fileName = fromPath.split('/').pop() || '';
-        const toPath = normalizedPath === '/' ? `/${fileName}` : `${normalizedPath}/${fileName}`;
+      if (paths.includes(normalizedPath)) return;
 
-        // Don't move onto self
-        if (fromPath === normalizedPath) continue;
-
-        // Don't move if target is a descendant of source
-        if (toPath.startsWith(fromPath + '/')) {
-          toast.error(`Cannot move "${fileName}" into itself`);
-          continue;
-        }
-
-        await move.mutateAsync({ from: fromPath, to: toPath });
-      }
-
-      clearSelection();
+      onDropPrompt(paths, normalizedPath, e.clientX, e.clientY);
     } catch (error) {
       console.error('Drop failed:', error);
     }
-  }, [clearSelection, move, normalizedPath]);
+  }, [normalizedPath, onDropPrompt]);
 
   // Auto-expand to reveal the current path
   useEffect(() => {
@@ -153,7 +139,13 @@ function TreeNode({ node, depth, parentPath }: TreeNodeProps) {
       {isExpanded && children && (
         <div>
           {children.map((child) => (
-            <TreeNode key={child.path || child.name} node={child} depth={depth + 1} parentPath={normalizedPath} />
+            <TreeNode
+              key={child.path || child.name}
+              node={child}
+              depth={depth + 1}
+              parentPath={normalizedPath}
+              onDropPrompt={onDropPrompt}
+            />
           ))}
         </div>
       )}
@@ -165,12 +157,29 @@ export function DirectoryTree() {
   const { setCurrentPath, currentPath, clearSelection } = useNavigationStore();
   const { data: rootNodes, isLoading } = useTree('/');
   const [isDragOver, setIsDragOver] = useState(false);
+  const [dropPrompt, setDropPrompt] = useState<DropPromptState>(null);
   const move = useMove();
+  const copy = useCopy();
+
+  const handleDropPrompt = useCallback((paths: string[], targetPath: string, x: number, y: number) => {
+    setDropPrompt({ paths, targetPath, x, y });
+  }, []);
+
+  const handleDropAction = useCallback(async (action: 'move' | 'copy') => {
+    await performDropAction({
+      action,
+      dropPrompt,
+      move,
+      copy,
+      clearSelection,
+    });
+    setDropPrompt(null);
+  }, [clearSelection, copy, dropPrompt, move]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (e.dataTransfer.types.includes('application/x-file-paths')) {
       e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
+      e.dataTransfer.dropEffect = 'copy';
       setIsDragOver(true);
     }
   }, []);
@@ -179,7 +188,7 @@ export function DirectoryTree() {
     setIsDragOver(false);
   }, []);
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
+  const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
 
@@ -189,21 +198,13 @@ export function DirectoryTree() {
     try {
       const paths: string[] = JSON.parse(data);
 
-      for (const fromPath of paths) {
-        const fileName = fromPath.split('/').pop() || '';
-        const toPath = `/${fileName}`;
+      if (paths.includes('/')) return;
 
-        // Don't move if already at root
-        if (fromPath === toPath) continue;
-
-        await move.mutateAsync({ from: fromPath, to: toPath });
-      }
-
-      clearSelection();
+      handleDropPrompt(paths, '/', e.clientX, e.clientY);
     } catch (error) {
       console.error('Drop failed:', error);
     }
-  }, [move, clearSelection]);
+  }, [handleDropPrompt]);
 
   return (
     <div className="py-2">
@@ -234,9 +235,21 @@ export function DirectoryTree() {
         </div>
       ) : (
         rootNodes?.map((node) => (
-          <TreeNode key={node.path || node.name} node={node} depth={1} parentPath="/" />
+          <TreeNode
+            key={node.path || node.name}
+            node={node}
+            depth={1}
+            parentPath="/"
+            onDropPrompt={handleDropPrompt}
+          />
         ))
       )}
+
+      <DropPrompt
+        dropPrompt={dropPrompt}
+        onClose={() => setDropPrompt(null)}
+        onAction={handleDropAction}
+      />
     </div>
   );
 }
