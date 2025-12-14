@@ -16,6 +16,7 @@ interface TreeNodeProps {
 function TreeNode({ node, depth, parentPath, onDropPrompt }: TreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [userCollapsed, setUserCollapsed] = useState(false);
   const { currentPath, setCurrentPath } = useNavigationStore();
   const itemRef = useRef<HTMLDivElement>(null);
 
@@ -44,7 +45,16 @@ function TreeNode({ node, depth, parentPath, onDropPrompt }: TreeNodeProps) {
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (node.has_children) {
-      setIsExpanded(!isExpanded);
+      const newExpanded = !isExpanded;
+      setIsExpanded(newExpanded);
+      // Track when user manually collapses an ancestor of current path
+      if (!newExpanded) {
+        const isAncestorOrSelf =
+          currentPath === normalizedPath || currentPath.startsWith(`${normalizedPath}/`);
+        if (isAncestorOrSelf) {
+          setUserCollapsed(true);
+        }
+      }
     }
   };
 
@@ -85,12 +95,23 @@ function TreeNode({ node, depth, parentPath, onDropPrompt }: TreeNodeProps) {
   // Auto-expand to reveal the current path
   useEffect(() => {
     if (!node.has_children) return;
+    if (userCollapsed) return; // Don't auto-expand if user manually collapsed
+
     const isAncestorOrSelf =
       currentPath === normalizedPath || currentPath.startsWith(`${normalizedPath}/`);
     if (isAncestorOrSelf && !isExpanded) {
       setIsExpanded(true);
     }
-  }, [currentPath, isExpanded, node.has_children, normalizedPath]);
+  }, [currentPath, isExpanded, node.has_children, normalizedPath, userCollapsed]);
+
+  // Reset userCollapsed when currentPath changes (allow auto-expand on navigation)
+  const prevPathRef = useRef(currentPath);
+  useEffect(() => {
+    if (currentPath !== prevPathRef.current) {
+      setUserCollapsed(false);
+      prevPathRef.current = currentPath;
+    }
+  }, [currentPath]);
 
   // Keep the selected node in view when navigating from elsewhere
   useEffect(() => {
