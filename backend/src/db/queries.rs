@@ -103,12 +103,13 @@ pub async fn get_metadata_for_paths(
 pub async fn get_file_by_path(
     pool: &SqlitePool,
     path: &str,
-) -> Result<Option<(Option<i64>, Option<String>)>, sqlx::Error> {
-    let row: Option<(Option<i64>, Option<String>)> =
-        sqlx::query_as("SELECT size, modified_at FROM indexed_files WHERE path = ?")
-            .bind(path)
-            .fetch_optional(pool)
-            .await?;
+) -> Result<Option<(Option<i64>, Option<String>, String)>, sqlx::Error> {
+    let row: Option<(Option<i64>, Option<String>, String)> = sqlx::query_as(
+        "SELECT size, modified_at, metadata_status FROM indexed_files WHERE path = ?",
+    )
+    .bind(path)
+    .fetch_optional(pool)
+    .await?;
 
     Ok(row)
 }
@@ -117,8 +118,8 @@ pub async fn get_file_by_path(
 pub async fn upsert_file(pool: &SqlitePool, file: &IndexedFile) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
-        INSERT INTO indexed_files (path, name, is_dir, size, created_at, modified_at, mime_type, width, height, duration, indexed_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        INSERT INTO indexed_files (path, name, is_dir, size, created_at, modified_at, mime_type, width, height, duration, metadata_status, indexed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(path) DO UPDATE SET
             name = excluded.name,
             is_dir = excluded.is_dir,
@@ -129,6 +130,7 @@ pub async fn upsert_file(pool: &SqlitePool, file: &IndexedFile) -> Result<(), sq
             width = excluded.width,
             height = excluded.height,
             duration = excluded.duration,
+            metadata_status = excluded.metadata_status,
             indexed_at = CURRENT_TIMESTAMP
         "#,
     )
@@ -142,6 +144,34 @@ pub async fn upsert_file(pool: &SqlitePool, file: &IndexedFile) -> Result<(), sq
     .bind(file.width)
     .bind(file.height)
     .bind(file.duration)
+    .bind(&file.metadata_status)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+/// Update only the media metadata fields for a path
+pub async fn update_media_metadata(
+    pool: &SqlitePool,
+    path: &str,
+    width: Option<i32>,
+    height: Option<i32>,
+    duration: Option<f64>,
+    metadata_status: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        UPDATE indexed_files
+        SET width = ?, height = ?, duration = ?, metadata_status = ?, indexed_at = CURRENT_TIMESTAMP
+        WHERE path = ?
+        "#,
+    )
+    .bind(width)
+    .bind(height)
+    .bind(duration)
+    .bind(metadata_status)
+    .bind(path)
     .execute(pool)
     .await?;
 

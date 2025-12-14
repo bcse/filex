@@ -52,5 +52,32 @@ pub async fn init_db(pool: &SqlitePool) -> Result<(), Error> {
     .execute(pool)
     .await?;
 
+    // Add metadata_status column if missing (for two-phase indexing)
+    if !column_exists(pool, "indexed_files", "metadata_status").await? {
+        sqlx::query(
+            r#"
+            ALTER TABLE indexed_files
+            ADD COLUMN metadata_status TEXT NOT NULL DEFAULT 'complete'
+            "#,
+        )
+        .execute(pool)
+        .await?;
+    }
+
     Ok(())
+}
+
+/// Check if a column exists on a given table
+async fn column_exists(pool: &SqlitePool, table: &str, column: &str) -> Result<bool, Error> {
+    let query = format!(
+        "SELECT 1 FROM pragma_table_info('{}') WHERE name = ? LIMIT 1",
+        table
+    );
+
+    let exists: Option<(i64,)> = sqlx::query_as(&query)
+        .bind(column)
+        .fetch_optional(pool)
+        .await?;
+
+    Ok(exists.is_some())
 }

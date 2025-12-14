@@ -45,6 +45,8 @@ pub struct IndexedFile {
     pub width: Option<i32>,
     pub height: Option<i32>,
     pub duration: Option<f64>,
+    #[serde(skip_serializing)]
+    pub metadata_status: String,
     pub indexed_at: String,
 }
 

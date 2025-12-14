@@ -12,6 +12,9 @@ use crate::db;
 use crate::models::IndexedFile;
 use crate::services::metadata::MetadataService;
 
+const STATUS_PENDING: &str = "pending";
+const STATUS_COMPLETE: &str = "complete";
+
 pub struct IndexerService {
     pool: SqlitePool,
     root: PathBuf,
@@ -93,6 +96,7 @@ impl IndexerService {
     async fn do_index(&self) -> Result<IndexStats, anyhow::Error> {
         let mut stats = IndexStats::default();
         let mut indexed_paths = Vec::new();
+        let mut pending_metadata = Vec::new();
 
         let root = self.root.canonicalize()?;
 
@@ -147,36 +151,36 @@ impl IndexerService {
                 .ok()
                 .map(|t| DateTime::<Utc>::from(t).to_rfc3339());
 
-            // Check if file is unchanged (skip expensive FFprobe extraction)
-            if let Ok(Some((db_size, db_modified))) =
-                db::get_file_by_path(&self.pool, &relative_path).await
-            {
-                if db_size == fs_size && db_modified == fs_modified {
-                    // File unchanged, add to indexed_paths and skip processing
-                    indexed_paths.push(relative_path);
-                    stats.files_skipped += 1;
-                    continue;
-                }
-            }
-
-            // Extract media metadata if applicable
-            let media_meta = if metadata.is_file() {
-                MetadataService::extract(path).ok()
-            } else {
-                None
-            };
-
             let mime_type = if metadata.is_file() {
                 mime_guess::from_path(path).first().map(|m| m.to_string())
             } else {
                 None
             };
 
-            // Check if it's an image (to skip duration storage)
-            let is_image = mime_type
-                .as_ref()
-                .map(|m| m.starts_with("image/"))
-                .unwrap_or(false);
+            let metadata_status = if metadata.is_file() {
+                STATUS_PENDING
+            } else {
+                STATUS_COMPLETE
+            };
+
+            // Check if file is unchanged (skip expensive FFprobe extraction)
+            if let Ok(Some((db_size, db_modified, db_status))) =
+                db::get_file_by_path(&self.pool, &relative_path).await
+            {
+                if db_size == fs_size && db_modified == fs_modified {
+                    indexed_paths.push(relative_path.clone());
+                    stats.files_skipped += 1;
+
+                    // If media metadata is not complete yet, queue for second pass
+                    if metadata.is_file() && db_status != STATUS_COMPLETE {
+                        pending_metadata.push((relative_path, path.to_path_buf(), mime_type));
+                    }
+                    continue;
+                }
+            }
+
+            // Reset metadata for changed files; fill in second pass
+            let (width, height, duration) = (None, None, None);
 
             let indexed_file = IndexedFile {
                 id: 0, // Will be set by DB
@@ -190,14 +194,10 @@ impl IndexerService {
                     .map(|t| DateTime::<Utc>::from(t).to_rfc3339()),
                 modified_at: fs_modified,
                 mime_type,
-                width: media_meta.as_ref().and_then(|m| m.width.map(|w| w as i32)),
-                height: media_meta.as_ref().and_then(|m| m.height.map(|h| h as i32)),
-                // Skip duration for images (mostly 1 frame)
-                duration: if is_image {
-                    None
-                } else {
-                    media_meta.as_ref().and_then(|m| m.duration)
-                },
+                width,
+                height,
+                duration,
+                metadata_status: metadata_status.to_string(),
                 indexed_at: String::new(), // Set by DB
             };
 
@@ -205,6 +205,15 @@ impl IndexerService {
                 debug!("DB error for {:?}: {}", path, e);
                 stats.errors += 1;
                 continue;
+            }
+
+            // Queue media files for second pass metadata extraction
+            if metadata.is_file() && metadata_status == STATUS_PENDING {
+                pending_metadata.push((
+                    indexed_file.path.clone(),
+                    path.to_path_buf(),
+                    indexed_file.mime_type.clone(),
+                ));
             }
 
             indexed_paths.push(indexed_file.path.clone());
@@ -217,6 +226,57 @@ impl IndexerService {
             Err(e) => {
                 debug!("Cleanup error: {}", e);
                 stats.errors += 1;
+            }
+        }
+
+        // Second pass: fill media metadata for pending files
+        for (relative_path, abs_path, mime_type) in pending_metadata {
+            let is_image = mime_type
+                .as_ref()
+                .map(|m| m.starts_with("image/"))
+                .unwrap_or(false);
+
+            match MetadataService::extract(&abs_path) {
+                Ok(media_meta) => {
+                    let width = media_meta.width.map(|w| w as i32);
+                    let height = media_meta.height.map(|h| h as i32);
+                    let duration = if is_image { None } else { media_meta.duration };
+
+                    if let Err(e) = db::update_media_metadata(
+                        &self.pool,
+                        &relative_path,
+                        width,
+                        height,
+                        duration,
+                        STATUS_COMPLETE,
+                    )
+                    .await
+                    {
+                        debug!("DB update error for {:?}: {}", abs_path, e);
+                        stats.errors += 1;
+                    }
+                }
+                Err(crate::services::metadata::MetadataError::NotMediaFile) => {
+                    // Mark as complete so we don't retry on non-media files
+                    if let Err(e) = db::update_media_metadata(
+                        &self.pool,
+                        &relative_path,
+                        None,
+                        None,
+                        None,
+                        STATUS_COMPLETE,
+                    )
+                    .await
+                    {
+                        debug!("DB update error for {:?}: {}", abs_path, e);
+                        stats.errors += 1;
+                    }
+                }
+                Err(e) => {
+                    debug!("Metadata extraction error for {:?}: {}", abs_path, e);
+                    stats.errors += 1;
+                    // Leave metadata_status as pending so future runs can retry
+                }
             }
         }
 
