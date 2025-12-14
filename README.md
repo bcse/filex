@@ -4,6 +4,8 @@ A self-hosted, web-based file manager with a familiar desktop-like interface.
 
 Filex is a minimal, opinionated file browser for managing files on remote servers through your web browser. Single binary + SQLite. No external dependencies.
 
+![Screenshot](/docs/screenshot.png?raw=true "Screenshot")
+
 ## Features
 
 - **Desktop-like UX** — Keyboard shortcuts, drag & drop, multi-select, context menus
