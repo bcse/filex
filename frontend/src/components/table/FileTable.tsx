@@ -20,7 +20,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { FileEntry, SortField, SortOrder } from '@/types/file';
-import { DropPrompt, DropPromptState, DropAction, performDropAction } from '@/components/dnd/DropPrompt';
+import { DropPrompt, DropPromptState, DropAction } from '@/components/dnd/DropPrompt';
+import { performDropAction } from '@/components/dnd/dropActions';
 
 function sortEntries(entries: FileEntry[], field: SortField, order: SortOrder): FileEntry[] {
   const sorted = [...entries].sort((a, b) => {

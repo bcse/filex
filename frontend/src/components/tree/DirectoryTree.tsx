@@ -4,7 +4,8 @@ import { cn } from '@/lib/utils';
 import { useTree, useMove, useCopy } from '@/hooks/useDirectory';
 import { useNavigationStore } from '@/stores/navigation';
 import type { TreeNode as TreeNodeType } from '@/types/file';
-import { DropPrompt, DropPromptState, DropAction, performDropAction } from '@/components/dnd/DropPrompt';
+import { DropPrompt, DropPromptState, DropAction } from '@/components/dnd/DropPrompt';
+import { performDropAction } from '@/components/dnd/dropActions';
 
 interface TreeNodeProps {
   node: TreeNodeType;
