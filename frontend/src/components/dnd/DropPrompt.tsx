@@ -65,7 +65,9 @@ export function DropPrompt({ dropPrompt, onClose, onAction }: DropPromptProps) {
 }
 
 type MutationHandler = {
-  mutateAsync: (params: { from: string; to: string; overwrite?: boolean }) => Promise<unknown>;
+  mutateAsync: (params: { from: string; to: string; overwrite?: boolean; suppressToast?: boolean }) => Promise<{
+    performed?: boolean;
+  } | void>;
 };
 
 export async function performDropAction({
@@ -85,6 +87,10 @@ export async function performDropAction({
   const { paths, targetPath } = dropPrompt;
 
   try {
+    let performedCount = 0;
+    let skippedCount = 0;
+    const total = paths.length;
+
     for (const fromPath of paths) {
       const fileName = fromPath.split('/').pop() || '';
       const toPath = targetPath === '/' ? `/${fileName}` : `${targetPath}/${fileName}`;
@@ -98,14 +104,25 @@ export async function performDropAction({
 
       const overwrite = action.strategy === 'overwrite';
 
-      if (action.operation === 'move') {
-        await move.mutateAsync({ from: fromPath, to: toPath, overwrite });
+      const result =
+        action.operation === 'move'
+          ? await move.mutateAsync({ from: fromPath, to: toPath, overwrite, suppressToast: true })
+          : await copy.mutateAsync({ from: fromPath, to: toPath, overwrite, suppressToast: true });
+
+      if (result?.performed === false) {
+        skippedCount += 1;
       } else {
-        await copy.mutateAsync({ from: fromPath, to: toPath, overwrite });
+        performedCount += 1;
       }
     }
 
     clearSelection();
+
+    if (performedCount > 0 || skippedCount > 0) {
+      const verb = action.operation === 'copy' ? 'Copied' : 'Moved';
+      const skippedSuffix = skippedCount > 0 ? ` (skipped ${skippedCount})` : '';
+      toast.success(`${verb} ${performedCount} of ${total} items${skippedSuffix}`);
+    }
   } catch (error) {
     console.error('Drop action failed:', error);
   }

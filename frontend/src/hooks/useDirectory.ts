@@ -59,14 +59,21 @@ export function useMove() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ from, to, overwrite = false }: { from: string; to: string; overwrite?: boolean }) =>
-      api.move(from, to, overwrite),
-    onSuccess: (data, { from }) => {
+    mutationFn: ({
+      from,
+      to,
+      overwrite = false,
+      suppressToast,
+    }: { from: string; to: string; overwrite?: boolean; suppressToast?: boolean }) =>
+      api.move(from, to, overwrite).then((res) => ({ ...res, suppressToast })),
+    onSuccess: (data, { from, suppressToast }) => {
       const name = from.split('/').pop();
-      if (data?.performed === false) {
-        toast.info(`Skipped moving "${name}" (already exists)`);
-      } else {
-        toast.success(`Moved "${name}"`);
+      if (!suppressToast) {
+        if (data?.performed === false) {
+          toast.info(`Skipped moving "${name}" (already exists)`);
+        } else {
+          toast.success(`Moved "${name}"`);
+        }
       }
       queryClient.invalidateQueries({ queryKey: ['directory'] });
       queryClient.invalidateQueries({ queryKey: ['tree'] });
@@ -81,14 +88,21 @@ export function useCopy() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ from, to, overwrite = false }: { from: string; to: string; overwrite?: boolean }) =>
-      api.copy(from, to, overwrite),
-    onSuccess: (data, { from }) => {
+    mutationFn: ({
+      from,
+      to,
+      overwrite = false,
+      suppressToast,
+    }: { from: string; to: string; overwrite?: boolean; suppressToast?: boolean }) =>
+      api.copy(from, to, overwrite).then((res) => ({ ...res, suppressToast })),
+    onSuccess: (data, { from, suppressToast }) => {
       const name = from.split('/').pop();
-      if (data?.performed === false) {
-        toast.info(`Skipped copying "${name}" (already exists)`);
-      } else {
-        toast.success(`Copied "${name}"`);
+      if (!suppressToast) {
+        if (data?.performed === false) {
+          toast.info(`Skipped copying "${name}" (already exists)`);
+        } else {
+          toast.success(`Copied "${name}"`);
+        }
       }
       queryClient.invalidateQueries({ queryKey: ['directory'] });
       queryClient.invalidateQueries({ queryKey: ['tree'] });
