@@ -63,7 +63,7 @@ export function TopBar() {
           segments.map((segment, index) => {
             const path = '/' + segments.slice(0, index + 1).join('/');
             const isLast = index === segments.length - 1;
-            
+
             return (
               <React.Fragment key={path}>
                 <ChevronRight className="w-4 h-4 text-muted-foreground" />
@@ -98,9 +98,7 @@ export function TopBar() {
               </>
             )}
           </>
-        ) : (
-          ThemeToggleButton
-        )}
+        ) : null}
         <SearchBar />
       </div>
     </div>
