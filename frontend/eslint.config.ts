@@ -26,7 +26,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["**/components/ui/**/*.tsx", "**/components/table/columns.tsx"],
+    files: ["**/components/ui/**/*.tsx"],
     rules: {
       "react-refresh/only-export-components": "off",
     },
