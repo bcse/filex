@@ -164,4 +164,4 @@ vite.config.ts.timestamp-*
 
 static/
 testdata/
-filex.db
+filex.db*

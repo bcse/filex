@@ -1,6 +1,10 @@
 use sqlx::{Error, sqlite::SqlitePool};
 
 pub async fn init_db(pool: &SqlitePool) -> Result<(), Error> {
+    // Enable WAL mode for better concurrent read/write performance
+    // This allows users to browse/search while the indexer writes
+    sqlx::query("PRAGMA journal_mode=WAL").execute(pool).await?;
+
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS indexed_files (
