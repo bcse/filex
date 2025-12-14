@@ -8,7 +8,7 @@ import { useNavigationStore } from '@/stores/navigation';
 import { useSearch } from '@/hooks/useSearch';
 import { api } from '@/api/client';
 import type { IndexedFile, SortField, SortOrder } from '@/types/file';
-import { columns } from '@/components/table/columns';
+import { searchColumns } from '@/components/table/columns';
 
 function toRow(entry: IndexedFile) {
   return {
@@ -160,7 +160,7 @@ export function SearchResults() {
     );
   }
 
-  const gridTemplate = columns.map((c) => c.width).join(' ');
+  const gridTemplate = searchColumns.map((c) => c.width).join(' ');
 
   return (
     <div className="flex flex-col h-full">
@@ -168,7 +168,7 @@ export function SearchResults() {
         className="grid gap-2 px-2 py-2 border-b bg-muted/40 text-sm font-medium"
         style={{ gridTemplateColumns: gridTemplate }}
       >
-        {columns.map((column) => {
+        {searchColumns.map((column) => {
           const isSortable = column.sortable && column.key !== 'icon';
           const isActive = sortConfig.field === column.key;
           return (
@@ -229,7 +229,7 @@ export function SearchResults() {
                   onClick={(e) => handleRowClick(row, e)}
                   onDoubleClick={() => handleRowDoubleClick(row)}
                 >
-                  {columns.map((column) => (
+                  {searchColumns.map((column) => (
                     <div key={column.key} className="truncate">
                       {column.render(entry)}
                     </div>

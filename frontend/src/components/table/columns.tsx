@@ -13,12 +13,18 @@ import type { FileEntry, SortField } from '@/types/file';
 import { formatFileSize, formatDuration, formatDimensions } from '@/lib/utils';
 
 export interface Column {
-  key: SortField | 'icon';
+  key: SortField | 'icon' | 'path';
   label: string;
   width: string;
   sortable: boolean;
   render: (entry: FileEntry) => React.ReactNode;
 }
+
+const getBasedir = (path: string) => {
+  const lastSlash = path.lastIndexOf('/');
+  if (lastSlash <= 0) return '/';
+  return path.substring(0, lastSlash);
+};
 
 const FileIcon = ({ entry }: { entry: FileEntry }) => {
   if (entry.is_dir) {
@@ -48,25 +54,44 @@ const formatDate = (dateStr?: string) => {
   }
 };
 
-export const columns: Column[] = [
-  {
-    key: 'icon',
-    label: '',
-    width: '40px',
-    sortable: false,
-    render: (entry) => <FileIcon entry={entry} />,
-  },
-  {
-    key: 'name',
-    label: 'Name',
-    width: '1fr',
-    sortable: true,
-    render: (entry) => (
-      <span className="truncate" title={entry.name}>
-        {entry.name}
+const iconColumn: Column = {
+  key: 'icon',
+  label: '',
+  width: '40px',
+  sortable: false,
+  render: (entry) => <FileIcon entry={entry} />,
+};
+
+const nameColumn: Column = {
+  key: 'name',
+  label: 'Name',
+  width: '1fr',
+  sortable: true,
+  render: (entry) => (
+    <span className="truncate" title={entry.name}>
+      {entry.name}
+    </span>
+  ),
+};
+
+const pathColumn: Column = {
+  key: 'path',
+  label: 'Path',
+  width: '1fr',
+  sortable: true,
+  render: (entry) => {
+    const basedir = getBasedir(entry.path);
+    return (
+      <span className="truncate text-muted-foreground" title={basedir}>
+        {basedir}
       </span>
-    ),
+    );
   },
+};
+
+export const columns: Column[] = [
+  iconColumn,
+  nameColumn,
   {
     key: 'size',
     label: 'Size',
@@ -133,4 +158,12 @@ export const columns: Column[] = [
       </span>
     ),
   },
+];
+
+// Search results columns include path column after name
+export const searchColumns: Column[] = [
+  iconColumn,
+  nameColumn,
+  pathColumn,
+  ...columns.slice(2),
 ];
