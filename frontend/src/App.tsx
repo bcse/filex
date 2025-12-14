@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { Sidebar } from '@/components/layout/Sidebar';
@@ -25,19 +25,7 @@ function App() {
   const [authState, setAuthState] = useState<AuthState>('loading');
   const { setAuthRequired, setLogoutHandler } = useAuthStore();
 
-  useEffect(() => {
-    checkAuthStatus();
-  }, []);
-
-  useEffect(() => {
-    // Set up the logout handler
-    setLogoutHandler(() => {
-      setAuthState('unauthenticated');
-      queryClient.clear();
-    });
-  }, [setLogoutHandler]);
-
-  const checkAuthStatus = async () => {
+  const checkAuthStatus = useCallback(async () => {
     try {
       const status = await api.getAuthStatus();
       setAuthRequired(status.auth_required);
@@ -50,7 +38,19 @@ function App() {
       // If we can't check auth status, assume authenticated (auth might be disabled)
       setAuthState('authenticated');
     }
-  };
+  }, [setAuthRequired]);
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, [checkAuthStatus]);
+
+  useEffect(() => {
+    // Set up the logout handler
+    setLogoutHandler(() => {
+      setAuthState('unauthenticated');
+      queryClient.clear();
+    });
+  }, [setLogoutHandler]);
 
   const handleLoginSuccess = () => {
     setAuthState('authenticated');

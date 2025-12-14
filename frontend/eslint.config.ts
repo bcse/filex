@@ -24,5 +24,11 @@ export default tseslint.config(
         { allowConstantExport: true },
       ],
     },
+  },
+  {
+    files: ["**/components/ui/**/*.tsx", "**/components/table/columns.tsx"],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
   }
 );

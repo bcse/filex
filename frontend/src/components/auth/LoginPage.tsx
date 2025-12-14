@@ -25,7 +25,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       } else {
         setError(result.error || 'Login failed');
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
