@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { useNavigationStore } from '@/stores/navigation';
 import { useDirectory, useRename, useMove, useCopy } from '@/hooks/useDirectory';
 import { useKeyboard } from '@/hooks/useKeyboard';
+import { useColumnResize } from '@/hooks/useColumnResize';
 import { columns } from './columns';
 import { FileContextMenu } from './FileContextMenu';
 import { api } from '@/api/client';
@@ -65,6 +66,8 @@ function sortEntries(entries: FileEntry[], field: SortField, order: SortOrder): 
 
 export function FileTable() {
   const parentRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const { handleResizeStart, getGridTemplate, getTotalWidth } = useColumnResize(columns);
   const {
     currentPath,
     setCurrentPath,
@@ -289,8 +292,9 @@ export function FileTable() {
     }
   }, [buildPath]);
 
-  const gridTemplate = columns.map(c => c.width).join(' ');
-  
+  const gridTemplate = getGridTemplate();
+  const totalWidth = getTotalWidth();
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -309,103 +313,122 @@ export function FileTable() {
   
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div
-        className="grid gap-2 px-2 py-2 border-b bg-muted/50 text-sm font-medium"
-        style={{ gridTemplateColumns: gridTemplate }}
-      >
-        {columns.map((column) => (
+      {/* Scrollable container */}
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto">
+        <div style={{ minWidth: totalWidth }}>
+          {/* Header */}
           <div
-            key={column.key}
-            className={cn(
-              'flex items-center gap-1',
-              column.sortable && 'cursor-pointer hover:text-foreground'
-            )}
-            onClick={() => column.sortable && column.key !== 'icon' && handleSort(column.key as SortField)}
+            className="grid px-2 py-2 border-b bg-muted/50 text-sm font-medium sticky top-0 z-10"
+            style={{ gridTemplateColumns: gridTemplate }}
           >
-            <span>{column.label}</span>
-            {column.sortable && sortConfig.field === column.key && (
-              sortConfig.order === 'asc' ? (
-                <ArrowUp className="w-3 h-3" />
-              ) : (
-                <ArrowDown className="w-3 h-3" />
-              )
-            )}
-          </div>
-        ))}
-      </div>
-      
-      {/* Body */}
-      <div ref={parentRef} className="flex-1 overflow-auto">
-        <div
-          style={{
-            height: `${rowVirtualizer.getTotalSize()}px`,
-            width: '100%',
-            position: 'relative',
-          }}
-        >
-          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-            const entry = normalizedEntries[virtualRow.index];
-            const resolvedPath = buildPath(entry);
-            const normalizedEntry = entry.path === resolvedPath ? entry : { ...entry, path: resolvedPath };
-            const isSelected = selectedFiles.has(resolvedPath);
-
-            return (
-              <FileContextMenu
-                key={resolvedPath}
-                entry={normalizedEntry}
-                onSelect={() => {
-                  if (!selectedFiles.has(resolvedPath)) {
-                    selectFile(resolvedPath);
-                  }
-                }}
+            {columns.map((column, index) => (
+              <div
+                key={column.key}
+                className="relative flex items-center"
               >
                 <div
                   className={cn(
-                    'grid gap-2 px-2 items-center text-sm border-b border-transparent hover:bg-accent cursor-pointer absolute top-0 left-0 w-full',
-                    isSelected && 'bg-accent',
-                    dropTarget === resolvedPath && 'bg-primary/20 border-primary border-2',
-                    draggedPaths.includes(resolvedPath) && 'opacity-50'
+                    'flex items-center gap-1 flex-1 truncate',
+                    column.sortable && 'cursor-pointer hover:text-foreground'
                   )}
-                  style={{
-                    gridTemplateColumns: gridTemplate,
-                    height: `${virtualRow.size}px`,
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                  onClick={(e) => handleRowClick(normalizedEntry, e)}
-                  onDoubleClick={() => handleRowDoubleClick(normalizedEntry)}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, normalizedEntry)}
-                  onDragEnd={handleDragEnd}
-                  onDragOver={(e) => handleDragOver(e, normalizedEntry)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, normalizedEntry)}
+                  onClick={() => column.sortable && column.key !== 'icon' && handleSort(column.key as SortField)}
                 >
-                  {columns.map((column) => (
-                    <div key={column.key} className="truncate">
-                      {column.render(normalizedEntry)}
-                    </div>
-                  ))}
+                  <span>{column.label}</span>
+                  {column.sortable && sortConfig.field === column.key && (
+                    sortConfig.order === 'asc' ? (
+                      <ArrowUp className="w-3 h-3 flex-shrink-0" />
+                    ) : (
+                      <ArrowDown className="w-3 h-3 flex-shrink-0" />
+                    )
+                  )}
                 </div>
-              </FileContextMenu>
-            );
-          })}
-        </div>
-        
-        {normalizedEntries.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-            <FolderOpen className="w-16 h-16 mb-4 opacity-30" />
-            <p className="text-lg font-medium mb-2">This folder is empty</p>
-            <p className="text-sm mb-4">Drag and drop files here to upload, or use the toolbar above</p>
-            <div className="flex gap-2 text-xs">
-              <kbd className="px-2 py-1 bg-muted rounded">Ctrl+V</kbd>
-              <span>to paste</span>
-              <span className="text-muted-foreground/50">|</span>
-              <kbd className="px-2 py-1 bg-muted rounded">Drop files</kbd>
-              <span>to upload</span>
-            </div>
+                {/* Resize handle */}
+                {index < columns.length - 1 && (
+                  <div
+                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 group"
+                    onMouseDown={(e) => handleResizeStart(column.key, e)}
+                  >
+                    <div className="absolute right-0 top-1 bottom-1 w-px bg-border group-hover:bg-primary" />
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-        )}
+
+          {/* Body */}
+          <div ref={parentRef}>
+            <div
+              style={{
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const entry = normalizedEntries[virtualRow.index];
+                const resolvedPath = buildPath(entry);
+                const normalizedEntry = entry.path === resolvedPath ? entry : { ...entry, path: resolvedPath };
+                const isSelected = selectedFiles.has(resolvedPath);
+
+                return (
+                  <FileContextMenu
+                    key={resolvedPath}
+                    entry={normalizedEntry}
+                    onSelect={() => {
+                      if (!selectedFiles.has(resolvedPath)) {
+                        selectFile(resolvedPath);
+                      }
+                    }}
+                  >
+                    <div
+                      className={cn(
+                        'grid px-2 items-center text-sm border-b border-transparent hover:bg-accent cursor-pointer absolute top-0 left-0',
+                        isSelected && 'bg-accent',
+                        dropTarget === resolvedPath && 'bg-primary/20 border-primary border-2',
+                        draggedPaths.includes(resolvedPath) && 'opacity-50'
+                      )}
+                      style={{
+                        gridTemplateColumns: gridTemplate,
+                        height: `${virtualRow.size}px`,
+                        transform: `translateY(${virtualRow.start}px)`,
+                        minWidth: totalWidth,
+                      }}
+                      onClick={(e) => handleRowClick(normalizedEntry, e)}
+                      onDoubleClick={() => handleRowDoubleClick(normalizedEntry)}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, normalizedEntry)}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={(e) => handleDragOver(e, normalizedEntry)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, normalizedEntry)}
+                    >
+                      {columns.map((column) => (
+                        <div key={column.key} className="truncate">
+                          {column.render(normalizedEntry)}
+                        </div>
+                      ))}
+                    </div>
+                  </FileContextMenu>
+                );
+              })}
+            </div>
+
+            {normalizedEntries.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+                <FolderOpen className="w-16 h-16 mb-4 opacity-30" />
+                <p className="text-lg font-medium mb-2">This folder is empty</p>
+                <p className="text-sm mb-4">Drag and drop files here to upload, or use the toolbar above</p>
+                <div className="flex gap-2 text-xs">
+                  <kbd className="px-2 py-1 bg-muted rounded">Ctrl+V</kbd>
+                  <span>to paste</span>
+                  <span className="text-muted-foreground/50">|</span>
+                  <kbd className="px-2 py-1 bg-muted rounded">Drop files</kbd>
+                  <span>to upload</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {dropPrompt && (
