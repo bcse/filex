@@ -17,6 +17,7 @@ interface TreeNodeProps {
 function TreeNode({ node, depth, parentPath, onDropPrompt }: TreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [userCollapsed, setUserCollapsed] = useState(false);
   const { currentPath, setCurrentPath } = useNavigationStore();
   const itemRef = useRef<HTMLDivElement>(null);
@@ -63,6 +64,17 @@ function TreeNode({ node, depth, parentPath, onDropPrompt }: TreeNodeProps) {
     setCurrentPath(normalizedPath, { exitSearch: true });
   };
 
+  const handleDragStart = useCallback((e: React.DragEvent) => {
+    e.stopPropagation();
+    setIsDragging(true);
+    e.dataTransfer.effectAllowed = 'copyMove';
+    e.dataTransfer.setData('application/x-file-paths', JSON.stringify([normalizedPath]));
+  }, [normalizedPath]);
+
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (e.dataTransfer.types.includes('application/x-file-paths')) {
       e.preventDefault();
@@ -85,7 +97,10 @@ function TreeNode({ node, depth, parentPath, onDropPrompt }: TreeNodeProps) {
     try {
       const paths: string[] = JSON.parse(data);
 
+      // Don't allow dropping onto self or any ancestor
       if (paths.includes(normalizedPath)) return;
+      // Don't allow dropping a folder into its own descendant
+      if (paths.some(p => normalizedPath.startsWith(`${p}/`))) return;
 
       onDropPrompt(paths, normalizedPath, e.clientX, e.clientY);
     } catch (error) {
@@ -128,10 +143,14 @@ function TreeNode({ node, depth, parentPath, onDropPrompt }: TreeNodeProps) {
         className={cn(
           'flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-accent rounded-sm',
           isSelected && 'bg-accent',
-          isDragOver && 'bg-primary/20 ring-2 ring-primary'
+          isDragOver && 'bg-primary/20 ring-2 ring-primary',
+          isDragging && 'opacity-50'
         )}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
         onClick={handleSelect}
+        draggable
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
