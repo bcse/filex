@@ -57,7 +57,6 @@ pub async fn rename_path(
 pub async fn search_files(
     pool: &SqlitePool,
     query: &str,
-    limit: i32,
 ) -> Result<Vec<IndexedFileRow>, sqlx::Error> {
     let fts_query = build_fts_query(query);
 
@@ -73,11 +72,9 @@ pub async fn search_files(
         JOIN files_fts fts ON f.id = fts.rowid
         WHERE files_fts MATCH ?
         ORDER BY rank
-        LIMIT ?
         "#,
     )
     .bind(fts_query)
-    .bind(limit)
     .fetch_all(pool)
     .await?;
 

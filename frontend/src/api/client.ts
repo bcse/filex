@@ -39,9 +39,11 @@ export const api = {
   },
 
   // Search
-  async search(query: string, limit: number = 50): Promise<ListResponse> {
-    const params = new URLSearchParams({ q: query, limit: String(limit) });
-    const response = await fetch(`${API_BASE}/search?${params}`);
+  async search(query: string, options: { signal?: AbortSignal } = {}): Promise<ListResponse> {
+    const params = new URLSearchParams({ q: query });
+    const response = await fetch(`${API_BASE}/search?${params}`, {
+      signal: options.signal,
+    });
     return handleResponse(response);
   },
 

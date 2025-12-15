@@ -1,15 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+
 import { api } from '@/api/client';
-import { useDeferredValue } from 'react';
 
 export function useSearch(query: string, enabled = true) {
-  // Debounce the query
-  const deferredQuery = useDeferredValue(query);
-  
+  const [debouncedQuery, setDebouncedQuery] = useState(query);
+
+  // Debounce to avoid hammering the API while the user is typing
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(handle);
+  }, [query]);
+
   return useQuery({
-    queryKey: ['search', deferredQuery],
-    queryFn: () => api.search(deferredQuery),
-    enabled: enabled && deferredQuery.length >= 2,
+    queryKey: ['search', debouncedQuery],
+    queryFn: ({ signal }) => api.search(debouncedQuery, { signal }),
+    enabled: enabled && debouncedQuery.length >= 2,
     staleTime: 60_000,
   });
 }

@@ -11,24 +11,9 @@ use crate::api::{AppState, ErrorResponse};
 use crate::db;
 use crate::models::FileEntry;
 
-/// Default number of results returned when a search limit is not provided by the client.
-const DEFAULT_LIMIT: i32 = 50;
-
-/// Minimum allowed limit so every query returns at least one result when possible.
-const MIN_LIMIT: i32 = 1;
-
-/// Upper bound for a single search request to avoid expensive database queries.
-const MAX_LIMIT: i32 = 500;
-
 #[derive(Debug, Deserialize)]
 pub struct SearchQuery {
     pub q: String,
-    #[serde(default = "default_limit")]
-    pub limit: i32,
-}
-
-fn default_limit() -> i32 {
-    DEFAULT_LIMIT
 }
 
 /// Search files by path
@@ -45,18 +30,14 @@ pub async fn search_files(
         ));
     }
 
-    let limit = query.limit.clamp(MIN_LIMIT, MAX_LIMIT);
-
-    let results = db::search_files(&state.pool, &query.q, limit)
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: e.to_string(),
-                }),
-            )
-        })?;
+    let results = db::search_files(&state.pool, &query.q).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: e.to_string(),
+            }),
+        )
+    })?;
 
     let entries: Vec<FileEntry> = results.into_iter().map(FileEntry::from).collect();
 
@@ -111,7 +92,6 @@ mod tests {
             State(state),
             Query(SearchQuery {
                 q: "   ".to_string(),
-                limit: 10,
             }),
         )
         .await
@@ -121,11 +101,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn search_returns_results_with_limit_clamped() {
+    async fn search_returns_all_results() {
         let (state, _tmp) = test_state().await;
 
-        // Seed two rows that match "report"
-        for path in ["/docs/report1.txt", "/docs/report2.txt"] {
+        // Seed rows that match "report"
+        for path in [
+            "/docs/report1.txt",
+            "/docs/report2.txt",
+            "/docs/reports/2024-summary.txt",
+        ] {
             let indexed = crate::models::IndexedFileRow {
                 id: 0,
                 path: path.to_string(),
@@ -151,19 +135,16 @@ mod tests {
             State(state.clone()),
             Query(SearchQuery {
                 q: "report".to_string(),
-                limit: 0,
             }),
         )
         .await
         .unwrap();
 
-        // Should return at least one result, but capped by clamp(min=1)
-        assert!(!resp.0.entries.is_empty());
-        assert!(
-            resp.0
-                .entries
-                .iter()
-                .any(|r| r.path == "/docs/report1.txt" || r.path == "/docs/report2.txt")
-        );
+        // Should include all three seeded rows
+        let paths: Vec<_> = resp.0.entries.iter().map(|e| e.path.clone()).collect();
+        assert_eq!(paths.len(), 3);
+        assert!(paths.contains(&"/docs/report1.txt".to_string()));
+        assert!(paths.contains(&"/docs/report2.txt".to_string()));
+        assert!(paths.contains(&"/docs/reports/2024-summary.txt".to_string()));
     }
 }
