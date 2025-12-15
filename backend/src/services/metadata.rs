@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use std::path::Path;
+use std::process::Stdio;
 use std::time::Duration;
 use thiserror::Error;
 use tokio::process::Command;
@@ -61,6 +62,8 @@ impl MetadataService {
         let mut command = Command::new("ffprobe");
         command
             .kill_on_drop(true)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .args([
                 "-v",
                 "quiet",
