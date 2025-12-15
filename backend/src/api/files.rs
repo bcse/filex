@@ -26,6 +26,14 @@ const FILENAME_ENCODE_SET: &AsciiSet = &CONTROLS
 use crate::api::{AppState, ErrorResponse};
 use crate::db;
 
+fn status_for_fs_error(e: &crate::services::filesystem::FsError) -> StatusCode {
+    match e {
+        crate::services::filesystem::FsError::NotFound(_) => StatusCode::NOT_FOUND,
+        crate::services::filesystem::FsError::PermissionDenied(_) => StatusCode::FORBIDDEN,
+        _ => StatusCode::INTERNAL_SERVER_ERROR,
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct CreateDirRequest {
     pub path: String,
@@ -81,7 +89,7 @@ pub async fn create_directory(
 ) -> Result<Json<SuccessResponse>, (StatusCode, Json<ErrorResponse>)> {
     state.fs.create_directory(&req.path).map_err(|e| {
         (
-            StatusCode::INTERNAL_SERVER_ERROR,
+            status_for_fs_error(&e),
             Json(ErrorResponse {
                 error: e.to_string(),
             }),
@@ -116,7 +124,7 @@ pub async fn rename(
 
     let new_path = state.fs.rename(&req.path, &req.new_name).map_err(|e| {
         (
-            StatusCode::INTERNAL_SERVER_ERROR,
+            status_for_fs_error(&e),
             Json(ErrorResponse {
                 error: e.to_string(),
             }),
@@ -152,7 +160,7 @@ pub async fn move_entry(
         .move_entry(&req.from, &req.to, req.overwrite)
         .map_err(|e| {
             (
-                StatusCode::INTERNAL_SERVER_ERROR,
+                status_for_fs_error(&e),
                 Json(ErrorResponse {
                     error: e.to_string(),
                 }),
@@ -201,13 +209,8 @@ pub async fn copy_entry(
         .fs
         .copy_entry(&req.from, &req.to, req.overwrite)
         .map_err(|e| {
-            let status = match &e {
-                crate::services::filesystem::FsError::NotFound(_) => StatusCode::NOT_FOUND,
-                crate::services::filesystem::FsError::PermissionDenied(_) => StatusCode::FORBIDDEN,
-                _ => StatusCode::INTERNAL_SERVER_ERROR,
-            };
             (
-                status,
+                status_for_fs_error(&e),
                 Json(ErrorResponse {
                     error: e.to_string(),
                 }),
@@ -235,13 +238,8 @@ pub async fn delete(
     Json(req): Json<DeleteRequest>,
 ) -> Result<Json<SuccessResponse>, (StatusCode, Json<ErrorResponse>)> {
     state.fs.delete(&req.path).map_err(|e| {
-        let status = match &e {
-            crate::services::filesystem::FsError::NotFound(_) => StatusCode::NOT_FOUND,
-            crate::services::filesystem::FsError::PermissionDenied(_) => StatusCode::FORBIDDEN,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        };
         (
-            status,
+            status_for_fs_error(&e),
             Json(ErrorResponse {
                 error: e.to_string(),
             }),
