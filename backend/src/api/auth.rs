@@ -8,7 +8,6 @@ use axum::{
 };
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -49,10 +48,8 @@ impl AuthState {
 
     /// Generate a new session token
     pub fn generate_token() -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(uuid::Uuid::new_v4().to_string().as_bytes());
-        hasher.update(Instant::now().elapsed().as_nanos().to_le_bytes());
-        hex::encode(hasher.finalize())
+        // Use a UUID v4 directly for 122 bits of randomness; no additional hashing needed
+        uuid::Uuid::new_v4().as_simple().to_string()
     }
 
     /// Create a new session and return the token
