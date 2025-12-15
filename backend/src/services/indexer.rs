@@ -72,23 +72,18 @@ impl IndexerService {
 
     /// Run a full index of all files
     pub async fn run_full_index(&self) -> Result<IndexStats, anyhow::Error> {
-        // Check if already running
-        {
-            let mut running = self.is_running.write().await;
-            if *running {
-                warn!("Indexer already running, skipping");
-                return Ok(IndexStats::default());
-            }
-            *running = true;
+        // Serialize runs to avoid overlapping index passes.
+        let mut running = self.is_running.write().await;
+        if *running {
+            warn!("Indexer already running, skipping");
+            return Ok(IndexStats::default());
         }
+        *running = true;
 
         let stats = self.do_index().await;
 
         // Mark as not running
-        {
-            let mut running = self.is_running.write().await;
-            *running = false;
-        }
+        *running = false;
 
         stats
     }
