@@ -106,6 +106,7 @@ impl FilesystemService {
             };
 
             entries.push(FileEntry {
+                id: None,
                 name: entry.file_name().to_string_lossy().to_string(),
                 path: relative,
                 is_dir: metadata.is_dir(),
@@ -120,6 +121,7 @@ impl FilesystemService {
                 width: None,
                 height: None,
                 duration: None,
+                indexed_at: None,
             });
         }
 
@@ -167,7 +169,6 @@ impl FilesystemService {
                 name: entry.file_name().to_string_lossy().to_string(),
                 path: relative,
                 has_children,
-                children: None,
             });
         }
 

@@ -1,4 +1,4 @@
-use crate::models::IndexedFile;
+use crate::models::IndexedFileRow;
 use sqlx::sqlite::SqlitePool;
 
 /// Delete a file or directory (and its children) from the index
@@ -55,7 +55,7 @@ pub async fn search_files(
     pool: &SqlitePool,
     query: &str,
     limit: i32,
-) -> Result<Vec<IndexedFile>, sqlx::Error> {
+) -> Result<Vec<IndexedFileRow>, sqlx::Error> {
     let fts_query = build_fts_query(query);
 
     if fts_query.is_empty() {
@@ -63,7 +63,7 @@ pub async fn search_files(
     }
 
     // Use FTS5 for fast full-text search
-    let results = sqlx::query_as::<_, IndexedFile>(
+    let results = sqlx::query_as::<_, IndexedFileRow>(
         r#"
         SELECT f.* 
         FROM indexed_files f
@@ -113,7 +113,7 @@ fn build_fts_query(raw: &str) -> String {
 pub async fn get_metadata_for_paths(
     pool: &SqlitePool,
     paths: &[String],
-) -> Result<Vec<IndexedFile>, sqlx::Error> {
+) -> Result<Vec<IndexedFileRow>, sqlx::Error> {
     if paths.is_empty() {
         return Ok(vec![]);
     }
@@ -125,7 +125,7 @@ pub async fn get_metadata_for_paths(
         placeholders.join(", ")
     );
 
-    let mut query_builder = sqlx::query_as::<_, IndexedFile>(&query);
+    let mut query_builder = sqlx::query_as::<_, IndexedFileRow>(&query);
     for path in paths {
         query_builder = query_builder.bind(path);
     }
@@ -149,7 +149,7 @@ pub async fn get_file_by_path(
 }
 
 /// Upsert a file record
-pub async fn upsert_file(pool: &SqlitePool, file: &IndexedFile) -> Result<(), sqlx::Error> {
+pub async fn upsert_file(pool: &SqlitePool, file: &IndexedFileRow) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
         INSERT INTO indexed_files (path, name, is_dir, size, created_at, modified_at, mime_type, width, height, duration, metadata_status, indexed_at)

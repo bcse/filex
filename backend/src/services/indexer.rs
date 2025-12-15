@@ -9,7 +9,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::config::Config;
 use crate::db;
-use crate::models::IndexedFile;
+use crate::models::IndexedFileRow;
 use crate::services::metadata::MetadataService;
 
 const STATUS_PENDING: &str = "pending";
@@ -177,7 +177,7 @@ impl IndexerService {
             // Reset metadata for changed files; fill in second pass
             let (width, height, duration) = (None, None, None);
 
-            let indexed_file = IndexedFile {
+            let indexed_file = IndexedFileRow {
                 id: 0, // Will be set by DB
                 path: relative_path,
                 name,

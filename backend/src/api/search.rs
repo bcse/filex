@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use crate::api::{AppState, ErrorResponse};
 use crate::db;
-use crate::models::IndexedFile;
+use crate::models::FileEntry;
 
 /// Default number of results returned when a search limit is not provided by the client.
 const DEFAULT_LIMIT: i32 = 50;
@@ -33,7 +33,7 @@ fn default_limit() -> i32 {
 #[derive(Debug, Serialize)]
 pub struct SearchResponse {
     pub query: String,
-    pub results: Vec<IndexedFile>,
+    pub results: Vec<FileEntry>,
     pub count: usize,
 }
 
@@ -64,6 +64,7 @@ pub async fn search_files(
             )
         })?;
 
+    let results: Vec<FileEntry> = results.into_iter().map(FileEntry::from).collect();
     let count = results.len();
 
     Ok(Json(SearchResponse {
