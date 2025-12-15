@@ -5,10 +5,23 @@ use axum::{
     http::StatusCode,
     response::Response,
 };
+use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::fs::File;
 use tokio_util::io::ReaderStream;
+
+// Encode filenames for Content-Disposition to avoid header injection.
+const FILENAME_ENCODE_SET: &AsciiSet = &CONTROLS
+    .add(b' ')
+    .add(b'\"')
+    .add(b'\\')
+    .add(b'\'')
+    .add(b';')
+    .add(b'%')
+    .add(b'\n')
+    .add(b'\r')
+    .add(b'\t');
 
 use crate::api::{AppState, ErrorResponse};
 use crate::db;
@@ -280,6 +293,7 @@ pub async fn download(
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("download");
+    let encoded_filename = utf8_percent_encode(filename, FILENAME_ENCODE_SET).to_string();
 
     let mime = mime_guess::from_path(&resolved)
         .first_or_octet_stream()
@@ -290,7 +304,7 @@ pub async fn download(
         .header("Content-Type", mime)
         .header(
             "Content-Disposition",
-            format!("attachment; filename=\"{}\"", filename),
+            format!("attachment; filename*=UTF-8''{}", encoded_filename),
         )
         .body(body)
         .unwrap())
