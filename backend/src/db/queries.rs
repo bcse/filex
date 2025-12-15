@@ -122,19 +122,31 @@ pub async fn get_metadata_for_paths(
         return Ok(vec![]);
     }
 
-    // Build placeholders for IN clause
-    let placeholders: Vec<_> = (0..paths.len()).map(|i| format!("?{}", i + 1)).collect();
-    let query = format!(
-        "SELECT * FROM indexed_files WHERE path IN ({})",
-        placeholders.join(", ")
-    );
+    // SQLite defaults to 999 bound parameters. Chunk large IN clauses to stay
+    // under that limit and avoid runtime errors when browsing directories with
+    // many entries.
+    const SQLITE_MAX_VARIABLES: usize = 999;
+    const IN_CLAUSE_HEADROOM: usize = 50;
+    let chunk_size = (SQLITE_MAX_VARIABLES - IN_CLAUSE_HEADROOM).max(1);
 
-    let mut query_builder = sqlx::query_as::<_, IndexedFileRow>(&query);
-    for path in paths {
-        query_builder = query_builder.bind(path);
+    let mut rows = Vec::new();
+
+    for chunk in paths.chunks(chunk_size) {
+        let placeholders = vec!["?"; chunk.len()].join(", ");
+        let query = format!(
+            "SELECT * FROM indexed_files WHERE path IN ({})",
+            placeholders
+        );
+
+        let mut query_builder = sqlx::query_as::<_, IndexedFileRow>(&query);
+        for path in chunk {
+            query_builder = query_builder.bind(path);
+        }
+
+        rows.extend(query_builder.fetch_all(pool).await?);
     }
 
-    query_builder.fetch_all(pool).await
+    Ok(rows)
 }
 
 /// Get size, last-modified value, and metadata status for a path, returning
@@ -233,4 +245,46 @@ pub async fn remove_missing_files(
             .await?;
 
     Ok(result.rows_affected())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+    use sqlx::sqlite::SqlitePoolOptions;
+
+    #[tokio::test]
+    async fn get_metadata_for_paths_batches_under_sqlite_variable_limit() {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        crate::db::init_db(&pool).await.unwrap();
+
+        let total = 1_100; // > SQLite's 999 variable limit
+        for i in 0..total {
+            let path = format!("/file{i}.txt");
+            let row = IndexedFileRow {
+                id: 0,
+                path: path.clone(),
+                name: format!("file{i}.txt"),
+                is_dir: false,
+                size: Some(0),
+                created_at: None,
+                modified_at: None,
+                mime_type: None,
+                width: Some(100 + i as i32),
+                height: None,
+                duration: None,
+                metadata_status: "complete".to_string(),
+                indexed_at: Utc::now().to_rfc3339(),
+            };
+            upsert_file(&pool, &row).await.unwrap();
+        }
+
+        let paths: Vec<String> = (0..total).map(|i| format!("/file{i}.txt")).collect();
+        let rows = get_metadata_for_paths(&pool, &paths).await.unwrap();
+        assert_eq!(rows.len(), total);
+    }
 }
