@@ -226,3 +226,85 @@ pub async fn auth_middleware(
     // No valid session - return 401
     (StatusCode::UNAUTHORIZED, "Authentication required").into_response()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{
+        Router,
+        body::Body,
+        http::{Request, StatusCode},
+        middleware,
+        routing::get,
+    };
+    use std::sync::Arc;
+    use tower::ServiceExt;
+
+    fn auth_config(enabled: bool) -> AuthConfig {
+        AuthConfig {
+            enabled,
+            password: if enabled {
+                Some("secret".to_string())
+            } else {
+                None
+            },
+            session_timeout_secs: 60,
+            cookie_name: "fm_session".to_string(),
+        }
+    }
+
+    fn app_with_auth(state: Arc<AuthState>) -> Router {
+        Router::new()
+            .route("/protected", get(|| async { StatusCode::OK }))
+            .with_state(state.clone())
+            .layer(middleware::from_fn_with_state(state, auth_middleware))
+    }
+
+    #[tokio::test]
+    async fn middleware_allows_valid_session() {
+        let state = Arc::new(AuthState::new(auth_config(true)));
+        let cookie_name = state.config.cookie_name.clone();
+        let token = state.create_session().await;
+
+        let app = app_with_auth(state.clone());
+        let request = Request::builder()
+            .method("GET")
+            .uri("/protected")
+            .header("cookie", format!("{}={}", cookie_name, token))
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn middleware_rejects_missing_session() {
+        let state = Arc::new(AuthState::new(auth_config(true)));
+        let app = app_with_auth(state);
+
+        let request = Request::builder()
+            .method("GET")
+            .uri("/protected")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn middleware_bypasses_when_disabled() {
+        let state = Arc::new(AuthState::new(auth_config(false)));
+        let app = app_with_auth(state);
+
+        let request = Request::builder()
+            .method("GET")
+            .uri("/protected")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+}

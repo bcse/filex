@@ -73,3 +73,97 @@ pub async fn search_files(
         count,
     }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::services::FilesystemService;
+    use chrono::Utc;
+    use sqlx::sqlite::SqlitePoolOptions;
+    use std::fs;
+    use tempfile::tempdir;
+
+    async fn test_state() -> (Arc<AppState>, tempfile::TempDir) {
+        let tmp = tempdir().expect("tempdir created");
+        let root = tmp.path().join("root");
+        fs::create_dir(&root).unwrap();
+
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        crate::db::init_db(&pool).await.unwrap();
+
+        let state = Arc::new(AppState {
+            fs: FilesystemService::new(root),
+            pool,
+        });
+
+        (state, tmp)
+    }
+
+    #[tokio::test]
+    async fn search_rejects_empty_query() {
+        let (state, _tmp) = test_state().await;
+
+        let err = search_files(
+            State(state),
+            Query(SearchQuery {
+                q: "   ".to_string(),
+                limit: 10,
+            }),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err.0, StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn search_returns_results_with_limit_clamped() {
+        let (state, _tmp) = test_state().await;
+
+        // Seed two rows that match "report"
+        for path in ["/docs/report1.txt", "/docs/report2.txt"] {
+            let indexed = crate::models::IndexedFileRow {
+                id: 0,
+                path: path.to_string(),
+                name: path.split('/').last().unwrap().to_string(),
+                is_dir: false,
+                size: Some(5),
+                created_at: None,
+                modified_at: None,
+                mime_type: Some("text/plain".to_string()),
+                width: None,
+                height: None,
+                duration: None,
+                metadata_status: "complete".to_string(),
+                indexed_at: Utc::now().to_rfc3339(),
+            };
+            crate::db::upsert_file(&state.pool, &indexed)
+                .await
+                .expect("seed index");
+        }
+
+        // Request limit below MIN_LIMIT to ensure clamp kicks in
+        let resp = search_files(
+            State(state.clone()),
+            Query(SearchQuery {
+                q: "report".to_string(),
+                limit: 0,
+            }),
+        )
+        .await
+        .unwrap();
+
+        // Should return at least one result, but capped by clamp(min=1)
+        assert!(resp.0.count >= 1);
+        assert!(
+            resp.0
+                .results
+                .iter()
+                .any(|r| r.path == "/docs/report1.txt" || r.path == "/docs/report2.txt")
+        );
+    }
+}

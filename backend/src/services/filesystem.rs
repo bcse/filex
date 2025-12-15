@@ -377,3 +377,90 @@ impl FilesystemService {
         Ok(candidate)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    fn service_with_root() -> (FilesystemService, tempfile::TempDir, PathBuf) {
+        let tmp = tempdir().expect("tempdir should create");
+        let root = tmp.path().join("root");
+        fs::create_dir(&root).unwrap();
+        (FilesystemService::new(root.clone()), tmp, root)
+    }
+
+    #[test]
+    fn resolve_path_rejects_escape_and_allows_root() -> Result<(), FsError> {
+        let (service, tmp, root) = service_with_root();
+
+        // Outside directory to ensure canonicalization succeeds
+        let outside = tmp.path().join("outside");
+        fs::create_dir(&outside).unwrap();
+
+        let root_path = service.resolve_path("/")?;
+        assert_eq!(root_path, root.canonicalize().unwrap());
+
+        let err = service.resolve_path("../outside").unwrap_err();
+        assert!(matches!(err, FsError::PathEscape));
+
+        Ok(())
+    }
+
+    #[test]
+    fn basic_file_operations_work() -> Result<(), FsError> {
+        let (service, _tmp, root) = service_with_root();
+
+        service.create_directory("/new_dir")?;
+        let nested_dir = root.join("new_dir");
+        assert!(nested_dir.exists());
+
+        let file_path = nested_dir.join("file.txt");
+        fs::write(&file_path, b"hello").unwrap();
+
+        let renamed_path = service.rename("/new_dir/file.txt", "renamed.txt")?;
+        assert_eq!(renamed_path, "/new_dir/renamed.txt");
+        assert!(nested_dir.join("renamed.txt").exists());
+
+        service.delete("/new_dir/renamed.txt")?;
+        assert!(!nested_dir.join("renamed.txt").exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn move_and_copy_respect_overwrite() -> Result<(), FsError> {
+        let (service, _tmp, root) = service_with_root();
+        let dir_a = root.join("a");
+        let dir_b = root.join("b");
+        fs::create_dir_all(&dir_a).unwrap();
+        fs::create_dir_all(&dir_b).unwrap();
+
+        let source_file = dir_a.join("file.txt");
+        fs::write(&source_file, b"from_a").unwrap();
+
+        let dest_file = dir_b.join("file.txt");
+        fs::write(&dest_file, b"existing").unwrap();
+
+        let result = service.move_entry("/a/file.txt", "/b", false)?;
+        assert!(!result.performed);
+        assert!(source_file.exists());
+        assert_eq!(fs::read_to_string(&dest_file).unwrap(), "existing");
+
+        let result = service.move_entry("/a/file.txt", "/b", true)?;
+        assert!(result.performed);
+        assert!(!source_file.exists());
+        assert_eq!(fs::read_to_string(&dest_file).unwrap(), "from_a");
+
+        let dest_dir = root.join("c");
+        fs::create_dir_all(&dest_dir).unwrap();
+        // Copy the file back into a new directory
+        let result = service.copy_entry("/b/file.txt", "/c/copied.txt", false)?;
+        assert!(result.performed);
+        let copied_file = root.join("c").join("copied.txt");
+        assert_eq!(fs::read_to_string(&copied_file).unwrap(), "from_a");
+
+        Ok(())
+    }
+}

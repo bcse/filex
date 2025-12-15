@@ -404,3 +404,373 @@ pub async fn upload(
         performed: None,
     }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::services::FilesystemService;
+    use axum::Router;
+    use axum::body::Body;
+    use axum::extract::State;
+    use axum::http::{Request, StatusCode, header};
+    use chrono::Utc;
+    use sqlx::sqlite::SqlitePoolOptions;
+    use std::fs;
+    use tempfile::tempdir;
+    use tower::ServiceExt;
+
+    async fn test_state() -> (Arc<AppState>, tempfile::TempDir, std::path::PathBuf) {
+        let tmp = tempdir().expect("tempdir created");
+        let root = tmp.path().join("root");
+        fs::create_dir(&root).unwrap();
+
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        crate::db::init_db(&pool).await.unwrap();
+
+        let state = Arc::new(AppState {
+            fs: FilesystemService::new(root.clone()),
+            pool,
+        });
+
+        (state, tmp, root)
+    }
+
+    #[tokio::test]
+    async fn rename_updates_filesystem_and_index() {
+        let (state, _tmp, root) = test_state().await;
+        let original = root.join("old.txt");
+        fs::write(&original, b"hello").unwrap();
+
+        let indexed = crate::models::IndexedFileRow {
+            id: 0,
+            path: "/old.txt".to_string(),
+            name: "old.txt".to_string(),
+            is_dir: false,
+            size: Some(5),
+            created_at: None,
+            modified_at: None,
+            mime_type: Some("text/plain".to_string()),
+            width: None,
+            height: None,
+            duration: None,
+            metadata_status: "complete".to_string(),
+            indexed_at: Utc::now().to_rfc3339(),
+        };
+        crate::db::upsert_file(&state.pool, &indexed)
+            .await
+            .expect("seed index");
+
+        let resp = rename(
+            State(state.clone()),
+            Json(RenameRequest {
+                path: "/old.txt".to_string(),
+                new_name: "new.txt".to_string(),
+            }),
+        )
+        .await
+        .expect("rename should succeed");
+
+        assert_eq!(resp.0.path.as_deref(), Some("/new.txt"));
+        assert!(!original.exists());
+        assert!(root.join("new.txt").exists());
+
+        let count_old: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM indexed_files WHERE path = ?")
+                .bind("/old.txt")
+                .fetch_one(&state.pool)
+                .await
+                .unwrap();
+        let count_new: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM indexed_files WHERE path = ?")
+                .bind("/new.txt")
+                .fetch_one(&state.pool)
+                .await
+                .unwrap();
+
+        assert_eq!(count_old, 0);
+        assert_eq!(count_new, 1);
+    }
+
+    #[tokio::test]
+    async fn download_rejects_directories_and_sets_headers() {
+        let (state, _tmp, root) = test_state().await;
+        let file_path = root.join("file.txt");
+        fs::write(&file_path, b"hello").unwrap();
+
+        // Directory download should be rejected
+        let err = download(
+            State(state.clone()),
+            Query(DownloadQuery {
+                path: "/".to_string(),
+            }),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(err.0, StatusCode::BAD_REQUEST);
+
+        // Successful download returns headers
+        let response = download(
+            State(state.clone()),
+            Query(DownloadQuery {
+                path: "/file.txt".to_string(),
+            }),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let headers = response.headers();
+        assert_eq!(headers.get(header::CONTENT_TYPE).unwrap(), "text/plain");
+        let disposition = headers.get(header::CONTENT_DISPOSITION).unwrap();
+        assert!(
+            disposition
+                .to_str()
+                .unwrap()
+                .contains("filename*=UTF-8''file.txt")
+        );
+    }
+
+    #[tokio::test]
+    async fn upload_rejects_missing_directory_and_missing_filename() {
+        let (state, _tmp, root) = test_state().await;
+        // Build an app route for upload to drive the Multipart extractor
+        let app = Router::new()
+            .route("/upload/*path", axum::routing::post(upload))
+            .with_state(state.clone());
+
+        // Target that doesn't exist
+        let boundary = "BOUNDARY123";
+        let body_stream = Body::from(format!("--{boundary}--"));
+        let request = Request::builder()
+            .method("POST")
+            .uri("/upload/missing")
+            .header(
+                "content-type",
+                format!("multipart/form-data; boundary={boundary}"),
+            )
+            .body(body_stream)
+            .unwrap();
+        let response = app.clone().oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        // Existing target but missing filename in part
+        fs::create_dir_all(root.join("dir")).unwrap();
+        let boundary = "BOUNDARY456";
+        let body_stream = Body::from(format!(
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"field\"\r\n\r\ndata\r\n--{boundary}--"
+        ));
+        let request = Request::builder()
+            .method("POST")
+            .uri("/upload/dir")
+            .header(
+                "content-type",
+                format!("multipart/form-data; boundary={boundary}"),
+            )
+            .body(body_stream)
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn upload_succeeds_and_writes_file() {
+        let (state, _tmp, root) = test_state().await;
+        fs::create_dir_all(root.join("dir")).unwrap();
+
+        let app = Router::new()
+            .route("/upload/*path", axum::routing::post(upload))
+            .with_state(state.clone());
+
+        let boundary = "BOUNDARY789";
+        let body_stream = Body::from(format!(
+            "--{boundary}\r\n\
+             Content-Disposition: form-data; name=\"file\"; filename=\"hello.txt\"\r\n\
+             Content-Type: text/plain\r\n\r\n\
+             hello world\r\n\
+             --{boundary}--"
+        ));
+        let request = Request::builder()
+            .method("POST")
+            .uri("/upload/dir")
+            .header(
+                "content-type",
+                format!("multipart/form-data; boundary={boundary}"),
+            )
+            .body(body_stream)
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let uploaded = root.join("dir/hello.txt");
+        assert!(uploaded.exists());
+        assert_eq!(fs::read_to_string(uploaded).unwrap(), "hello world");
+    }
+
+    #[tokio::test]
+    async fn delete_removes_file_and_index_row() {
+        let (state, _tmp, root) = test_state().await;
+        let file_path = root.join("remove.txt");
+        fs::write(&file_path, b"bye").unwrap();
+
+        let indexed = crate::models::IndexedFileRow {
+            id: 0,
+            path: "/remove.txt".to_string(),
+            name: "remove.txt".to_string(),
+            is_dir: false,
+            size: Some(3),
+            created_at: None,
+            modified_at: None,
+            mime_type: Some("text/plain".to_string()),
+            width: None,
+            height: None,
+            duration: None,
+            metadata_status: "complete".to_string(),
+            indexed_at: Utc::now().to_rfc3339(),
+        };
+        crate::db::upsert_file(&state.pool, &indexed)
+            .await
+            .expect("seed index");
+
+        let _ = delete(
+            State(state.clone()),
+            Json(DeleteRequest {
+                path: "/remove.txt".to_string(),
+            }),
+        )
+        .await
+        .expect("delete ok");
+
+        assert!(!file_path.exists());
+        let remaining: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM indexed_files WHERE path = ?")
+                .bind("/remove.txt")
+                .fetch_one(&state.pool)
+                .await
+                .unwrap();
+        assert_eq!(remaining, 0);
+    }
+
+    #[tokio::test]
+    async fn move_endpoint_moves_and_updates_index() {
+        let (state, _tmp, root) = test_state().await;
+        fs::create_dir_all(root.join("from")).unwrap();
+        fs::create_dir_all(root.join("to")).unwrap();
+
+        let original = root.join("from/file.txt");
+        fs::write(&original, b"move me").unwrap();
+
+        let indexed = crate::models::IndexedFileRow {
+            id: 0,
+            path: "/from/file.txt".to_string(),
+            name: "file.txt".to_string(),
+            is_dir: false,
+            size: Some(7),
+            created_at: None,
+            modified_at: None,
+            mime_type: Some("text/plain".to_string()),
+            width: None,
+            height: None,
+            duration: None,
+            metadata_status: "complete".to_string(),
+            indexed_at: Utc::now().to_rfc3339(),
+        };
+        crate::db::upsert_file(&state.pool, &indexed)
+            .await
+            .expect("seed index");
+
+        let resp = move_entry(
+            State(state.clone()),
+            Json(MoveRequest {
+                from: "/from/file.txt".to_string(),
+                to: "/to".to_string(),
+                overwrite: false,
+            }),
+        )
+        .await
+        .expect("move should succeed");
+
+        assert_eq!(resp.0.path.as_deref(), Some("/to/file.txt"));
+        assert!(root.join("to/file.txt").exists());
+        assert!(!original.exists());
+
+        let count_old: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM indexed_files WHERE path = ?")
+                .bind("/from/file.txt")
+                .fetch_one(&state.pool)
+                .await
+                .unwrap();
+        let count_new: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM indexed_files WHERE path = ?")
+                .bind("/to/file.txt")
+                .fetch_one(&state.pool)
+                .await
+                .unwrap();
+        assert_eq!(count_old, 0);
+        assert_eq!(count_new, 1);
+    }
+
+    #[tokio::test]
+    async fn copy_endpoint_copies_and_leaves_index_unchanged() {
+        let (state, _tmp, root) = test_state().await;
+        fs::create_dir_all(root.join("from")).unwrap();
+        fs::create_dir_all(root.join("to")).unwrap();
+
+        let original = root.join("from/file.txt");
+        fs::write(&original, b"copy me").unwrap();
+
+        let indexed = crate::models::IndexedFileRow {
+            id: 0,
+            path: "/from/file.txt".to_string(),
+            name: "file.txt".to_string(),
+            is_dir: false,
+            size: Some(7),
+            created_at: None,
+            modified_at: None,
+            mime_type: Some("text/plain".to_string()),
+            width: None,
+            height: None,
+            duration: None,
+            metadata_status: "complete".to_string(),
+            indexed_at: Utc::now().to_rfc3339(),
+        };
+        crate::db::upsert_file(&state.pool, &indexed)
+            .await
+            .expect("seed index");
+
+        let resp = copy_entry(
+            State(state.clone()),
+            Json(CopyRequest {
+                from: "/from/file.txt".to_string(),
+                to: "/to".to_string(),
+                overwrite: false,
+            }),
+        )
+        .await
+        .expect("copy should succeed");
+
+        assert_eq!(resp.0.path.as_deref(), Some("/to/file.txt"));
+        assert!(root.join("to/file.txt").exists());
+        assert!(original.exists(), "source should remain");
+
+        // Index should remain unchanged; copy job is left for the indexer.
+        let count_original: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM indexed_files WHERE path = ?")
+                .bind("/from/file.txt")
+                .fetch_one(&state.pool)
+                .await
+                .unwrap();
+        let count_copied: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM indexed_files WHERE path = ?")
+                .bind("/to/file.txt")
+                .fetch_one(&state.pool)
+                .await
+                .unwrap();
+        assert_eq!(count_original, 1);
+        assert_eq!(count_copied, 0);
+    }
+}

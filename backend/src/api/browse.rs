@@ -93,3 +93,91 @@ pub async fn get_tree(
 
     Ok(Json(nodes))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::services::FilesystemService;
+    use chrono::Utc;
+    use sqlx::sqlite::SqlitePoolOptions;
+    use std::fs;
+    use tempfile::tempdir;
+
+    async fn test_state() -> (Arc<AppState>, tempfile::TempDir, std::path::PathBuf) {
+        let tmp = tempdir().expect("tempdir created");
+        let root = tmp.path().join("root");
+        fs::create_dir(&root).unwrap();
+
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        crate::db::init_db(&pool).await.unwrap();
+
+        let state = Arc::new(AppState {
+            fs: FilesystemService::new(root.clone()),
+            pool,
+        });
+
+        (state, tmp, root)
+    }
+
+    #[tokio::test]
+    async fn list_directory_enriches_with_indexed_metadata() {
+        let (state, _tmp, root) = test_state().await;
+        let file_path = root.join("video.mp4");
+        fs::write(&file_path, b"data").unwrap();
+
+        // Seed index row
+        let indexed = crate::models::IndexedFileRow {
+            id: 0,
+            path: "/video.mp4".to_string(),
+            name: "video.mp4".to_string(),
+            is_dir: false,
+            size: Some(4),
+            created_at: None,
+            modified_at: None,
+            mime_type: Some("video/mp4".to_string()),
+            width: Some(1920),
+            height: Some(1080),
+            duration: Some(12.5),
+            metadata_status: "complete".to_string(),
+            indexed_at: Utc::now().to_rfc3339(),
+        };
+        crate::db::upsert_file(&state.pool, &indexed).await.unwrap();
+
+        let resp = list_directory(
+            State(state.clone()),
+            Query(ListQuery {
+                path: Some("/".to_string()),
+            }),
+        )
+        .await
+        .unwrap();
+
+        let entries = resp.0.entries;
+        assert_eq!(entries.len(), 1);
+        let entry = &entries[0];
+        assert_eq!(entry.path, "/video.mp4");
+        assert_eq!(entry.width, Some(1920));
+        assert_eq!(entry.height, Some(1080));
+        assert_eq!(entry.duration, Some(12.5));
+    }
+
+    #[tokio::test]
+    async fn list_directory_maps_not_found_to_404() {
+        let (state, _tmp, _) = test_state().await;
+
+        let err = list_directory(
+            State(state),
+            Query(ListQuery {
+                path: Some("/missing".to_string()),
+            }),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err.0, StatusCode::NOT_FOUND);
+    }
+}
