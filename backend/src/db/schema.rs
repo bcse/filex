@@ -25,28 +25,18 @@ pub async fn init_db(pool: &SqlitePool) -> Result<(), Error> {
         CREATE INDEX IF NOT EXISTS idx_files_path ON indexed_files(path);
         CREATE INDEX IF NOT EXISTS idx_files_name ON indexed_files(name);
         CREATE INDEX IF NOT EXISTS idx_files_is_dir ON indexed_files(is_dir);
-        
-        -- Full-text search virtual table
-        CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(
-            path,
-            name,
-            content='indexed_files',
-            content_rowid='id'
-        );
-        
-        -- Triggers to keep FTS in sync
-        CREATE TRIGGER IF NOT EXISTS files_ai AFTER INSERT ON indexed_files BEGIN
-            INSERT INTO files_fts(rowid, path, name) VALUES (new.id, new.path, new.name);
-        END;
-        
-        CREATE TRIGGER IF NOT EXISTS files_ad AFTER DELETE ON indexed_files BEGIN
-            INSERT INTO files_fts(files_fts, rowid, path, name) VALUES('delete', old.id, old.path, old.name);
-        END;
-        
-        CREATE TRIGGER IF NOT EXISTS files_au AFTER UPDATE ON indexed_files BEGIN
-            INSERT INTO files_fts(files_fts, rowid, path, name) VALUES('delete', old.id, old.path, old.name);
-            INSERT INTO files_fts(rowid, path, name) VALUES (new.id, new.path, new.name);
-        END;
+        "#,
+    )
+    .execute(pool)
+    .await?;
+
+    // Cleanup legacy FTS artifacts if present
+    sqlx::query(
+        r#"
+        DROP TRIGGER IF EXISTS files_ai;
+        DROP TRIGGER IF EXISTS files_ad;
+        DROP TRIGGER IF EXISTS files_au;
+        DROP TABLE IF EXISTS files_fts;
         "#,
     )
     .execute(pool)

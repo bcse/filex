@@ -58,55 +58,50 @@ pub async fn search_files(
     pool: &SqlitePool,
     query: &str,
 ) -> Result<Vec<IndexedFileRow>, sqlx::Error> {
-    let fts_query = build_fts_query(query);
+    let tokens = tokenize_query(query);
 
-    if fts_query.is_empty() {
+    if tokens.is_empty() {
         return Ok(vec![]);
     }
 
-    // Use FTS5 for fast full-text search
-    let results = sqlx::query_as::<_, IndexedFileRow>(
+    let like_clause = build_like_clause(tokens.len());
+    let sql = format!(
         r#"
-        SELECT f.* 
-        FROM indexed_files f
-        JOIN files_fts fts ON f.id = fts.rowid
-        WHERE files_fts MATCH ?
-        ORDER BY rank
-        "#,
-    )
-    .bind(fts_query)
-    .fetch_all(pool)
-    .await?;
+        SELECT id, path, name, is_dir, size, created_at, modified_at, mime_type, width, height, duration, metadata_status, indexed_at
+        FROM indexed_files
+        WHERE {like_clause}
+        ORDER BY is_dir DESC, name
+        "#
+    );
+
+    let mut query_builder = sqlx::query_as::<_, IndexedFileRow>(&sql);
+
+    for token in tokens {
+        let pattern = format!("%{}%", token);
+        query_builder = query_builder.bind(pattern.clone()).bind(pattern);
+    }
+
+    let results = query_builder.fetch_all(pool).await?;
 
     Ok(results)
 }
 
-/// Build an FTS query that is order-agnostic and also matches concatenated tokens.
-fn build_fts_query(raw: &str) -> String {
-    let tokens: Vec<String> = raw
-        .split(|c: char| c.is_whitespace() || !c.is_alphanumeric())
+/// Tokenize a raw query string into lowercase alphanumeric tokens.
+fn tokenize_query(raw: &str) -> Vec<String> {
+    raw.split(|c: char| c.is_whitespace() || !c.is_alphanumeric())
         .filter(|t| !t.is_empty())
         .map(|t| t.to_lowercase())
-        .collect();
+        .collect()
+}
 
-    if tokens.is_empty() {
-        return String::new();
-    }
-
-    let order_agnostic = tokens
-        .iter()
-        .map(|t| format!("{}*", t))
+/// Build a SQL `LIKE` clause that requires all tokens to appear somewhere in
+/// the name or path, allowing substring matches (e.g., "john" matches
+/// "123johndoe").
+fn build_like_clause(token_count: usize) -> String {
+    (0..token_count)
+        .map(|_| "(LOWER(name) LIKE ? OR LOWER(path) LIKE ? )".to_string())
         .collect::<Vec<_>>()
-        .join(" AND ");
-
-    let mut clauses = vec![order_agnostic];
-
-    // Also match paths where the tokens are adjacent with no separators (e.g., "johndoe")
-    if tokens.len() > 1 {
-        clauses.push(format!("{}*", tokens.join("")));
-    }
-
-    clauses.join(" OR ")
+        .join(" AND ")
 }
 
 /// Retrieve media metadata rows for a set of paths; returns an empty list if

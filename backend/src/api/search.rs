@@ -147,4 +147,55 @@ mod tests {
         assert!(paths.contains(&"/docs/report2.txt".to_string()));
         assert!(paths.contains(&"/docs/reports/2024-summary.txt".to_string()));
     }
+
+    #[tokio::test]
+    async fn search_matches_substrings() {
+        let (state, _tmp) = test_state().await;
+
+        for path in [
+            "/people/john doe.txt",
+            "/people/johndoe.txt",
+            "/people/doe john.txt",
+            "/people/doejohn.txt",
+            "/people/123doejohn.txt",
+            "/people/123johndoe.txt",
+        ] {
+            let indexed = crate::models::IndexedFileRow {
+                id: 0,
+                path: path.to_string(),
+                name: path.split('/').last().unwrap().to_string(),
+                is_dir: false,
+                size: Some(1),
+                created_at: None,
+                modified_at: None,
+                mime_type: Some("text/plain".to_string()),
+                width: None,
+                height: None,
+                duration: None,
+                metadata_status: "complete".to_string(),
+                indexed_at: now_sqlite_timestamp(),
+            };
+            crate::db::upsert_file(&state.pool, &indexed)
+                .await
+                .expect("seed index");
+        }
+
+        let resp = search_files(
+            State(state.clone()),
+            Query(SearchQuery {
+                q: "john".to_string(),
+            }),
+        )
+        .await
+        .unwrap();
+
+        let paths: Vec<_> = resp.0.entries.iter().map(|e| e.path.clone()).collect();
+        assert_eq!(paths.len(), 6);
+        assert!(paths.contains(&"/people/john doe.txt".to_string()));
+        assert!(paths.contains(&"/people/johndoe.txt".to_string()));
+        assert!(paths.contains(&"/people/doe john.txt".to_string()));
+        assert!(paths.contains(&"/people/doejohn.txt".to_string()));
+        assert!(paths.contains(&"/people/123doejohn.txt".to_string()));
+        assert!(paths.contains(&"/people/123johndoe.txt".to_string()));
+    }
 }
