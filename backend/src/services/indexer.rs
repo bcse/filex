@@ -82,6 +82,11 @@ impl IndexerService {
         // Release lock so status checks remain non-blocking during indexing.
         drop(running);
 
+        // Vacuum the database before starting a fresh run to reclaim space and keep pages compact.
+        if let Err(err) = db::vacuum(&self.pool).await {
+            warn!("VACUUM before index run failed: {}", err);
+        }
+
         let stats = self.do_index().await;
 
         // Mark as not running

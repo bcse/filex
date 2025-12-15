@@ -239,6 +239,12 @@ pub async fn remove_missing_files(
     Ok(result.rows_affected())
 }
 
+/// Rebuild the SQLite database to reclaim free space and defragment pages.
+pub async fn vacuum(pool: &SqlitePool) -> Result<(), sqlx::Error> {
+    sqlx::query("VACUUM").execute(pool).await?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
