@@ -56,6 +56,12 @@ pub async fn search_files(
     query: &str,
     limit: i32,
 ) -> Result<Vec<IndexedFile>, sqlx::Error> {
+    let fts_query = build_fts_query(query);
+
+    if fts_query.is_empty() {
+        return Ok(vec![]);
+    }
+
     // Use FTS5 for fast full-text search
     let results = sqlx::query_as::<_, IndexedFile>(
         r#"
@@ -67,12 +73,40 @@ pub async fn search_files(
         LIMIT ?
         "#,
     )
-    .bind(format!("\"{}\"*", query.replace('"', "")))
+    .bind(fts_query)
     .bind(limit)
     .fetch_all(pool)
     .await?;
 
     Ok(results)
+}
+
+/// Build an FTS query that is order-agnostic and also matches concatenated tokens.
+fn build_fts_query(raw: &str) -> String {
+    let tokens: Vec<String> = raw
+        .split(|c: char| c.is_whitespace() || !c.is_alphanumeric())
+        .filter(|t| !t.is_empty())
+        .map(|t| t.to_lowercase())
+        .collect();
+
+    if tokens.is_empty() {
+        return String::new();
+    }
+
+    let order_agnostic = tokens
+        .iter()
+        .map(|t| format!("{}*", t))
+        .collect::<Vec<_>>()
+        .join(" AND ");
+
+    let mut clauses = vec![order_agnostic];
+
+    // Also match paths where the tokens are adjacent with no separators (e.g., "johndoe")
+    if tokens.len() > 1 {
+        clauses.push(format!("{}*", tokens.join("")));
+    }
+
+    clauses.join(" OR ")
 }
 
 /// Get media metadata for files in a directory (for enriching browse results)
