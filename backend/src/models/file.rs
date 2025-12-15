@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Represents a file or directory entry for browsing
@@ -74,9 +74,9 @@ impl From<IndexedFileRow> for FileEntry {
             width: row.width.map(|w| w as u32),
             height: row.height.map(|h| h as u32),
             duration: row.duration,
-            indexed_at: DateTime::parse_from_rfc3339(&row.indexed_at)
+            indexed_at: NaiveDateTime::parse_from_str(&row.indexed_at, "%Y-%m-%d %H:%M:%S")
                 .ok()
-                .map(|dt| dt.with_timezone(&Utc)),
+                .map(|dt| Utc.from_utc_datetime(&dt)),
         }
     }
 }

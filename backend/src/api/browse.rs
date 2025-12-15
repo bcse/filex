@@ -103,6 +103,13 @@ mod tests {
     use std::fs;
     use tempfile::tempdir;
 
+    fn now_sqlite_timestamp() -> String {
+        Utc::now()
+            .naive_utc()
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+    }
+
     async fn test_state() -> (Arc<AppState>, tempfile::TempDir, std::path::PathBuf) {
         let tmp = tempdir().expect("tempdir created");
         let root = tmp.path().join("root");
@@ -143,7 +150,7 @@ mod tests {
             height: Some(1080),
             duration: Some(12.5),
             metadata_status: "complete".to_string(),
-            indexed_at: Utc::now().to_rfc3339(),
+            indexed_at: now_sqlite_timestamp(),
         };
         crate::db::upsert_file(&state.pool, &indexed).await.unwrap();
 

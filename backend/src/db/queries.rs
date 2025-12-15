@@ -253,6 +253,13 @@ mod tests {
     use chrono::Utc;
     use sqlx::sqlite::SqlitePoolOptions;
 
+    fn now_sqlite_timestamp() -> String {
+        Utc::now()
+            .naive_utc()
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+    }
+
     #[tokio::test]
     async fn get_metadata_for_paths_batches_under_sqlite_variable_limit() {
         let pool = SqlitePoolOptions::new()
@@ -278,7 +285,7 @@ mod tests {
                 height: None,
                 duration: None,
                 metadata_status: "complete".to_string(),
-                indexed_at: Utc::now().to_rfc3339(),
+                indexed_at: now_sqlite_timestamp(),
             };
             upsert_file(&pool, &row).await.unwrap();
         }
