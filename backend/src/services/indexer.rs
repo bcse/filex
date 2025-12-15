@@ -79,10 +79,13 @@ impl IndexerService {
             return Ok(IndexStats::default());
         }
         *running = true;
+        // Release lock so status checks remain non-blocking during indexing.
+        drop(running);
 
         let stats = self.do_index().await;
 
         // Mark as not running
+        let mut running = self.is_running.write().await;
         *running = false;
 
         stats
