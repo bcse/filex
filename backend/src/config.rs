@@ -32,7 +32,7 @@ pub struct AuthConfig {
     /// Whether authentication is enabled
     pub enabled: bool,
 
-    /// Password for authentication (hashed with SHA-256)
+    /// Password for authentication (plaintext; taken directly from FM_AUTH_PASSWORD)
     pub password: Option<String>,
 
     /// Session timeout in seconds (default: 24 hours)
