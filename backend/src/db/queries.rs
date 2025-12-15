@@ -1,7 +1,8 @@
 use crate::models::IndexedFileRow;
 use sqlx::sqlite::SqlitePool;
 
-/// Delete a file or directory (and its children) from the index
+/// Delete a path and any of its descendants from the index, returning the
+/// number of rows removed.
 pub async fn delete_by_path(pool: &SqlitePool, path: &str) -> Result<u64, sqlx::Error> {
     let pattern = format!("{}/%", path.trim_end_matches('/'));
 
@@ -14,7 +15,8 @@ pub async fn delete_by_path(pool: &SqlitePool, path: &str) -> Result<u64, sqlx::
     Ok(result.rows_affected())
 }
 
-/// Rename a file or directory in the index (cascades to children for directories)
+/// Rename a path in the index and cascade the update to children if the target
+/// represents a directory. Returns the total number of affected rows.
 pub async fn rename_path(
     pool: &SqlitePool,
     old_path: &str,
@@ -50,7 +52,8 @@ pub async fn rename_path(
     Ok(affected)
 }
 
-/// Search files by path pattern
+/// Search indexed files using an order-agnostic full-text query built from the
+/// supplied path fragment.
 pub async fn search_files(
     pool: &SqlitePool,
     query: &str,
@@ -109,7 +112,8 @@ fn build_fts_query(raw: &str) -> String {
     clauses.join(" OR ")
 }
 
-/// Get media metadata for files in a directory (for enriching browse results)
+/// Retrieve media metadata rows for a set of paths; returns an empty list if
+/// the input slice is empty.
 pub async fn get_metadata_for_paths(
     pool: &SqlitePool,
     paths: &[String],
@@ -133,7 +137,8 @@ pub async fn get_metadata_for_paths(
     query_builder.fetch_all(pool).await
 }
 
-/// Get a file's size and modified_at for change detection
+/// Get size, last-modified value, and metadata status for a path, returning
+/// `None` when the path is not indexed.
 pub async fn get_file_by_path(
     pool: &SqlitePool,
     path: &str,
@@ -148,7 +153,8 @@ pub async fn get_file_by_path(
     Ok(row)
 }
 
-/// Upsert a file record
+/// Insert or update an indexed file row keyed by path, refreshing the
+/// `indexed_at` timestamp.
 pub async fn upsert_file(pool: &SqlitePool, file: &IndexedFileRow) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
@@ -185,7 +191,8 @@ pub async fn upsert_file(pool: &SqlitePool, file: &IndexedFileRow) -> Result<(),
     Ok(())
 }
 
-/// Update only the media metadata fields for a path
+/// Update the media metadata fields for an existing path and bump its
+/// `indexed_at` timestamp.
 pub async fn update_media_metadata(
     pool: &SqlitePool,
     path: &str,
@@ -212,7 +219,8 @@ pub async fn update_media_metadata(
     Ok(())
 }
 
-/// Remove files that no longer exist (cleanup)
+/// Remove rows for files that are no longer present on disk, returning the
+/// number of deleted records.
 pub async fn remove_missing_files(
     pool: &SqlitePool,
     existing_paths: &[String],

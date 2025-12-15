@@ -5,6 +5,8 @@ use thiserror::Error;
 
 use crate::models::{FileEntry, TreeNode};
 
+/// Error variants returned by `FilesystemService` when a requested path cannot
+/// be handled safely inside the configured root.
 #[derive(Error, Debug)]
 pub enum FsError {
     #[error("Path not found: {0}")]
@@ -23,16 +25,23 @@ pub enum FsError {
     Io(#[from] std::io::Error),
 }
 
+/// Provides file-management operations that are confined to a single root
+/// directory to prevent directory traversal or accidental access elsewhere on
+/// disk.
 pub struct FilesystemService {
     root: PathBuf,
 }
 
+/// Outcome of a move or copy operation, including whether it was executed and
+/// the resulting relative path if applicable.
 pub struct OperationResult {
     pub path: String,
     pub performed: bool,
 }
 
 impl FilesystemService {
+    /// Create a new service rooted at `root`, canonicalizing the path up front
+    /// so later resolution checks compare against a normalized base.
     pub fn new(root: PathBuf) -> Self {
         // Normalize the root path up front so relative paths strip correctly
         let root = root.canonicalize().unwrap_or(root);
@@ -135,7 +144,7 @@ impl FilesystemService {
         Ok(entries)
     }
 
-    /// Get directory tree for sidebar (single level, lazy loaded)
+    /// Get directory tree for sidebar (single level, lazy loaded).
     pub fn get_tree_node(&self, relative_path: &str) -> Result<Vec<TreeNode>, FsError> {
         let path = self.resolve_path(relative_path)?;
 
