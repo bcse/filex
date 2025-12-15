@@ -1,6 +1,5 @@
 import type {
   ListResponse,
-  SearchResponse,
   SuccessResponse,
   TreeNode,
   ErrorResponse,
@@ -40,7 +39,7 @@ export const api = {
   },
 
   // Search
-  async search(query: string, limit: number = 50): Promise<SearchResponse> {
+  async search(query: string, limit: number = 50): Promise<ListResponse> {
     const params = new URLSearchParams({ q: query, limit: String(limit) });
     const response = await fetch(`${API_BASE}/search?${params}`);
     return handleResponse(response);

@@ -27,12 +27,6 @@ export interface ListResponse {
   entries: FileEntry[];
 }
 
-export interface SearchResponse {
-  query: string;
-  results: FileEntry[];
-  count: number;
-}
-
 export interface ErrorResponse {
   error: string;
 }

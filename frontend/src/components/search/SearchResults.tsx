@@ -46,7 +46,7 @@ export function SearchResults() {
   });
 
   const rows = useMemo(() => {
-    const unsorted = (data?.results || []).map(toRow);
+    const unsorted = (data?.entries || []).map(toRow);
     const sorted = [...unsorted].sort((a, b) => {
       if (a.is_dir !== b.is_dir) {
         return a.is_dir ? -1 : 1;
@@ -76,7 +76,7 @@ export function SearchResults() {
       return sortConfig.order === 'asc' ? comparison : -comparison;
     });
     return sorted;
-  }, [data?.results, sortConfig]);
+  }, [data?.entries, sortConfig]);
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,

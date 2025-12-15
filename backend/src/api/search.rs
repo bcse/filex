@@ -3,9 +3,10 @@ use axum::{
     extract::{Query, State},
     http::StatusCode,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::sync::Arc;
 
+use crate::api::browse::ListResponse;
 use crate::api::{AppState, ErrorResponse};
 use crate::db;
 use crate::models::FileEntry;
@@ -30,18 +31,11 @@ fn default_limit() -> i32 {
     DEFAULT_LIMIT
 }
 
-#[derive(Debug, Serialize)]
-pub struct SearchResponse {
-    pub query: String,
-    pub results: Vec<FileEntry>,
-    pub count: usize,
-}
-
 /// Search files by path
 pub async fn search_files(
     State(state): State<Arc<AppState>>,
     Query(query): Query<SearchQuery>,
-) -> Result<Json<SearchResponse>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<Json<ListResponse>, (StatusCode, Json<ErrorResponse>)> {
     if query.q.trim().is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -64,13 +58,12 @@ pub async fn search_files(
             )
         })?;
 
-    let results: Vec<FileEntry> = results.into_iter().map(FileEntry::from).collect();
-    let count = results.len();
+    let entries: Vec<FileEntry> = results.into_iter().map(FileEntry::from).collect();
 
-    Ok(Json(SearchResponse {
-        query: query.q,
-        results,
-        count,
+    Ok(Json(ListResponse {
+        // Path field kept for response shape consistency with browse; search is not scoped to a single directory.
+        path: "/search".to_string(),
+        entries,
     }))
 }
 
@@ -165,10 +158,10 @@ mod tests {
         .unwrap();
 
         // Should return at least one result, but capped by clamp(min=1)
-        assert!(resp.0.count >= 1);
+        assert!(!resp.0.entries.is_empty());
         assert!(
             resp.0
-                .results
+                .entries
                 .iter()
                 .any(|r| r.path == "/docs/report1.txt" || r.path == "/docs/report2.txt")
         );
