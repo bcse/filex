@@ -11,13 +11,14 @@ RUN npm run build
 FROM rust:1 AS backend-builder
 
 WORKDIR /app/backend
-COPY backend/Cargo.toml backend/Cargo.lock* ./
+COPY backend/Cargo.toml backend/Cargo.lock* backend/build.rs ./
 # Create dummy main to cache dependencies
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo build --release
 RUN rm -rf src
 
 # Copy actual source and rebuild
+COPY backend/build.rs ./build.rs
 COPY backend/src ./src
 RUN touch src/main.rs && cargo build --release
 

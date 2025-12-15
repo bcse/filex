@@ -4,11 +4,15 @@ use std::sync::Arc;
 
 use crate::api::AppState;
 use crate::services::{IndexerService, MetadataService};
+use crate::version;
 
 #[derive(Debug, Serialize)]
 pub struct HealthResponse {
     pub status: &'static str,
     pub version: &'static str,
+    pub build_number: &'static str,
+    pub git_commit: &'static str,
+    pub built_at: &'static str,
     pub ffprobe_available: bool,
     pub database_status: DatabaseStatus,
 }
@@ -27,6 +31,8 @@ pub struct IndexStatusResponse {
 
 /// Health check endpoint with database status
 pub async fn health(State(state): State<Arc<AppState>>) -> (StatusCode, Json<HealthResponse>) {
+    let version_info = version::current();
+
     // Check database connectivity
     let db_status = match sqlx::query("SELECT 1").execute(&state.pool).await {
         Ok(_) => DatabaseStatus {
@@ -54,7 +60,10 @@ pub async fn health(State(state): State<Arc<AppState>>) -> (StatusCode, Json<Hea
         status_code,
         Json(HealthResponse {
             status: overall_status,
-            version: env!("CARGO_PKG_VERSION"),
+            version: version_info.version,
+            build_number: version_info.build_number,
+            git_commit: version_info.git_commit,
+            built_at: version_info.built_at,
             ffprobe_available: MetadataService::is_available(),
             database_status: db_status,
         }),

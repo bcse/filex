@@ -14,6 +14,7 @@ use filex_backend::{
     config::Config,
     db,
     services::{FilesystemService, IndexerService},
+    version,
 };
 
 #[tokio::main]
@@ -31,7 +32,14 @@ async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
     let config = Config::from_env();
 
-    tracing::info!("Starting Filex backend");
+    let version_info = version::current();
+    tracing::info!(
+        version = version_info.version,
+        build = version_info.build_number,
+        commit = version_info.git_commit,
+        built_at = version_info.built_at,
+        "Starting Filex backend"
+    );
     tracing::info!("Root path: {:?}", config.root_path);
     tracing::info!("Database: {:?}", config.database_path);
     tracing::info!(
