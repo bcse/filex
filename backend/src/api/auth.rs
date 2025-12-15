@@ -117,7 +117,8 @@ pub async fn login(
                 success: true,
                 error: None,
             }),
-        );
+        )
+            .into_response();
     }
 
     if auth.verify_password(&req.password) {
@@ -142,14 +143,18 @@ pub async fn login(
                 error: None,
             }),
         )
+            .into_response()
     } else {
-        (
+        let mut response = (
             jar,
             Json(LoginResponse {
                 success: false,
                 error: Some("Invalid password".to_string()),
             }),
         )
+            .into_response();
+        *response.status_mut() = StatusCode::UNAUTHORIZED;
+        response
     }
 }
 
@@ -163,6 +168,8 @@ pub async fn logout(State(auth): State<Arc<AuthState>>, jar: CookieJar) -> impl 
     // Remove the cookie by setting it to expire immediately
     let mut cookie = Cookie::new(auth.config.cookie_name.clone(), "");
     cookie.set_path("/");
+    cookie.set_http_only(true);
+    cookie.set_same_site(SameSite::Lax);
     cookie.set_max_age(time::Duration::ZERO);
 
     let jar = jar.remove(cookie);
