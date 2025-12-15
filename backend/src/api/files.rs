@@ -101,6 +101,19 @@ pub async fn rename(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RenameRequest>,
 ) -> Result<Json<SuccessResponse>, (StatusCode, Json<ErrorResponse>)> {
+    if req.new_name == "."
+        || req.new_name == ".."
+        || req.new_name.contains('/')
+        || req.new_name.contains('\\')
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "Invalid new name".to_string(),
+            }),
+        ));
+    }
+
     let new_path = state.fs.rename(&req.path, &req.new_name).map_err(|e| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
