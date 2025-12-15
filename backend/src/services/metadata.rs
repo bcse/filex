@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use std::path::Path;
-use std::process::Command;
 use thiserror::Error;
+use tokio::process::Command;
 
 use crate::models::MediaMetadata;
 
@@ -45,7 +45,7 @@ pub struct MetadataService;
 
 impl MetadataService {
     /// Extract media metadata using ffprobe
-    pub fn extract(path: &Path) -> Result<MediaMetadata, MetadataError> {
+    pub async fn extract(path: &Path) -> Result<MediaMetadata, MetadataError> {
         // Check if file might be a media file based on extension
         if !Self::is_likely_media_file(path) {
             return Err(MetadataError::NotMediaFile);
@@ -62,6 +62,7 @@ impl MetadataService {
             ])
             .arg(path)
             .output()
+            .await
             .map_err(|e| {
                 if e.kind() == std::io::ErrorKind::NotFound {
                     MetadataError::FfprobeNotFound
@@ -147,7 +148,7 @@ impl MetadataService {
 
     /// Check if ffprobe is available
     pub fn is_available() -> bool {
-        Command::new("ffprobe")
+        std::process::Command::new("ffprobe")
             .arg("-version")
             .output()
             .map(|o| o.status.success())

@@ -231,7 +231,7 @@ impl IndexerService {
                 .map(|m| m.starts_with("image/"))
                 .unwrap_or(false);
 
-            match MetadataService::extract(&abs_path) {
+            match MetadataService::extract(&abs_path).await {
                 Ok(media_meta) => {
                     let width = media_meta.width.map(|w| w as i32);
                     let height = media_meta.height.map(|h| h as i32);
