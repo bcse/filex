@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use std::path::Path;
+use std::time::Duration;
 use thiserror::Error;
 use tokio::process::Command;
 
@@ -18,6 +19,9 @@ pub enum MetadataError {
 
     #[error("Not a media file")]
     NotMediaFile,
+
+    #[error("ffprobe timed out")]
+    Timeout,
 }
 
 #[derive(Debug, Deserialize)]
@@ -44,6 +48,9 @@ struct FfprobeFormat {
 pub struct MetadataService;
 
 impl MetadataService {
+    // ffprobe sometimes hangs on malformed files, so guard the call with a timeout
+    const FFPROBE_TIMEOUT: Duration = Duration::from_secs(15);
+
     /// Extract media metadata using ffprobe
     pub async fn extract(path: &Path) -> Result<MediaMetadata, MetadataError> {
         // Check if file might be a media file based on extension
@@ -51,7 +58,9 @@ impl MetadataService {
             return Err(MetadataError::NotMediaFile);
         }
 
-        let output = Command::new("ffprobe")
+        let mut command = Command::new("ffprobe");
+        command
+            .kill_on_drop(true)
             .args([
                 "-v",
                 "quiet",
@@ -60,16 +69,30 @@ impl MetadataService {
                 "-show_format",
                 "-show_streams",
             ])
-            .arg(path)
-            .output()
-            .await
-            .map_err(|e| {
-                if e.kind() == std::io::ErrorKind::NotFound {
-                    MetadataError::FfprobeNotFound
-                } else {
-                    MetadataError::ExecutionFailed(e.to_string())
+            .arg(path);
+
+        let child = command.spawn().map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                MetadataError::FfprobeNotFound
+            } else {
+                MetadataError::ExecutionFailed(e.to_string())
+            }
+        })?;
+
+        let mut child_opt = Some(child);
+        let output = tokio::select! {
+            res = async {
+                // Safe to unwrap: this branch is exclusive and consumes the child.
+                child_opt.take().unwrap().wait_with_output().await
+            } => res.map_err(|e| MetadataError::ExecutionFailed(e.to_string()))?,
+            _ = tokio::time::sleep(Self::FFPROBE_TIMEOUT) => {
+                if let Some(mut child) = child_opt.take() {
+                    let _ = child.start_kill();
+                    let _ = child.wait().await;
                 }
-            })?;
+                return Err(MetadataError::Timeout);
+            }
+        };
 
         if !output.status.success() {
             return Err(MetadataError::ExecutionFailed(
