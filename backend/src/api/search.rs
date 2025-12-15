@@ -10,6 +10,15 @@ use crate::api::{AppState, ErrorResponse};
 use crate::db;
 use crate::models::IndexedFile;
 
+/// Default number of results returned when a search limit is not provided by the client.
+const DEFAULT_LIMIT: i32 = 50;
+
+/// Minimum allowed limit so every query returns at least one result when possible.
+const MIN_LIMIT: i32 = 1;
+
+/// Upper bound for a single search request to avoid expensive database queries.
+const MAX_LIMIT: i32 = 500;
+
 #[derive(Debug, Deserialize)]
 pub struct SearchQuery {
     pub q: String,
@@ -18,7 +27,7 @@ pub struct SearchQuery {
 }
 
 fn default_limit() -> i32 {
-    50
+    DEFAULT_LIMIT
 }
 
 #[derive(Debug, Serialize)]
@@ -42,7 +51,7 @@ pub async fn search_files(
         ));
     }
 
-    let limit = query.limit.clamp(1, 500);
+    let limit = query.limit.clamp(MIN_LIMIT, MAX_LIMIT);
 
     let results = db::search_files(&state.pool, &query.q, limit)
         .await
