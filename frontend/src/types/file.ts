@@ -1,4 +1,5 @@
 export interface FileEntry {
+  id?: number;
   name: string;
   path: string;
   is_dir: boolean;
@@ -9,6 +10,7 @@ export interface FileEntry {
   width?: number;
   height?: number;
   duration?: number;
+  indexed_at?: string;
 }
 
 export interface TreeNode {
@@ -20,21 +22,6 @@ export interface TreeNode {
   isLoading?: boolean;
 }
 
-export interface IndexedFile {
-  id: number;
-  path: string;
-  name: string;
-  is_dir: boolean;
-  size?: number;
-  created_at?: string;
-  modified_at?: string;
-  mime_type?: string;
-  width?: number;
-  height?: number;
-  duration?: number;
-  indexed_at: string;
-}
-
 export interface ListResponse {
   path: string;
   entries: FileEntry[];
@@ -42,7 +29,7 @@ export interface ListResponse {
 
 export interface SearchResponse {
   query: string;
-  results: IndexedFile[];
+  results: FileEntry[];
   count: number;
 }
 

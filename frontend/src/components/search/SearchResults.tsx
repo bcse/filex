@@ -8,17 +8,17 @@ import { useNavigationStore } from '@/stores/navigation';
 import { useSearch } from '@/hooks/useSearch';
 import { useColumnResize } from '@/hooks/useColumnResize';
 import { api } from '@/api/client';
-import type { IndexedFile, SortField, SortOrder } from '@/types/file';
+import type { SortField, SortOrder } from '@/types/file';
 import { searchColumns } from '@/components/table/columns';
 
-function toRow(entry: IndexedFile) {
+function toRow(entry: FileEntry) {
   return {
     name: entry.name,
     path: entry.path,
     is_dir: entry.is_dir,
     size: entry.size ?? undefined,
-    created: entry.created_at,
-    modified: entry.modified_at,
+    created: entry.created,
+    modified: entry.modified,
     mime_type: entry.mime_type ?? undefined,
     width: entry.width ?? undefined,
     height: entry.height ?? undefined,
