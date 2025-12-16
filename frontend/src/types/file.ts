@@ -23,7 +23,6 @@ export interface TreeNode {
 }
 
 export interface ListResponse {
-  path: string;
   entries: FileEntry[];
 }
 

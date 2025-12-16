@@ -6,7 +6,6 @@ use axum::{
 use serde::Deserialize;
 use std::sync::Arc;
 
-use crate::api::browse::ListResponse;
 use crate::api::{AppState, ErrorResponse};
 use crate::db;
 use crate::models::FileEntry;
@@ -16,11 +15,17 @@ pub struct SearchQuery {
     pub q: String,
 }
 
+#[derive(Debug, serde::Serialize)]
+pub struct SearchResponse {
+    pub query: String,
+    pub entries: Vec<FileEntry>,
+}
+
 /// Search files by path
 pub async fn search_files(
     State(state): State<Arc<AppState>>,
     Query(query): Query<SearchQuery>,
-) -> Result<Json<ListResponse>, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<Json<SearchResponse>, (StatusCode, Json<ErrorResponse>)> {
     if query.q.trim().is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -41,9 +46,8 @@ pub async fn search_files(
 
     let entries: Vec<FileEntry> = results.into_iter().map(FileEntry::from).collect();
 
-    Ok(Json(ListResponse {
-        // Path field kept for response shape consistency with browse; search is not scoped to a single directory.
-        path: "/search".to_string(),
+    Ok(Json(SearchResponse {
+        query: query.q,
         entries,
     }))
 }
