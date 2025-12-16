@@ -1,3 +1,5 @@
+ARG GIT_COMMIT_SHA=unknown
+
 # Build stage for frontend
 FROM node:25 AS frontend-builder
 
@@ -9,6 +11,8 @@ RUN npm run build
 
 # Build stage for backend
 FROM rust:1 AS backend-builder
+ARG GIT_COMMIT_SHA
+ENV GIT_COMMIT_SHA=${GIT_COMMIT_SHA}
 
 WORKDIR /app/backend
 COPY backend/Cargo.toml backend/Cargo.lock* backend/build.rs ./

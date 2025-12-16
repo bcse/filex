@@ -14,6 +14,7 @@ docker buildx build \
   --platform "${PLATFORMS}" \
   -f Dockerfile \
   -t "${IMAGE}:latest" \
+  --build-arg "GIT_COMMIT_SHA=${REVISION}" \
   --label "org.opencontainers.image.created=${BUILD_DATE}" \
   --label "org.opencontainers.image.authors=Grey Lee" \
   --label "org.opencontainers.image.url=${SOURCE_URL}" \
