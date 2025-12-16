@@ -8,6 +8,7 @@ use sqlx::sqlite::SqlitePool;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::api::{SortField, SortOrder};
 use crate::db;
 use crate::models::{FileEntry, TreeNode};
 use crate::services::FilesystemService;
@@ -20,12 +21,21 @@ pub struct AppState {
 #[derive(Debug, Deserialize)]
 pub struct ListQuery {
     pub path: Option<String>,
+    pub offset: Option<usize>,
+    pub limit: Option<usize>,
+    pub sort_by: Option<SortField>,
+    pub sort_order: Option<SortOrder>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct ListResponse {
     pub path: String,
     pub entries: Vec<FileEntry>,
+    pub offset: usize,
+    pub limit: usize,
+    pub sort_by: SortField,
+    pub sort_order: SortOrder,
+    pub total: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -39,9 +49,13 @@ pub async fn list_directory(
     Query(query): Query<ListQuery>,
 ) -> Result<Json<ListResponse>, (StatusCode, Json<ErrorResponse>)> {
     let path = query.path.unwrap_or_else(|| "/".to_string());
+    let offset = query.offset.unwrap_or(0);
+    let limit = query.limit.unwrap_or(1000).max(1);
+    let sort_by = query.sort_by.unwrap_or(SortField::Name);
+    let sort_order = query.sort_order.unwrap_or(SortOrder::Asc);
 
     // Get file list from filesystem
-    let mut entries = state.fs.list_directory(&path).map_err(|e| {
+    let entries = state.fs.list_directory(&path).map_err(|e| {
         let (status, msg) = match &e {
             crate::services::filesystem::FsError::NotFound(_) => {
                 (StatusCode::NOT_FOUND, e.to_string())
@@ -56,6 +70,10 @@ pub async fn list_directory(
         };
         (status, Json(ErrorResponse { error: msg }))
     })?;
+
+    let total = entries.len();
+
+    let mut entries = entries;
 
     // Enrich with indexed media metadata
     let paths: Vec<String> = entries.iter().map(|e| e.path.clone()).collect();
@@ -72,7 +90,85 @@ pub async fn list_directory(
         }
     }
 
-    Ok(Json(ListResponse { path, entries }))
+    sort_entries(&mut entries, sort_by, sort_order);
+
+    // Apply pagination after sorting so slice boundaries are stable
+    let paged_entries: Vec<_> = entries.into_iter().skip(offset).take(limit).collect();
+    let entries = paged_entries;
+
+    Ok(Json(ListResponse {
+        path,
+        entries,
+        offset,
+        limit,
+        sort_by,
+        sort_order,
+        total,
+    }))
+}
+
+fn sort_entries(entries: &mut [FileEntry], sort_by: SortField, sort_order: SortOrder) {
+    use std::cmp::Ordering;
+
+    entries.sort_by(|a, b| {
+        let dir_order = match (a.is_dir, b.is_dir) {
+            (true, false) => Ordering::Less,
+            (false, true) => Ordering::Greater,
+            _ => Ordering::Equal,
+        };
+
+        if dir_order != Ordering::Equal {
+            return dir_order;
+        }
+
+        let order = match sort_by {
+            SortField::Name => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+            SortField::Path => a.path.to_lowercase().cmp(&b.path.to_lowercase()),
+            SortField::Size => a.size.unwrap_or(0).cmp(&b.size.unwrap_or(0)),
+            SortField::Modified => a
+                .modified
+                .map(|d| d.timestamp())
+                .cmp(&b.modified.map(|d| d.timestamp())),
+            SortField::Created => a
+                .created
+                .map(|d| d.timestamp())
+                .cmp(&b.created.map(|d| d.timestamp())),
+            SortField::Type => {
+                let a_type = a
+                    .mime_type
+                    .as_deref()
+                    .unwrap_or(if a.is_dir { "directory" } else { "" })
+                    .to_lowercase();
+                let b_type = b
+                    .mime_type
+                    .as_deref()
+                    .unwrap_or(if b.is_dir { "directory" } else { "" })
+                    .to_lowercase();
+                a_type.cmp(&b_type)
+            }
+            SortField::Dimensions => {
+                let a_pixels = a.width.unwrap_or(0) as u64 * a.height.unwrap_or(0) as u64;
+                let b_pixels = b.width.unwrap_or(0) as u64 * b.height.unwrap_or(0) as u64;
+                a_pixels.cmp(&b_pixels)
+            }
+            SortField::Duration => a
+                .duration
+                .unwrap_or(0.0)
+                .partial_cmp(&b.duration.unwrap_or(0.0))
+                .unwrap_or(Ordering::Equal),
+        };
+
+        let ordered = match sort_order {
+            SortOrder::Asc => order,
+            SortOrder::Desc => order.reverse(),
+        };
+
+        if ordered == Ordering::Equal {
+            a.name.to_lowercase().cmp(&b.name.to_lowercase())
+        } else {
+            ordered
+        }
+    });
 }
 
 /// Get directory tree for sidebar
@@ -158,12 +254,21 @@ mod tests {
             State(state.clone()),
             Query(ListQuery {
                 path: Some("/".to_string()),
+                offset: None,
+                limit: None,
+                sort_by: None,
+                sort_order: None,
             }),
         )
         .await
         .unwrap();
 
         let entries = resp.0.entries;
+        assert_eq!(resp.0.offset, 0);
+        assert_eq!(resp.0.limit, 1000);
+        assert_eq!(resp.0.sort_by, SortField::Name);
+        assert_eq!(resp.0.sort_order, SortOrder::Asc);
+        assert_eq!(resp.0.total, 1);
         assert_eq!(entries.len(), 1);
         let entry = &entries[0];
         assert_eq!(entry.path, "/video.mp4");
@@ -180,11 +285,75 @@ mod tests {
             State(state),
             Query(ListQuery {
                 path: Some("/missing".to_string()),
+                offset: None,
+                limit: None,
+                sort_by: None,
+                sort_order: None,
             }),
         )
         .await
         .unwrap_err();
 
         assert_eq!(err.0, StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn list_directory_paginates_entries() {
+        let (state, _tmp, root) = test_state().await;
+
+        for i in 0..45 {
+            let file_path = root.join(format!("file{i}.txt"));
+            fs::write(&file_path, b"data").unwrap();
+        }
+
+        let resp = list_directory(
+            State(state),
+            Query(ListQuery {
+                path: Some("/".to_string()),
+                offset: Some(10),
+                limit: Some(10),
+                sort_by: Some(SortField::Name),
+                sort_order: Some(SortOrder::Asc),
+            }),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(resp.0.total, 45);
+        assert_eq!(resp.0.offset, 10);
+        assert_eq!(resp.0.limit, 10);
+        assert_eq!(resp.0.entries.len(), 10);
+    }
+
+    #[tokio::test]
+    async fn list_directory_sorts_by_size_descending() {
+        let (state, _tmp, root) = test_state().await;
+
+        let files = [
+            ("small.txt", 10u64),
+            ("medium.txt", 50u64),
+            ("large.txt", 100u64),
+        ];
+
+        for (name, size) in files {
+            let path = root.join(name);
+            fs::write(&path, vec![0u8; size as usize]).unwrap();
+        }
+
+        let resp = list_directory(
+            State(state),
+            Query(ListQuery {
+                path: Some("/".to_string()),
+                offset: Some(0),
+                limit: Some(10),
+                sort_by: Some(SortField::Size),
+                sort_order: Some(SortOrder::Desc),
+            }),
+        )
+        .await
+        .unwrap();
+
+        let names: Vec<_> = resp.0.entries.iter().map(|e| e.name.clone()).collect();
+        assert_eq!(names, vec!["large.txt", "medium.txt", "small.txt"]);
     }
 }

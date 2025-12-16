@@ -1,6 +1,24 @@
 use crate::models::IndexedFileRow;
 use sqlx::sqlite::SqlitePool;
 
+#[derive(Clone, Copy)]
+pub enum SortOrder {
+    Asc,
+    Desc,
+}
+
+#[derive(Clone, Copy)]
+pub enum SearchSortField {
+    Name,
+    Path,
+    Size,
+    Modified,
+    Created,
+    Type,
+    Dimensions,
+    Duration,
+}
+
 /// Delete a path and any of its descendants from the index, returning the
 /// number of rows removed.
 pub async fn delete_by_path(pool: &SqlitePool, path: &str) -> Result<u64, sqlx::Error> {
@@ -57,33 +75,72 @@ pub async fn rename_path(
 pub async fn search_files(
     pool: &SqlitePool,
     query: &str,
-) -> Result<Vec<IndexedFileRow>, sqlx::Error> {
+    limit: i64,
+    offset: i64,
+    sort_field: SearchSortField,
+    sort_order: SortOrder,
+) -> Result<(Vec<IndexedFileRow>, i64), sqlx::Error> {
     let tokens = tokenize_query(query);
 
     if tokens.is_empty() {
-        return Ok(vec![]);
+        return Ok((vec![], 0));
     }
 
     let like_clause = build_like_clause(tokens.len());
+    let order_expr = match sort_field {
+        SearchSortField::Name => "LOWER(name)",
+        SearchSortField::Path => "LOWER(path)",
+        SearchSortField::Size => "COALESCE(size, 0)",
+        SearchSortField::Modified => "COALESCE(modified_at, '')",
+        SearchSortField::Created => "COALESCE(created_at, '')",
+        SearchSortField::Type => "COALESCE(mime_type, '')",
+        SearchSortField::Dimensions => "COALESCE(width, 0) * COALESCE(height, 0)",
+        SearchSortField::Duration => "COALESCE(duration, 0)",
+    };
+
+    let order_dir = match sort_order {
+        SortOrder::Asc => "ASC",
+        SortOrder::Desc => "DESC",
+    };
+
     let sql = format!(
         r#"
         SELECT id, path, name, is_dir, size, created_at, modified_at, mime_type, width, height, duration, metadata_status, indexed_at
         FROM indexed_files
         WHERE {like_clause}
-        ORDER BY is_dir DESC, name
+        ORDER BY is_dir DESC, {order_expr} {order_dir}, name ASC
+        LIMIT ? OFFSET ?
         "#
     );
 
+    let patterns: Vec<String> = tokens.iter().map(|t| format!("%{}%", t)).collect();
+
     let mut query_builder = sqlx::query_as::<_, IndexedFileRow>(&sql);
 
-    for token in tokens {
-        let pattern = format!("%{}%", token);
-        query_builder = query_builder.bind(pattern.clone()).bind(pattern);
+    for pattern in &patterns {
+        query_builder = query_builder.bind(pattern);
     }
+
+    query_builder = query_builder.bind(limit).bind(offset);
 
     let results = query_builder.fetch_all(pool).await?;
 
-    Ok(results)
+    let count_sql = format!(
+        r#"
+        SELECT COUNT(*) as count
+        FROM indexed_files
+        WHERE {like_clause}
+        "#
+    );
+    let mut count_query = sqlx::query_scalar::<_, i64>(&count_sql);
+
+    for pattern in &patterns {
+        count_query = count_query.bind(pattern);
+    }
+
+    let total = count_query.fetch_one(pool).await?;
+
+    Ok((results, total))
 }
 
 /// Tokenize a raw query string into lowercase alphanumeric tokens.
