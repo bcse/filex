@@ -99,7 +99,7 @@ fn tokenize_query(raw: &str) -> Vec<String> {
 /// "123johndoe").
 fn build_like_clause(token_count: usize) -> String {
     (0..token_count)
-        .map(|_| "(LOWER(name) LIKE ? OR LOWER(path) LIKE ? )".to_string())
+        .map(|_| "path LIKE ?".to_string())
         .collect::<Vec<_>>()
         .join(" AND ")
 }
