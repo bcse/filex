@@ -35,7 +35,6 @@ async fn main() -> anyhow::Result<()> {
     let version_info = version::current();
     tracing::info!(
         version = version_info.version,
-        build = version_info.build_number,
         commit = version_info.git_commit,
         built_at = version_info.built_at,
         "Starting Filex backend"

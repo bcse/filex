@@ -10,7 +10,6 @@ use crate::version;
 pub struct HealthResponse {
     pub status: &'static str,
     pub version: &'static str,
-    pub build_number: &'static str,
     pub git_commit: &'static str,
     pub built_at: &'static str,
     pub ffprobe_available: bool,
@@ -61,7 +60,6 @@ pub async fn health(State(state): State<Arc<AppState>>) -> (StatusCode, Json<Hea
         Json(HealthResponse {
             status: overall_status,
             version: version_info.version,
-            build_number: version_info.build_number,
             git_commit: version_info.git_commit,
             built_at: version_info.built_at,
             ffprobe_available: MetadataService::is_available(),

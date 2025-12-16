@@ -5,10 +5,6 @@ fn main() {
     let pkg_version = std::env::var("CARGO_PKG_VERSION").unwrap_or_else(|_| "unknown".to_string());
     println!("cargo:rustc-env=APP_VERSION={}", pkg_version);
 
-    // Build number from CI (e.g., BUILD_NUMBER). Defaults to "dev" for local builds.
-    let build_number = std::env::var("BUILD_NUMBER").unwrap_or_else(|_| "dev".to_string());
-    println!("cargo:rustc-env=APP_BUILD_NUMBER={}", build_number);
-
     // Git commit sha (short). Allow override via GIT_COMMIT_SHA for reproducible builds.
     let git_commit = std::env::var("GIT_COMMIT_SHA").ok().or_else(get_git_sha);
     println!(
