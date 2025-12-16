@@ -19,51 +19,9 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import type { FileEntry, SortField, SortOrder } from '@/types/file';
+import type { FileEntry, SortField } from '@/types/file';
 import { DropPrompt, DropPromptState, DropAction } from '@/components/dnd/DropPrompt';
 import { performDropAction } from '@/components/dnd/dropActions';
-
-function sortEntries(entries: FileEntry[], field: SortField, order: SortOrder): FileEntry[] {
-  const sorted = [...entries].sort((a, b) => {
-    // Directories always first
-    if (a.is_dir !== b.is_dir) {
-      return a.is_dir ? -1 : 1;
-    }
-    
-    let comparison = 0;
-    
-    switch (field) {
-      case 'name':
-        comparison = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
-        break;
-      case 'size':
-        comparison = (a.size || 0) - (b.size || 0);
-        break;
-      case 'modified':
-        comparison = (a.modified || '').localeCompare(b.modified || '');
-        break;
-      case 'created':
-        comparison = (a.created || '').localeCompare(b.created || '');
-        break;
-      case 'mime_type':
-        comparison = (a.mime_type || '').localeCompare(b.mime_type || '');
-        break;
-      case 'width':
-        comparison = (a.width || 0) - (b.width || 0);
-        break;
-      case 'height':
-        comparison = (a.height || 0) - (b.height || 0);
-        break;
-      case 'duration':
-        comparison = (a.duration || 0) - (b.duration || 0);
-        break;
-    }
-    
-    return order === 'asc' ? comparison : -comparison;
-  });
-  
-  return sorted;
-}
 
 export function FileTable() {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -97,10 +55,7 @@ export function FileTable() {
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [dropPrompt, setDropPrompt] = useState<DropPromptState>(null);
   
-  const sortedEntries = useMemo(() => {
-    if (!data?.entries) return [];
-    return sortEntries(data.entries, sortConfig.field, sortConfig.order);
-  }, [data?.entries, sortConfig]);
+  const serverEntries = useMemo(() => data?.entries || [], [data?.entries]);
 
   const buildPath = useCallback((entry: FileEntry) => {
     const pathLooksValid =
@@ -120,11 +75,11 @@ export function FileTable() {
 
   const normalizedEntries = useMemo(
     () =>
-      sortedEntries.map((entry) => {
+      serverEntries.map((entry) => {
         const path = buildPath(entry);
         return entry.path === path ? entry : { ...entry, path };
       }),
-    [buildPath, sortedEntries]
+    [buildPath, serverEntries]
   );
 
   const orderedPaths = useMemo(() => normalizedEntries.map((entry) => entry.path), [normalizedEntries]);
@@ -293,7 +248,7 @@ export function FileTable() {
         <div style={{ minWidth: totalWidth }}>
           {/* Header */}
           <div
-            className="grid px-2 py-2 border-b bg-muted/50 text-sm font-medium sticky top-0 z-10"
+            className="grid px-2 py-2 border-b bg-muted/60 backdrop-blur text-sm font-medium sticky top-0 z-10"
             style={{ gridTemplateColumns: gridTemplate }}
           >
             {columns.map((column, index) => (

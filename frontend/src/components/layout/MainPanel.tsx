@@ -1,16 +1,35 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { Upload } from 'lucide-react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
+import { Upload, ChevronFirst, ChevronLeft, ChevronRight, ChevronLast } from 'lucide-react';
 import { FileTable } from '@/components/table/FileTable';
 import { FileGrid } from '@/components/table/FileGrid';
 import { SearchResults } from '@/components/search/SearchResults';
 import { useNavigationStore } from '@/stores/navigation';
 import { useUploadWithProgress } from '@/hooks/useDirectory';
+import { useDirectory } from '@/hooks/useDirectory';
+import { useSearch } from '@/hooks/useSearch';
+import { DEFAULT_PAGE_SIZE, PAGINATION_THRESHOLD } from '@/config/pagination';
+import { Button } from '@/components/ui/button';
+
+const PAGE_WINDOW = 9; // number of page buttons to display in the pager
 
 export function MainPanel() {
-  const { currentPath, viewMode, isSearching, searchQuery } = useNavigationStore();
+  const {
+    currentPath,
+    viewMode,
+    isSearching,
+    searchQuery,
+    directoryOffset,
+    directoryLimit,
+    searchOffset,
+    searchLimit,
+    setDirectoryOffset,
+    setSearchOffset,
+  } = useNavigationStore();
   const [isDragging, setIsDragging] = useState(false);
   const { uploadFiles } = useUploadWithProgress();
   const isSearchActive = isSearching && searchQuery.length >= 2;
+  const { data: directoryData } = useDirectory(currentPath);
+  const { data: searchData } = useSearch(searchQuery, { enabled: isSearchActive });
 
   // Counter to handle nested elements - dragenter/dragleave fire for each child
   const dragCounterRef = useRef(0);
@@ -86,6 +105,97 @@ export function MainPanel() {
         ) : (
           <FileGrid />
         )}
+      </div>
+
+      <StatusBar
+        isSearchActive={isSearchActive}
+        total={isSearchActive ? searchData?.total : directoryData?.total}
+        offset={isSearchActive ? searchOffset : directoryOffset}
+        limit={isSearchActive ? searchLimit : directoryLimit}
+        onSetOffset={(next) =>
+          isSearchActive ? setSearchOffset(next) : setDirectoryOffset(next)
+        }
+      />
+    </div>
+  );
+}
+
+function StatusBar({
+  isSearchActive,
+  total,
+  offset,
+  limit,
+  onSetOffset,
+}: {
+  isSearchActive: boolean;
+  total?: number;
+  offset: number;
+  limit: number;
+  onSetOffset: (offset: number) => void;
+}) {
+  const showPagination = (total ?? 0) > PAGINATION_THRESHOLD;
+  const totalItems = total ?? 0;
+  const safeLimit = limit || DEFAULT_PAGE_SIZE;
+  const totalPages = totalItems > 0 ? Math.ceil(totalItems / safeLimit) : 1;
+  const currentPage = totalItems > 0 ? Math.floor(offset / safeLimit) + 1 : 1;
+  const hasPrev = currentPage > 1;
+  const hasNext = currentPage < totalPages;
+
+  const pageNumbers = useMemo(() => {
+    const pages: number[] = [];
+    const windowSize = Math.max(1, PAGE_WINDOW);
+    const half = Math.floor(windowSize / 2);
+    let start = Math.max(1, currentPage - half);
+    let end = start + windowSize - 1;
+
+    if (end > totalPages) {
+      end = totalPages;
+      start = Math.max(1, end - windowSize + 1);
+    }
+
+    for (let p = start; p <= end; p++) {
+      pages.push(p);
+    }
+    return pages;
+  }, [currentPage, totalPages]);
+
+  const goToPage = (page: number) => {
+    const clamped = Math.min(Math.max(1, page), totalPages);
+    onSetOffset((clamped - 1) * safeLimit);
+  };
+
+  return (
+    <div className="border-t bg-muted/40 px-2 py-2 flex items-center justify-between text-sm">
+      {showPagination ? (
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => goToPage(1)} disabled={!hasPrev}>
+            <ChevronFirst className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => goToPage(currentPage - 1)} disabled={!hasPrev}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          {pageNumbers.map((p) => (
+            <Button
+              key={p}
+              variant={p === currentPage ? 'outline' : 'ghost'}
+              size="sm"
+              onClick={() => goToPage(p)}
+            >
+              {p}
+            </Button>
+          ))}
+          <Button variant="ghost" size="sm" onClick={() => goToPage(currentPage + 1)} disabled={!hasNext}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => goToPage(totalPages)} disabled={!hasNext}>
+            <ChevronLast className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : (
+        <div />
+      )}
+      <div className="text-muted-foreground">
+        {total !== undefined ? `${total} ${isSearchActive ? 'results' : 'items'}` : '—'}
       </div>
     </div>
   );

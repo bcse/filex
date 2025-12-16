@@ -6,20 +6,22 @@ import { useNavigationStore } from '@/stores/navigation';
 
 export function SearchBar() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { searchQuery, setSearchQuery, setIsSearching, setCurrentPath, currentPath } = useNavigationStore();
+  const { searchQuery, setSearchQuery, setIsSearching, setCurrentPath, currentPath, setSearchOffset } = useNavigationStore();
 
   const handleSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchQuery(value);
     setIsSearching(value.length >= 2);
-  }, [setIsSearching, setSearchQuery]);
+    setSearchOffset(0);
+  }, [setIsSearching, setSearchOffset, setSearchQuery]);
   
   const handleClear = useCallback(() => {
     setSearchQuery('');
     setIsSearching(false);
     setCurrentPath(currentPath, { exitSearch: true });
+    setSearchOffset(0);
     inputRef.current?.focus();
-  }, [currentPath, setCurrentPath, setIsSearching, setSearchQuery]);
+  }, [currentPath, setCurrentPath, setIsSearching, setSearchOffset, setSearchQuery]);
   
   return (
     <div className="relative">

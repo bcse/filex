@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { SortConfig } from '@/types/file';
+import { DEFAULT_PAGE_SIZE } from '@/config/pagination';
 
 type ViewMode = 'table' | 'grid';
 
@@ -7,6 +8,11 @@ interface NavigationState {
   // Current path
   currentPath: string;
   setCurrentPath: (path: string, options?: { exitSearch?: boolean }) => void;
+  directoryOffset: number;
+  directoryLimit: number;
+  setDirectoryOffset: (offset: number) => void;
+  sortConfig: SortConfig;
+  setSortConfig: (config: SortConfig) => void;
 
   // Selection
   selectedFiles: Set<string>;
@@ -16,15 +22,16 @@ interface NavigationState {
   clearSelection: () => void;
   toggleSelection: (path: string) => void;
 
-  // Sort
-  sortConfig: SortConfig;
-  setSortConfig: (config: SortConfig) => void;
-
   // Search
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   isSearching: boolean;
   setIsSearching: (searching: boolean) => void;
+  searchOffset: number;
+  searchLimit: number;
+  setSearchOffset: (offset: number) => void;
+  searchSortConfig: SortConfig;
+  setSearchSortConfig: (config: SortConfig) => void;
 
   // Clipboard (for copy/cut)
   clipboard: {
@@ -52,11 +59,18 @@ export const useNavigationStore = create<NavigationState>((set) => ({
   setCurrentPath: (path, options = { exitSearch: true }) =>
     set((state) => ({
       currentPath: path,
+      directoryOffset: 0,
       selectedFiles: new Set(),
       lastSelected: null,
       isSearching: options.exitSearch ? false : state.isSearching,
       searchQuery: options.exitSearch ? '' : state.searchQuery,
+      searchOffset: options.exitSearch ? 0 : state.searchOffset,
     })),
+  directoryOffset: 0,
+  directoryLimit: DEFAULT_PAGE_SIZE,
+  setDirectoryOffset: (offset) => set({ directoryOffset: Math.max(0, offset) }),
+  sortConfig: { field: 'name', order: 'asc' },
+  setSortConfig: (config) => set({ sortConfig: config }),
   
   // Selection
   selectedFiles: new Set(),
@@ -96,15 +110,16 @@ export const useNavigationStore = create<NavigationState>((set) => ({
       return { selectedFiles: newSelection, lastSelected: nextLastSelected };
     }),
   
-  // Sort
-  sortConfig: { field: 'name', order: 'asc' },
-  setSortConfig: (config) => set({ sortConfig: config }),
-  
   // Search
   searchQuery: '',
   setSearchQuery: (query) => set({ searchQuery: query }),
   isSearching: false,
   setIsSearching: (searching) => set({ isSearching: searching }),
+  searchOffset: 0,
+  searchLimit: DEFAULT_PAGE_SIZE,
+  setSearchOffset: (offset) => set({ searchOffset: Math.max(0, offset) }),
+  searchSortConfig: { field: 'name', order: 'asc' },
+  setSearchSortConfig: (config) => set({ searchSortConfig: config }),
   
   // Clipboard
   clipboard: { files: [], operation: null },

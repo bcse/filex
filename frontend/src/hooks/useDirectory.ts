@@ -2,11 +2,33 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api } from '@/api/client';
 import { useUploadStore } from '@/stores/upload';
+import { useNavigationStore } from '@/stores/navigation';
+import type { SortField } from '@/types/file';
 
 export function useDirectory(path: string) {
+  const { directoryOffset, directoryLimit, sortConfig } = useNavigationStore();
+
+  const mapSortField = (field: SortField) => {
+    switch (field) {
+      case 'mime_type':
+        return 'type';
+      case 'width':
+      case 'height':
+        return 'dimensions';
+      default:
+        return field;
+    }
+  };
+
   return useQuery({
-    queryKey: ['directory', path],
-    queryFn: () => api.listDirectory(path),
+    queryKey: ['directory', path, directoryOffset, directoryLimit, sortConfig.field, sortConfig.order],
+    queryFn: () =>
+      api.listDirectory(path, {
+        offset: directoryOffset,
+        limit: directoryLimit,
+        sort_by: mapSortField(sortConfig.field),
+        sort_order: sortConfig.order,
+      }),
     staleTime: 30_000, // Consider data fresh for 30 seconds
   });
 }

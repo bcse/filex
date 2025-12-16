@@ -3,6 +3,9 @@ import type {
   SuccessResponse,
   TreeNode,
   ErrorResponse,
+  SearchResponse,
+  SortField,
+  SortOrder,
 } from '@/types/file';
 
 const API_BASE = '/api';
@@ -26,8 +29,15 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 export const api = {
   // Browse
-  async listDirectory(path: string = '/'): Promise<ListResponse> {
+  async listDirectory(
+    path: string = '/',
+    options: { offset?: number; limit?: number; sort_by?: SortField; sort_order?: SortOrder } = {}
+  ): Promise<ListResponse> {
     const params = new URLSearchParams({ path });
+    if (options.offset !== undefined) params.set('offset', String(options.offset));
+    if (options.limit !== undefined) params.set('limit', String(options.limit));
+    if (options.sort_by) params.set('sort_by', options.sort_by);
+    if (options.sort_order) params.set('sort_order', options.sort_order);
     const response = await fetch(`${API_BASE}/browse?${params}`);
     return handleResponse(response);
   },
@@ -39,8 +49,15 @@ export const api = {
   },
 
   // Search
-  async search(query: string, options: { signal?: AbortSignal } = {}): Promise<ListResponse> {
+  async search(
+    query: string,
+    options: { signal?: AbortSignal; offset?: number; limit?: number; sort_by?: SortField; sort_order?: SortOrder } = {}
+  ): Promise<SearchResponse> {
     const params = new URLSearchParams({ q: query });
+    if (options.offset !== undefined) params.set('offset', String(options.offset));
+    if (options.limit !== undefined) params.set('limit', String(options.limit));
+    if (options.sort_by) params.set('sort_by', options.sort_by);
+    if (options.sort_order) params.set('sort_order', options.sort_order);
     const response = await fetch(`${API_BASE}/search?${params}`, {
       signal: options.signal,
     });

@@ -23,7 +23,13 @@ export interface TreeNode {
 }
 
 export interface ListResponse {
+  path?: string;
   entries: FileEntry[];
+  offset: number;
+  limit: number;
+  total: number;
+  sort_by?: SortField;
+  sort_order?: SortOrder;
 }
 
 export interface ErrorResponse {
@@ -37,10 +43,31 @@ export interface SuccessResponse {
   performed?: boolean;
 }
 
-export type SortField = 'name' | 'size' | 'created' | 'modified' | 'mime_type' | 'width' | 'height' | 'duration';
+export type SortField =
+  | 'name'
+  | 'path'
+  | 'size'
+  | 'created'
+  | 'modified'
+  | 'mime_type'
+  | 'width'
+  | 'height'
+  | 'duration'
+  | 'type'
+  | 'dimensions';
 export type SortOrder = 'asc' | 'desc';
 
 export interface SortConfig {
   field: SortField;
   order: SortOrder;
+}
+
+export interface SearchResponse {
+  query: string;
+  entries: FileEntry[];
+  offset: number;
+  limit: number;
+  total: number;
+  sort_by?: SortField;
+  sort_order?: SortOrder;
 }

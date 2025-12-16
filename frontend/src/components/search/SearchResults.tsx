@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useRef, useState } from 'react';
+import React, { useMemo, useCallback, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Loader2, FolderOpen, Search, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -8,7 +8,7 @@ import { useNavigationStore } from '@/stores/navigation';
 import { useSearch } from '@/hooks/useSearch';
 import { useColumnResize } from '@/hooks/useColumnResize';
 import { api } from '@/api/client';
-import type { SortField, SortOrder } from '@/types/file';
+import type { SortField } from '@/types/file';
 import { searchColumns } from '@/components/table/columns';
 
 function toRow(entry: FileEntry) {
@@ -36,47 +36,13 @@ export function SearchResults() {
     selectRange,
     toggleSelection,
     setCurrentPath,
+    searchSortConfig,
+    setSearchSortConfig,
   } = useNavigationStore();
-  const { data, isLoading, error } = useSearch(searchQuery, true);
+  const { data, isLoading, error } = useSearch(searchQuery, { enabled: true });
   const parentRef = useRef<HTMLDivElement>(null);
   const { handleResizeStart, getGridTemplate, getTotalWidth } = useColumnResize(searchColumns);
-  const [sortConfig, setSortConfig] = useState<{ field: SortField | 'path'; order: SortOrder }>({
-    field: 'name',
-    order: 'asc',
-  });
-
-  const rows = useMemo(() => {
-    const unsorted = (data?.entries || []).map(toRow);
-    const sorted = [...unsorted].sort((a, b) => {
-      if (a.is_dir !== b.is_dir) {
-        return a.is_dir ? -1 : 1;
-      }
-
-      let comparison = 0;
-      switch (sortConfig.field) {
-        case 'name':
-          comparison = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
-          break;
-        case 'path':
-          comparison = a.path.toLowerCase().localeCompare(b.path.toLowerCase());
-          break;
-        case 'size':
-          comparison = (a.size || 0) - (b.size || 0);
-          break;
-        case 'modified':
-          comparison = (a.modified || '').localeCompare(b.modified || '');
-          break;
-        case 'mime_type':
-          comparison = (a.mime_type || '').localeCompare(b.mime_type || '');
-          break;
-        default:
-          comparison = 0;
-      }
-
-      return sortConfig.order === 'asc' ? comparison : -comparison;
-    });
-    return sorted;
-  }, [data?.entries, sortConfig]);
+  const rows = useMemo(() => (data?.entries || []).map(toRow), [data?.entries]);
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
@@ -86,10 +52,10 @@ export function SearchResults() {
   });
 
   const handleSort = (field: SortField | 'path') => {
-    setSortConfig((prev) => ({
+    setSearchSortConfig({
       field,
-      order: prev.field === field && prev.order === 'asc' ? 'desc' : 'asc',
-    }));
+      order: searchSortConfig.field === field && searchSortConfig.order === 'asc' ? 'desc' : 'asc',
+    });
   };
 
   const handleRowClick = useCallback(
@@ -177,7 +143,7 @@ export function SearchResults() {
           >
             {searchColumns.map((column, index) => {
               const isSortable = column.sortable && column.key !== 'icon';
-              const isActive = sortConfig.field === column.key;
+              const isActive = searchSortConfig.field === column.key;
               return (
                 <div
                   key={column.key}
@@ -192,7 +158,7 @@ export function SearchResults() {
                   >
                     <span>{column.label}</span>
                     {isSortable && isActive && (
-                      sortConfig.order === 'asc' ? (
+                      searchSortConfig.order === 'asc' ? (
                         <ArrowUp className="w-3 h-3 flex-shrink-0" />
                       ) : (
                         <ArrowDown className="w-3 h-3 flex-shrink-0" />

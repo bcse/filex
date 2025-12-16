@@ -5,7 +5,7 @@ import { useNavigationStore } from '@/stores/navigation';
 import { useDirectory } from '@/hooks/useDirectory';
 import { api } from '@/api/client';
 import { FileContextMenu } from './FileContextMenu';
-import type { FileEntry, SortField, SortOrder } from '@/types/file';
+import type { FileEntry } from '@/types/file';
 
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'];
 const VIDEO_EXTENSIONS = ['mp4', 'mkv', 'avi', 'mov', 'webm', 'wmv', 'flv'];
@@ -30,33 +30,6 @@ function getFileIcon(entry: FileEntry) {
   return File;
 }
 
-function sortEntries(entries: FileEntry[], field: SortField, order: SortOrder): FileEntry[] {
-  const sorted = [...entries].sort((a, b) => {
-    if (a.is_dir !== b.is_dir) {
-      return a.is_dir ? -1 : 1;
-    }
-
-    let comparison = 0;
-    switch (field) {
-      case 'name':
-        comparison = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
-        break;
-      case 'size':
-        comparison = (a.size || 0) - (b.size || 0);
-        break;
-      case 'modified':
-        comparison = (a.modified || '').localeCompare(b.modified || '');
-        break;
-      default:
-        comparison = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
-    }
-
-    return order === 'asc' ? comparison : -comparison;
-  });
-
-  return sorted;
-}
-
 export function FileGrid() {
   const {
     currentPath,
@@ -66,7 +39,6 @@ export function FileGrid() {
     selectFile,
     selectRange,
     toggleSelection,
-    sortConfig,
   } = useNavigationStore();
 
   const { data, isLoading, error } = useDirectory(currentPath);
@@ -86,14 +58,9 @@ export function FileGrid() {
     return withLeadingSlash.replace(/\/+/g, '/');
   }, [currentPath]);
 
-  const sortedEntries = useMemo(() => {
-    if (!data?.entries) return [];
-    return sortEntries(data.entries, sortConfig.field, sortConfig.order);
-  }, [data?.entries, sortConfig]);
-
   const orderedPaths = useMemo(
-    () => sortedEntries.map((entry) => buildPath(entry)),
-    [sortedEntries, buildPath]
+    () => (data?.entries || []).map((entry) => buildPath(entry)),
+    [data?.entries, buildPath]
   );
 
   const handleClick = useCallback((entry: FileEntry, e: React.MouseEvent) => {
@@ -141,7 +108,9 @@ export function FileGrid() {
     );
   }
 
-  if (sortedEntries.length === 0) {
+  const entries = data?.entries || [];
+
+  if (entries.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
         <FolderOpen className="w-16 h-16 mb-4 opacity-30" />
@@ -153,7 +122,7 @@ export function FileGrid() {
 
   return (
     <div className="p-4 grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4">
-      {sortedEntries.map((entry) => {
+      {entries.map((entry) => {
         const resolvedPath = buildPath(entry);
         const normalizedEntry = entry.path === resolvedPath ? entry : { ...entry, path: resolvedPath };
         const isSelected = selectedFiles.has(resolvedPath);
