@@ -31,14 +31,22 @@ export const api = {
   // Browse
   async listDirectory(
     path: string = '/',
-    options: { offset?: number; limit?: number; sort_by?: SortField; sort_order?: SortOrder } = {}
+    options: {
+      signal?: AbortSignal;
+      offset?: number;
+      limit?: number;
+      sort_by?: SortField;
+      sort_order?: SortOrder;
+    } = {}
   ): Promise<ListResponse> {
     const params = new URLSearchParams({ path });
     if (options.offset !== undefined) params.set('offset', String(options.offset));
     if (options.limit !== undefined) params.set('limit', String(options.limit));
     if (options.sort_by) params.set('sort_by', options.sort_by);
     if (options.sort_order) params.set('sort_order', options.sort_order);
-    const response = await fetch(`${API_BASE}/browse?${params}`);
+    const response = await fetch(`${API_BASE}/browse?${params}`, {
+      signal: options.signal,
+    });
     return handleResponse(response);
   },
 

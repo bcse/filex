@@ -22,8 +22,9 @@ export function useDirectory(path: string) {
 
   return useQuery({
     queryKey: ['directory', path, directoryOffset, directoryLimit, sortConfig.field, sortConfig.order],
-    queryFn: () =>
+    queryFn: ({ signal }) =>
       api.listDirectory(path, {
+        signal,
         offset: directoryOffset,
         limit: directoryLimit,
         sort_by: mapSortField(sortConfig.field),
