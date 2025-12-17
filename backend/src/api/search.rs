@@ -265,6 +265,49 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn search_treats_special_chars_literally() {
+        let (state, _tmp) = test_state().await;
+
+        for path in ["/docs/h&m.txt", "/docs/hm.txt", "/docs/h-m.txt"] {
+            let indexed = crate::models::IndexedFileRow {
+                id: 0,
+                path: path.to_string(),
+                name: path.split('/').last().unwrap().to_string(),
+                is_dir: false,
+                size: Some(1),
+                created_at: None,
+                modified_at: None,
+                mime_type: Some("text/plain".to_string()),
+                width: None,
+                height: None,
+                duration: None,
+                metadata_status: "complete".to_string(),
+                indexed_at: now_sqlite_timestamp(),
+            };
+            crate::db::upsert_file(&state.pool, &indexed)
+                .await
+                .expect("seed index");
+        }
+
+        let resp = search_files(
+            State(state.clone()),
+            Query(SearchQuery {
+                q: "h&m".to_string(),
+                offset: None,
+                limit: None,
+                sort_by: None,
+                sort_order: None,
+            }),
+        )
+        .await
+        .unwrap();
+
+        let paths: Vec<_> = resp.0.entries.iter().map(|e| e.path.clone()).collect();
+        assert_eq!(paths.len(), 1);
+        assert!(paths.contains(&"/docs/h&m.txt".to_string()));
+    }
+
+    #[tokio::test]
     async fn search_respects_pagination() {
         let (state, _tmp) = test_state().await;
 

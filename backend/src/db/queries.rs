@@ -113,7 +113,10 @@ pub async fn search_files(
         "#
     );
 
-    let patterns: Vec<String> = tokens.iter().map(|t| format!("%{}%", t)).collect();
+    let patterns: Vec<String> = tokens
+        .iter()
+        .map(|t| format!("%{}%", escape_like_token(t)))
+        .collect();
 
     let mut query_builder = sqlx::query_as::<_, IndexedFileRow>(&sql);
 
@@ -143,9 +146,9 @@ pub async fn search_files(
     Ok((results, total))
 }
 
-/// Tokenize a raw query string into lowercase alphanumeric tokens.
+/// Tokenize a raw query string into lowercase whitespace-delimited tokens.
 fn tokenize_query(raw: &str) -> Vec<String> {
-    raw.split(|c: char| c.is_whitespace() || !c.is_alphanumeric())
+    raw.split_whitespace()
         .filter(|t| !t.is_empty())
         .map(|t| t.to_lowercase())
         .collect()
@@ -156,9 +159,24 @@ fn tokenize_query(raw: &str) -> Vec<String> {
 /// "123johndoe").
 fn build_like_clause(token_count: usize) -> String {
     (0..token_count)
-        .map(|_| "path LIKE ?".to_string())
+        .map(|_| "path LIKE ? ESCAPE '\\'".to_string())
         .collect::<Vec<_>>()
         .join(" AND ")
+}
+
+/// Escape LIKE wildcard characters so the query token is treated literally.
+fn escape_like_token(token: &str) -> String {
+    let mut escaped = String::with_capacity(token.len());
+    for ch in token.chars() {
+        match ch {
+            '%' | '_' | '\\' => {
+                escaped.push('\\');
+                escaped.push(ch);
+            }
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
 }
 
 /// Retrieve media metadata rows for a set of paths; returns an empty list if
