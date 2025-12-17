@@ -36,8 +36,29 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
     return entries.findIndex((e) => e.path === anchor);
   }, [selectedFiles, entries, lastSelected]);
 
+  const handlePaste = useCallback(async () => {
+    if (clipboard.files.length === 0) return;
+
+    for (const filePath of clipboard.files) {
+      const fileName = filePath.split('/').pop() || '';
+      const targetPath =
+        currentPath === '/' ? `/${fileName}` : `${currentPath}/${fileName}`;
+
+      if (clipboard.operation === 'cut') {
+        await move.mutateAsync({ from: filePath, to: targetPath });
+      }
+      if (clipboard.operation === 'copy') {
+        await copy.mutateAsync({ from: filePath, to: targetPath });
+      }
+    }
+
+    if (clipboard.operation === 'cut') {
+      clearClipboard();
+    }
+  }, [clipboard, clearClipboard, copy, currentPath, move]);
+
   const handleKeyDown = useCallback(
-    async (e: KeyboardEvent) => {
+    (e: KeyboardEvent) => {
       // Don't handle if input is focused
       if (
         e.target instanceof HTMLInputElement ||
@@ -162,21 +183,7 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
         case 'V': {
           if (isCtrlOrCmd && clipboard.files.length > 0) {
             e.preventDefault();
-            for (const filePath of clipboard.files) {
-              const fileName = filePath.split('/').pop() || '';
-              const targetPath =
-                currentPath === '/' ? `/${fileName}` : `${currentPath}/${fileName}`;
-
-              if (clipboard.operation === 'cut') {
-                await move.mutateAsync({ from: filePath, to: targetPath });
-              }
-              if (clipboard.operation === 'copy') {
-                await copy.mutateAsync({ from: filePath, to: targetPath });
-              }
-            }
-            if (clipboard.operation === 'cut') {
-              clearClipboard();
-            }
+            void handlePaste();
           }
           break;
         }
@@ -198,11 +205,8 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
       copyFiles,
       cutFiles,
       clipboard,
-      clearClipboard,
-      currentPath,
       setDeleteConfirmOpen,
-      move,
-      copy,
+      handlePaste,
       onRename,
     ]
   );
