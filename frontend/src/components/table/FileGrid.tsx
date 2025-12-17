@@ -1,5 +1,16 @@
 import React, { useMemo, useCallback } from 'react';
-import { Loader2, Folder, File, Image, Video, Music, FileText, FolderOpen } from 'lucide-react';
+import {
+  Loader2,
+  Folder,
+  File,
+  Image,
+  Video,
+  Music,
+  FileText,
+  FileCode,
+  Archive,
+  FolderOpen,
+} from 'lucide-react';
 import { buildEntryPath, cn } from '@/lib/utils';
 import { useNavigationStore } from '@/stores/navigation';
 import { useDirectory } from '@/hooks/useDirectory';
@@ -7,26 +18,21 @@ import { api } from '@/api/client';
 import { FileContextMenu } from './FileContextMenu';
 import type { FileEntry } from '@/types/file';
 
-const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'];
-const VIDEO_EXTENSIONS = ['mp4', 'mkv', 'avi', 'mov', 'webm', 'wmv', 'flv'];
-const AUDIO_EXTENSIONS = ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma'];
-const TEXT_EXTENSIONS = ['txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'ts', 'tsx', 'jsx', 'py', 'rs', 'go', 'java'];
-
-function getFileExtension(filename: string): string {
-  return filename.split('.').pop()?.toLowerCase() || '';
-}
-
-function isImageFile(filename: string): boolean {
-  return IMAGE_EXTENSIONS.includes(getFileExtension(filename));
+function isImageFile(entry: FileEntry): boolean {
+  return (entry.mime_type || '').startsWith('image/');
 }
 
 function getFileIcon(entry: FileEntry) {
   if (entry.is_dir) return Folder;
-  const ext = getFileExtension(entry.name);
-  if (IMAGE_EXTENSIONS.includes(ext)) return Image;
-  if (VIDEO_EXTENSIONS.includes(ext)) return Video;
-  if (AUDIO_EXTENSIONS.includes(ext)) return Music;
-  if (TEXT_EXTENSIONS.includes(ext)) return FileText;
+  const mime = entry.mime_type || '';
+  if (mime.startsWith('image/')) return Image;
+  if (mime.startsWith('video/') || mime.includes('realmedia')) return Video;
+  if (mime.startsWith('audio/')) return Music;
+  if (mime.startsWith('text/') || mime.includes('pdf')) return FileText;
+  if (mime.includes('zip') || mime.includes('archive')) return Archive;
+  if (mime.includes('json') || mime.includes('javascript') || mime.includes('typescript')) {
+    return FileCode;
+  }
   return File;
 }
 
@@ -117,7 +123,7 @@ export function FileGrid() {
         const normalizedEntry = entry.path === resolvedPath ? entry : { ...entry, path: resolvedPath };
         const isSelected = selectedFiles.has(resolvedPath);
         const Icon = getFileIcon(normalizedEntry);
-        const showThumbnail = isImageFile(normalizedEntry.name);
+        const showThumbnail = isImageFile(normalizedEntry);
 
         return (
           <FileContextMenu
