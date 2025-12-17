@@ -3,15 +3,7 @@ import { X, CheckCircle, AlertCircle, Upload, ChevronDown, ChevronUp } from 'luc
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useUploadStore, UploadItem } from '@/stores/upload';
-import { cn } from '@/lib/utils';
-
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-}
+import { cn, formatFileSize } from '@/lib/utils';
 
 function UploadItemRow({ item }: { item: UploadItem }) {
   const { removeUpload } = useUploadStore();
