@@ -58,3 +58,12 @@ export function getParentPath(path: string): string {
 export function joinPath(...parts: string[]): string {
   return '/' + parts.map(p => p.replace(/^\/+|\/+$/g, '')).filter(Boolean).join('/');
 }
+
+export function buildEntryPath(name: string, path: string | undefined, parentPath: string): string {
+  const pathLooksValid = Boolean(path && path !== '/' && path !== '.' && path.includes(name));
+  const basePath = pathLooksValid
+    ? path!
+    : `${parentPath === '/' ? '' : parentPath}/${name}`;
+  const withLeadingSlash = basePath.startsWith('/') ? basePath : `/${basePath}`;
+  return withLeadingSlash.replace(/\/+/g, '/');
+}

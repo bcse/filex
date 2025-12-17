@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ChevronRight, ChevronDown, Folder, FolderOpen, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { buildEntryPath, cn } from '@/lib/utils';
 import { useTree, useMove, useCopy } from '@/hooks/useDirectory';
 import { useNavigationStore } from '@/stores/navigation';
 import type { TreeNode as TreeNodeType } from '@/types/file';
@@ -22,20 +22,10 @@ function TreeNode({ node, depth, parentPath, onDropPrompt }: TreeNodeProps) {
   const { currentPath, setCurrentPath } = useNavigationStore();
   const itemRef = useRef<HTMLDivElement>(null);
 
-  const normalizedPath = React.useMemo(() => {
-    const pathLooksValid =
-      node.path &&
-      node.path !== '/' &&
-      node.path !== '.' &&
-      node.path.includes(node.name);
-
-    const basePath = pathLooksValid
-      ? node.path
-      : `${parentPath === '/' ? '' : parentPath}/${node.name}`;
-
-    const withLeadingSlash = basePath.startsWith('/') ? basePath : `/${basePath}`;
-    return withLeadingSlash.replace(/\/+/g, '/');
-  }, [node.name, node.path, parentPath]);
+  const normalizedPath = React.useMemo(
+    () => buildEntryPath(node.name, node.path, parentPath),
+    [node.name, node.path, parentPath]
+  );
 
   const { data: children, isLoading } = useTree(
     normalizedPath,

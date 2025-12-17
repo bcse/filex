@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState } from 'react';
 import { Loader2, FolderOpen } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { buildEntryPath, cn } from '@/lib/utils';
 import { useNavigationStore } from '@/stores/navigation';
 import { useDirectory, useRename, useMove, useCopy } from '@/hooks/useDirectory';
 import { useKeyboard } from '@/hooks/useKeyboard';
@@ -53,21 +53,10 @@ export function FileTable() {
   
   const serverEntries = useMemo(() => data?.entries || [], [data?.entries]);
 
-  const buildPath = useCallback((entry: FileEntry) => {
-    const pathLooksValid =
-      entry.path &&
-      entry.path !== '/' &&
-      entry.path !== '.' &&
-      entry.path.includes(entry.name);
-
-    const basePath = pathLooksValid
-      ? entry.path
-      : `${currentPath === '/' ? '' : currentPath}/${entry.name}`;
-
-    const withLeadingSlash = basePath.startsWith('/') ? basePath : `/${basePath}`;
-    // Collapse duplicate slashes that might appear when stitching paths
-    return withLeadingSlash.replace(/\/+/g, '/');
-  }, [currentPath]);
+  const buildPath = useCallback(
+    (entry: FileEntry) => buildEntryPath(entry.name, entry.path, currentPath),
+    [currentPath]
+  );
 
   const normalizedEntries = useMemo(
     () =>

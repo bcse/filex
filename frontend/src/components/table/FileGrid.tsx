@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback } from 'react';
 import { Loader2, Folder, File, Image, Video, Music, FileText, FolderOpen } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { buildEntryPath, cn } from '@/lib/utils';
 import { useNavigationStore } from '@/stores/navigation';
 import { useDirectory } from '@/hooks/useDirectory';
 import { api } from '@/api/client';
@@ -43,20 +43,10 @@ export function FileGrid() {
 
   const { data, isLoading, error } = useDirectory(currentPath);
 
-  const buildPath = useCallback((entry: FileEntry) => {
-    const pathLooksValid =
-      entry.path &&
-      entry.path !== '/' &&
-      entry.path !== '.' &&
-      entry.path.includes(entry.name);
-
-    const basePath = pathLooksValid
-      ? entry.path
-      : `${currentPath === '/' ? '' : currentPath}/${entry.name}`;
-
-    const withLeadingSlash = basePath.startsWith('/') ? basePath : `/${basePath}`;
-    return withLeadingSlash.replace(/\/+/g, '/');
-  }, [currentPath]);
+  const buildPath = useCallback(
+    (entry: FileEntry) => buildEntryPath(entry.name, entry.path, currentPath),
+    [currentPath]
+  );
 
   const orderedPaths = useMemo(
     () => (data?.entries || []).map((entry) => buildPath(entry)),
