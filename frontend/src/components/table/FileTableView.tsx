@@ -163,11 +163,11 @@ export function FileTableView({
   wrapRow,
   afterRows,
 }: FileTableViewProps) {
-  const parentRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const { handleResizeStart, getGridTemplate, getTotalWidth } = useColumnResize(columns);
   const rowVirtualizer = useVirtualizer({
     count: entries.length,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => scrollRef.current,
     estimateSize: () => estimateSize,
     overscan: 10,
   });
@@ -178,7 +178,7 @@ export function FileTableView({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-auto">
+      <div ref={scrollRef} className="flex-1 overflow-auto">
         <div style={{ minWidth: totalWidth }}>
           <div
             className="grid px-2 py-2 border-b bg-muted/60 backdrop-blur text-sm font-medium sticky top-0 z-10"
@@ -218,7 +218,7 @@ export function FileTableView({
             })}
           </div>
 
-          <div ref={parentRef}>
+          <div>
             <div
               style={{
                 height: `${rowVirtualizer.getTotalSize()}px`,
