@@ -60,7 +60,9 @@ export function joinPath(...parts: string[]): string {
 }
 
 export function buildEntryPath(name: string, path: string | undefined, parentPath: string): string {
-  const pathLooksValid = Boolean(path && path !== '/' && path !== '.' && path.includes(name));
+  const normalizedPath = path ? path.replace(/\/+/g, '/').replace(/\/$/, '') : '';
+  const pathBaseName = normalizedPath.split('/').filter(Boolean).pop();
+  const pathLooksValid = Boolean(pathBaseName && pathBaseName !== '.' && pathBaseName === name);
   const basePath = pathLooksValid
     ? path!
     : `${parentPath === '/' ? '' : parentPath}/${name}`;
