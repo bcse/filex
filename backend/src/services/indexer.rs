@@ -232,6 +232,11 @@ impl IndexerService {
             }
         }
 
+        info!(
+            "Starting second pass with {} pending files",
+            pending_metadata.len()
+        );
+
         // Second pass: fill media metadata for pending files
         for (relative_path, abs_path, mime_type) in pending_metadata {
             let is_image = mime_type
