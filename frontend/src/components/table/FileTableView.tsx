@@ -24,6 +24,130 @@ interface FileTableViewProps {
   afterRows?: React.ReactNode;
 }
 
+interface FileTableRowProps extends React.HTMLAttributes<HTMLDivElement> {
+  entry: FileEntry;
+  columns: Column[];
+  gridTemplate: string;
+  totalWidth: number;
+  isSelected: boolean;
+  rowClassName?: string;
+  rowHeight: number;
+  rowStart: number;
+  getRowProps?: (entry: FileEntry) => RowProps | undefined;
+  onRowClick?: (entry: FileEntry, event: React.MouseEvent) => void;
+  onRowDoubleClick?: (entry: FileEntry) => void;
+}
+
+function areRowPropsEqual(prev: FileTableRowProps, next: FileTableRowProps) {
+  return (
+    prev.entry === next.entry &&
+    prev.columns === next.columns &&
+    prev.gridTemplate === next.gridTemplate &&
+    prev.totalWidth === next.totalWidth &&
+    prev.isSelected === next.isSelected &&
+    prev.rowClassName === next.rowClassName &&
+    prev.rowHeight === next.rowHeight &&
+    prev.rowStart === next.rowStart &&
+    prev.getRowProps === next.getRowProps &&
+    prev.onRowClick === next.onRowClick &&
+    prev.onRowDoubleClick === next.onRowDoubleClick &&
+    prev.className === next.className &&
+    prev.style === next.style &&
+    prev.onClick === next.onClick &&
+    prev.onDoubleClick === next.onDoubleClick &&
+    prev.onContextMenu === next.onContextMenu &&
+    prev.onPointerDown === next.onPointerDown &&
+    prev.onKeyDown === next.onKeyDown &&
+    prev.role === next.role &&
+    prev.tabIndex === next.tabIndex
+  );
+}
+
+const FileTableRow = React.memo(React.forwardRef<HTMLDivElement, FileTableRowProps>(function FileTableRow({
+  entry,
+  columns,
+  gridTemplate,
+  totalWidth,
+  isSelected,
+  rowClassName,
+  rowHeight,
+  rowStart,
+  getRowProps,
+  onRowClick,
+  onRowDoubleClick,
+  className: triggerClassName,
+  style: triggerStyle,
+  onClick: triggerOnClick,
+  onDoubleClick: triggerOnDoubleClick,
+  onContextMenu: triggerOnContextMenu,
+  onPointerDown: triggerOnPointerDown,
+  onKeyDown: triggerOnKeyDown,
+  ...restTriggerProps
+}, ref) {
+  const rowProps = getRowProps?.(entry);
+  const {
+    className: rowExtraClassName,
+    style: rowExtraStyle,
+    onClick: rowExtraOnClick,
+    onDoubleClick: rowExtraOnDoubleClick,
+    onContextMenu: rowExtraOnContextMenu,
+    onPointerDown: rowExtraOnPointerDown,
+    onKeyDown: rowExtraOnKeyDown,
+    ...restRowProps
+  } = rowProps ?? {};
+
+  return (
+    <div
+      {...restRowProps}
+      {...restTriggerProps}
+      ref={ref}
+      className={cn(
+        'grid px-2 items-center text-sm border-b border-transparent hover:bg-accent cursor-pointer absolute top-0 left-0',
+        isSelected && 'bg-accent',
+        rowClassName,
+        rowExtraClassName,
+        triggerClassName
+      )}
+      style={{
+        gridTemplateColumns: gridTemplate,
+        height: `${rowHeight}px`,
+        transform: `translateY(${rowStart}px)`,
+        minWidth: totalWidth,
+        ...rowExtraStyle,
+        ...triggerStyle,
+      }}
+      onClick={(event) => {
+        rowExtraOnClick?.(event);
+        triggerOnClick?.(event);
+        onRowClick?.(entry, event);
+      }}
+      onDoubleClick={(event) => {
+        rowExtraOnDoubleClick?.(event);
+        triggerOnDoubleClick?.(event);
+        onRowDoubleClick?.(entry);
+      }}
+      onContextMenu={(event) => {
+        rowExtraOnContextMenu?.(event);
+        triggerOnContextMenu?.(event);
+      }}
+      onPointerDown={(event) => {
+        rowExtraOnPointerDown?.(event);
+        triggerOnPointerDown?.(event);
+      }}
+      onKeyDown={(event) => {
+        rowExtraOnKeyDown?.(event);
+        triggerOnKeyDown?.(event);
+      }}
+    >
+      {columns.map((column) => (
+        <div key={column.key} className="truncate">
+          {column.render(entry)}
+        </div>
+      ))}
+    </div>
+  );
+}), areRowPropsEqual);
+
 export function FileTableView({
   columns,
   entries,
@@ -106,47 +230,21 @@ export function FileTableView({
                 const entry = entries[virtualRow.index];
                 const key = resolveKey(entry);
                 const isSelected = selectedPaths?.has(key) ?? false;
-                const rowProps = getRowProps?.(entry);
                 const rowClassName = getRowClassName?.(entry, isSelected);
-                const {
-                  className: rowExtraClassName,
-                  style: rowExtraStyle,
-                  onClick: rowExtraOnClick,
-                  onDoubleClick: rowExtraOnDoubleClick,
-                  ...restRowProps
-                } = rowProps ?? {};
-
                 const row = (
-                  <div
-                    {...restRowProps}
-                    className={cn(
-                      'grid px-2 items-center text-sm border-b border-transparent hover:bg-accent cursor-pointer absolute top-0 left-0',
-                      isSelected && 'bg-accent',
-                      rowClassName,
-                      rowExtraClassName
-                    )}
-                    style={{
-                      gridTemplateColumns: gridTemplate,
-                      height: `${virtualRow.size}px`,
-                      transform: `translateY(${virtualRow.start}px)`,
-                      minWidth: totalWidth,
-                      ...rowExtraStyle,
-                    }}
-                    onClick={(event) => {
-                      rowExtraOnClick?.(event);
-                      onRowClick?.(entry, event);
-                    }}
-                    onDoubleClick={(event) => {
-                      rowExtraOnDoubleClick?.(event);
-                      onRowDoubleClick?.(entry);
-                    }}
-                  >
-                    {columns.map((column) => (
-                      <div key={column.key} className="truncate">
-                        {column.render(entry)}
-                      </div>
-                    ))}
-                  </div>
+                  <FileTableRow
+                    entry={entry}
+                    columns={columns}
+                    gridTemplate={gridTemplate}
+                    totalWidth={totalWidth}
+                    isSelected={isSelected}
+                    rowClassName={rowClassName}
+                    rowHeight={virtualRow.size}
+                    rowStart={virtualRow.start}
+                    getRowProps={getRowProps}
+                    onRowClick={onRowClick}
+                    onRowDoubleClick={onRowDoubleClick}
+                  />
                 );
 
                 const wrappedRow = wrapRow ? wrapRow(entry, row) : row;

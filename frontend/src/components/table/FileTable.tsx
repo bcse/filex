@@ -191,6 +191,15 @@ export function FileTable() {
     }
   }, [buildPath]);
 
+  const getRowProps = useCallback((entry: FileEntry) => ({
+    draggable: true,
+    onDragStart: (event: React.DragEvent) => handleDragStart(event, entry),
+    onDragEnd: handleDragEnd,
+    onDragOver: (event: React.DragEvent) => handleDragOver(event, entry),
+    onDragLeave: handleDragLeave,
+    onDrop: (event: React.DragEvent) => handleDrop(event, entry),
+  }), [handleDragStart, handleDragEnd, handleDragOver, handleDragLeave, handleDrop]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -223,14 +232,7 @@ export function FileTable() {
             draggedPaths.includes(resolvedPath) && 'opacity-50'
           );
         }}
-        getRowProps={(entry) => ({
-          draggable: true,
-          onDragStart: (event) => handleDragStart(event, entry),
-          onDragEnd: handleDragEnd,
-          onDragOver: (event) => handleDragOver(event, entry),
-          onDragLeave: handleDragLeave,
-          onDrop: (event) => handleDrop(event, entry),
-        })}
+        getRowProps={getRowProps}
         onRowClick={handleRowClick}
         onRowDoubleClick={handleRowDoubleClick}
         wrapRow={(entry, row) => {

@@ -14,7 +14,7 @@ interface TreeNodeProps {
   onDropPrompt: (paths: string[], targetPath: string, x: number, y: number) => void;
 }
 
-function TreeNode({ node, depth, parentPath, onDropPrompt }: TreeNodeProps) {
+const TreeNode = React.memo(function TreeNode({ node, depth, parentPath, onDropPrompt }: TreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -182,7 +182,14 @@ function TreeNode({ node, depth, parentPath, onDropPrompt }: TreeNodeProps) {
       )}
     </div>
   );
-}
+}, (prevProps, nextProps) => (
+  prevProps.depth === nextProps.depth &&
+  prevProps.parentPath === nextProps.parentPath &&
+  prevProps.onDropPrompt === nextProps.onDropPrompt &&
+  prevProps.node.path === nextProps.node.path &&
+  prevProps.node.name === nextProps.node.name &&
+  prevProps.node.has_children === nextProps.node.has_children
+));
 
 export function DirectoryTree() {
   const { setCurrentPath, currentPath, clearSelection } = useNavigationStore();
