@@ -19,17 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { RenameDialog } from '@/components/dialogs/RenameDialog';
+import { DeleteConfirmDialog } from '@/components/dialogs/DeleteConfirmDialog';
 import { useNavigationStore } from '@/stores/navigation';
 import { useCreateDirectory, useDelete, useRename, useUploadWithProgress } from '@/hooks/useDirectory';
 import { api } from '@/api/client';
@@ -274,26 +265,12 @@ export function Toolbar() {
         onConfirm={handleConfirmRename}
       />
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete {selectedArray.length} item{selectedArray.length > 1 ? 's' : ''}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. The selected item{selectedArray.length > 1 ? 's' : ''} will be permanently deleted.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              className="bg-red-500 hover:bg-red-600"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        onConfirm={handleConfirmDelete}
+        itemCount={selectedArray.length}
+      />
     </>
   );
 }

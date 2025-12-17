@@ -8,17 +8,8 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { RenameDialog } from '@/components/dialogs/RenameDialog';
+import { DeleteConfirmDialog } from '@/components/dialogs/DeleteConfirmDialog';
 import { useNavigationStore } from '@/stores/navigation';
 import { useDelete, useRename } from '@/hooks/useDirectory';
 import { api } from '@/api/client';
@@ -140,28 +131,12 @@ export function FileContextMenu({ entry, children, onSelect }: FileContextMenuPr
         onConfirm={handleConfirmRename}
       />
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Delete {targetPaths.length} item{targetPaths.length > 1 ? 's' : ''}?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. The selected item{targetPaths.length > 1 ? 's' : ''} will be permanently deleted.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              className="bg-red-500 hover:bg-red-600"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        onConfirm={handleConfirmDelete}
+        itemCount={targetPaths.length}
+      />
     </>
   );
 }
