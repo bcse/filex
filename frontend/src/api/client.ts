@@ -145,6 +145,7 @@ export const api = {
     onProgress: (progress: number) => void
   ): Promise<SuccessResponse> {
     return new Promise((resolve, reject) => {
+      // XHR is required here to reliably report upload progress for multipart/form-data.
       const xhr = new XMLHttpRequest();
       const formData = new FormData();
       formData.append('files', file);
