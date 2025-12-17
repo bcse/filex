@@ -1,5 +1,7 @@
 use sqlx::{Error, sqlite::SqlitePool};
 
+const DB_VERSION: i64 = 1;
+
 pub async fn init_db(pool: &SqlitePool) -> Result<(), Error> {
     // Enable WAL mode for better concurrent read/write performance
     // This allows users to browse/search while the indexer writes
@@ -19,6 +21,7 @@ pub async fn init_db(pool: &SqlitePool) -> Result<(), Error> {
             width INTEGER,
             height INTEGER,
             duration REAL,
+            metadata_status TEXT NOT NULL DEFAULT 'complete',
             indexed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
         
@@ -42,7 +45,27 @@ pub async fn init_db(pool: &SqlitePool) -> Result<(), Error> {
     .execute(pool)
     .await?;
 
-    // Add metadata_status column if missing (for two-phase indexing)
+    migrate_db(pool).await?;
+
+    Ok(())
+}
+
+async fn migrate_db(pool: &SqlitePool) -> Result<(), Error> {
+    let version = get_user_version(pool).await?;
+
+    if version < 1 {
+        migrate_to_v1(pool).await?;
+    }
+
+    if version < DB_VERSION {
+        set_user_version(pool, DB_VERSION).await?;
+    }
+
+    Ok(())
+}
+
+async fn migrate_to_v1(pool: &SqlitePool) -> Result<(), Error> {
+    // Ensure metadata_status column exists for two-phase indexing.
     if !column_exists(pool, "indexed_files", "metadata_status").await? {
         sqlx::query(
             r#"
@@ -67,4 +90,17 @@ async fn column_exists(pool: &SqlitePool, table: &str, column: &str) -> Result<b
             .await?;
 
     Ok(exists.is_some())
+}
+
+async fn get_user_version(pool: &SqlitePool) -> Result<i64, Error> {
+    let version: (i64,) = sqlx::query_as("PRAGMA user_version")
+        .fetch_one(pool)
+        .await?;
+    Ok(version.0)
+}
+
+async fn set_user_version(pool: &SqlitePool, version: i64) -> Result<(), Error> {
+    let pragma = format!("PRAGMA user_version = {}", version);
+    sqlx::query(&pragma).execute(pool).await?;
+    Ok(())
 }
