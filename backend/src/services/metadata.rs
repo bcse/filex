@@ -54,7 +54,7 @@ impl MetadataService {
 
     /// Extract media metadata using ffprobe
     pub async fn extract(path: &Path) -> Result<MediaMetadata, MetadataError> {
-        // Check if file might be a media file based on extension
+        // Check if file might be a media file based on mime type
         if !Self::is_likely_media_file(path) {
             return Err(MetadataError::NotMediaFile);
         }
@@ -148,28 +148,18 @@ impl MetadataService {
         Ok(metadata)
     }
 
-    /// Check if file extension suggests it might be a media file
+    /// Check if mime type suggests it might be a media file
     fn is_likely_media_file(path: &Path) -> bool {
-        let ext = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .map(|e| e.to_lowercase());
+        mime_guess::from_path(path)
+            .first_raw()
+            .is_some_and(Self::is_media_mime)
+    }
 
-        match ext.as_deref() {
-            // Images
-            Some(
-                "jpg" | "jpeg" | "png" | "gif" | "webp" | "bmp" | "tiff" | "tif" | "svg" | "ico"
-                | "heic" | "heif" | "avif",
-            ) => true,
-            // Videos
-            Some(
-                "mp4" | "mkv" | "avi" | "mov" | "wmv" | "flv" | "webm" | "m4v" | "mpeg" | "mpg"
-                | "3gp" | "ts" | "mts",
-            ) => true,
-            // Audio
-            Some("mp3" | "wav" | "flac" | "aac" | "ogg" | "wma" | "m4a" | "opus" | "aiff") => true,
-            _ => false,
-        }
+    fn is_media_mime(mime: &str) -> bool {
+        mime.starts_with("image/")
+            || mime.starts_with("video/")
+            || mime.starts_with("audio/")
+            || mime.contains("realmedia")
     }
 
     /// Check if ffprobe is available
@@ -201,5 +191,8 @@ mod tests {
             "document.pdf"
         )));
         assert!(!MetadataService::is_likely_media_file(Path::new("code.rs")));
+        assert!(MetadataService::is_media_mime(
+            "application/vnd.rn-realmedia"
+        ));
     }
 }
