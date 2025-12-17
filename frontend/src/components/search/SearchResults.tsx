@@ -138,7 +138,7 @@ export function SearchResults() {
         <div style={{ minWidth: totalWidth }}>
           {/* Header */}
           <div
-            className="grid px-2 py-2 border-b bg-muted/40 text-sm font-medium sticky top-0 z-10"
+            className="grid px-2 py-2 border-b bg-muted/60 backdrop-blur text-sm font-medium sticky top-0 z-10"
             style={{ gridTemplateColumns: gridTemplate }}
           >
             {searchColumns.map((column, index) => {
