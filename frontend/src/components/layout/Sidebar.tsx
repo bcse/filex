@@ -2,9 +2,7 @@ import React, { useCallback, useRef, useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DirectoryTree } from '@/components/tree/DirectoryTree';
 import { useNavigationStore } from '@/stores/navigation';
-
-const MIN_WIDTH = 150;
-const MAX_WIDTH = 500;
+import { SIDEBAR_MAX_WIDTH, SIDEBAR_MIN_WIDTH } from '@/config/layout';
 
 export function Sidebar() {
   const { sidebarWidth, setSidebarWidth } = useNavigationStore();
@@ -28,7 +26,7 @@ export function Sidebar() {
 
   const resize = useCallback((e: MouseEvent) => {
     if (!isResizing.current) return;
-    const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX));
+    const newWidth = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, e.clientX));
     setSidebarWidth(newWidth);
   }, [setSidebarWidth]);
 
@@ -37,7 +35,7 @@ export function Sidebar() {
     const saved = localStorage.getItem('sidebarWidth');
     if (saved) {
       const width = parseInt(saved, 10);
-      if (!isNaN(width) && width >= MIN_WIDTH && width <= MAX_WIDTH) {
+      if (!isNaN(width) && width >= SIDEBAR_MIN_WIDTH && width <= SIDEBAR_MAX_WIDTH) {
         setSidebarWidth(width);
       }
     }

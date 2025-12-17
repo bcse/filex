@@ -6,9 +6,13 @@ const parseNumber = (value: string | undefined, fallback: number) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+export const DEFAULT_PAGE_SIZE_FALLBACK = 1000;
+// Number of page buttons to display in the pager.
+export const PAGE_WINDOW = 9;
+
 export const DEFAULT_PAGE_SIZE = parseNumber(
   env.VITE_DEFAULT_PAGE_SIZE,
-  1000
+  DEFAULT_PAGE_SIZE_FALLBACK
 );
 
 // Threshold for showing pagination controls; defaults to page size

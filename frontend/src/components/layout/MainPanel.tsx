@@ -7,10 +7,8 @@ import { useNavigationStore } from '@/stores/navigation';
 import { useUploadWithProgress } from '@/hooks/useDirectory';
 import { useDirectory } from '@/hooks/useDirectory';
 import { useSearch } from '@/hooks/useSearch';
-import { DEFAULT_PAGE_SIZE, PAGINATION_THRESHOLD } from '@/config/pagination';
+import { DEFAULT_PAGE_SIZE, PAGINATION_THRESHOLD, PAGE_WINDOW } from '@/config/pagination';
 import { Button } from '@/components/ui/button';
-
-const PAGE_WINDOW = 9; // number of page buttons to display in the pager
 
 export function MainPanel() {
   const {
