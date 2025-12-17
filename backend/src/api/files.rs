@@ -9,6 +9,7 @@ use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::fs::File;
+use tokio::io::{AsyncWriteExt, BufWriter};
 use tokio_util::io::ReaderStream;
 
 // Encode filenames for Content-Disposition to avoid header injection.
@@ -322,10 +323,9 @@ pub async fn download(
         .unwrap())
 }
 
-/// Upload files
-pub async fn upload(
-    State(state): State<Arc<AppState>>,
-    Path(target_path): Path<String>,
+async fn upload_impl(
+    state: Arc<AppState>,
+    target_path: String,
     mut multipart: Multipart,
 ) -> Result<Json<SuccessResponse>, (StatusCode, Json<ErrorResponse>)> {
     let target_dir = state.fs.resolve_path(&target_path).map_err(|e| {
@@ -348,7 +348,7 @@ pub async fn upload(
 
     let mut uploaded = Vec::new();
 
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
+    while let Some(mut field) = multipart.next_field().await.map_err(|e| {
         (
             StatusCode::BAD_REQUEST,
             Json(ErrorResponse {
@@ -377,16 +377,35 @@ pub async fn upload(
             ));
         }
 
-        let data = field.bytes().await.map_err(|e| {
+        let file = File::create(&dest_path).await.map_err(|e| {
             (
-                StatusCode::BAD_REQUEST,
+                StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse {
                     error: e.to_string(),
                 }),
             )
         })?;
 
-        tokio::fs::write(&dest_path, &data).await.map_err(|e| {
+        let mut writer = BufWriter::new(file);
+        while let Some(chunk) = field.chunk().await.map_err(|e| {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })? {
+            writer.write_all(&chunk).await.map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?;
+        }
+
+        writer.flush().await.map_err(|e| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ErrorResponse {
@@ -404,6 +423,23 @@ pub async fn upload(
         message: Some(format!("Uploaded {} file(s)", uploaded.len())),
         performed: None,
     }))
+}
+
+/// Upload files
+pub async fn upload(
+    State(state): State<Arc<AppState>>,
+    Path(target_path): Path<String>,
+    multipart: Multipart,
+) -> Result<Json<SuccessResponse>, (StatusCode, Json<ErrorResponse>)> {
+    upload_impl(state, target_path, multipart).await
+}
+
+/// Upload files to root directory
+pub async fn upload_root(
+    State(state): State<Arc<AppState>>,
+    multipart: Multipart,
+) -> Result<Json<SuccessResponse>, (StatusCode, Json<ErrorResponse>)> {
+    upload_impl(state, "/".to_string(), multipart).await
 }
 
 #[cfg(test)]

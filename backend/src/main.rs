@@ -1,5 +1,7 @@
 use axum::{
-    Router, middleware,
+    Router,
+    extract::DefaultBodyLimit,
+    middleware,
     routing::{delete, get, post},
 };
 use sqlx::sqlite::SqlitePoolOptions;
@@ -101,6 +103,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/files/move", post(api::files::move_entry))
         .route("/api/files/delete", delete(api::files::delete))
         .route("/api/files/download", get(api::files::download))
+        .route("/api/files/upload", post(api::files::upload_root))
+        .route("/api/files/upload/", post(api::files::upload_root))
         .route("/api/files/upload/*path", post(api::files::upload))
         .with_state(app_state.clone())
         .route_layer(middleware::from_fn_with_state(
@@ -143,6 +147,7 @@ async fn main() -> anyhow::Result<()> {
         .merge(protected_routes)
         .merge(protected_index_routes)
         .fallback_service(serve_dir)
+        .layer(DefaultBodyLimit::disable())
         .layer(cors)
         .layer(TraceLayer::new_for_http());
 
