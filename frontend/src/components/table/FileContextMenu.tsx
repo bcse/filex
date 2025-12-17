@@ -9,14 +9,6 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -26,8 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { RenameDialog } from '@/components/dialogs/RenameDialog';
 import { useNavigationStore } from '@/stores/navigation';
 import { useDelete, useRename } from '@/hooks/useDirectory';
 import { api } from '@/api/client';
@@ -141,34 +132,13 @@ export function FileContextMenu({ entry, children, onSelect }: FileContextMenuPr
         </ContextMenuContent>
       </ContextMenu>
 
-      {/* Rename Dialog */}
-      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Rename</DialogTitle>
-            <DialogDescription>Enter a new name.</DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Input
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              placeholder="New name"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleConfirmRename();
-              }}
-              autoFocus
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRenameOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmRename} disabled={!renameValue.trim()}>
-              Rename
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <RenameDialog
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
+        value={renameValue}
+        onValueChange={setRenameValue}
+        onConfirm={handleConfirmRename}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
