@@ -98,7 +98,6 @@ impl IndexerService {
 
     async fn do_index(&self) -> Result<IndexStats, anyhow::Error> {
         let mut stats = IndexStats::default();
-        let mut indexed_paths = Vec::new();
         let mut pending_metadata = Vec::new();
 
         let root = self.root.canonicalize()?;
@@ -171,7 +170,6 @@ impl IndexerService {
                 db::get_file_by_path(&self.pool, &relative_path).await
             {
                 if db_size == fs_size && db_modified == fs_modified {
-                    indexed_paths.push(relative_path.clone());
                     stats.files_skipped += 1;
 
                     // If media metadata is not complete yet, queue for second pass
@@ -219,12 +217,30 @@ impl IndexerService {
                 ));
             }
 
-            indexed_paths.push(indexed_file.path.clone());
-
             stats.files_indexed += 1;
         }
 
-        match db::remove_missing_files(&self.pool, &indexed_paths).await {
+        let indexed_paths = db::list_indexed_paths(&self.pool).await?;
+        let mut missing_paths = Vec::new();
+        for indexed_path in indexed_paths {
+            let abs_path = if indexed_path == "/" {
+                root.clone()
+            } else {
+                root.join(indexed_path.trim_start_matches('/'))
+            };
+            match std::fs::metadata(&abs_path) {
+                Ok(_) => {}
+                Err(err) => {
+                    if err.kind() == std::io::ErrorKind::NotFound {
+                        missing_paths.push(indexed_path);
+                    } else {
+                        debug!("Metadata check failed for {:?}: {}", abs_path, err);
+                    }
+                }
+            }
+        }
+
+        match db::delete_by_paths(&self.pool, &missing_paths).await {
             Ok(removed) => stats.files_removed = removed,
             Err(e) => {
                 debug!("Cleanup error: {}", e);

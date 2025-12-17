@@ -246,7 +246,8 @@ pub async fn delete(
         )
     })?;
 
-    db::delete_by_path(&state.pool, &req.path)
+    let delete_paths = [req.path.as_str()];
+    db::delete_by_paths(&state.pool, &delete_paths)
         .await
         .map_err(|e| {
             (

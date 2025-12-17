@@ -19,20 +19,6 @@ pub enum SearchSortField {
     Duration,
 }
 
-/// Delete a path and any of its descendants from the index, returning the
-/// number of rows removed.
-pub async fn delete_by_path(pool: &SqlitePool, path: &str) -> Result<u64, sqlx::Error> {
-    let pattern = format!("{}/%", path.trim_end_matches('/'));
-
-    let result = sqlx::query("DELETE FROM indexed_files WHERE path = ? OR path LIKE ?")
-        .bind(path)
-        .bind(pattern)
-        .execute(pool)
-        .await?;
-
-    Ok(result.rows_affected())
-}
-
 /// Rename a path in the index and cascade the update to children if the target
 /// represents a directory. Returns the total number of affected rows.
 pub async fn rename_path(
@@ -232,6 +218,13 @@ pub async fn get_file_by_path(
     Ok(row)
 }
 
+/// Return all indexed paths from the database.
+pub async fn list_indexed_paths(pool: &SqlitePool) -> Result<Vec<String>, sqlx::Error> {
+    sqlx::query_scalar("SELECT path FROM indexed_files")
+        .fetch_all(pool)
+        .await
+}
+
 /// Insert or update an indexed file row keyed by path, refreshing the
 /// `indexed_at` timestamp.
 pub async fn upsert_file(pool: &SqlitePool, file: &IndexedFileRow) -> Result<(), sqlx::Error> {
@@ -298,20 +291,32 @@ pub async fn update_media_metadata(
     Ok(())
 }
 
-/// Remove rows for files that are no longer present on disk, returning the
-/// number of deleted records.
-pub async fn remove_missing_files(
+/// Delete rows for the supplied paths (and their descendants), returning the number of deleted records.
+pub async fn delete_by_paths<T: AsRef<str>>(
     pool: &SqlitePool,
-    existing_paths: &[String],
+    paths: &[T],
 ) -> Result<u64, sqlx::Error> {
-    // This is a simplified version - in production you might want batching
-    let result =
-        sqlx::query("DELETE FROM indexed_files WHERE path NOT IN (SELECT value FROM json_each(?))")
-            .bind(serde_json::to_string(existing_paths).unwrap_or_default())
-            .execute(pool)
-            .await?;
+    if paths.is_empty() {
+        return Ok(0);
+    }
 
-    Ok(result.rows_affected())
+    let mut tx = pool.begin().await?;
+    let mut removed = 0;
+
+    for path in paths {
+        let path = path.as_ref();
+        let pattern = format!("{}/%", path.trim_end_matches('/'));
+        let result = sqlx::query("DELETE FROM indexed_files WHERE path = ? OR path LIKE ?")
+            .bind(path)
+            .bind(pattern)
+            .execute(&mut *tx)
+            .await?;
+        removed += result.rows_affected();
+    }
+
+    tx.commit().await?;
+
+    Ok(removed)
 }
 
 /// Rebuild the SQLite database to reclaim free space and defragment pages.
