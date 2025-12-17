@@ -10,19 +10,21 @@ import { api } from '@/api/client';
 import { useAuthStore } from '@/stores/auth';
 import { Loader2 } from 'lucide-react';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-    },
-  },
-});
-
 type AuthState = 'loading' | 'authenticated' | 'unauthenticated';
 
 function App() {
   const [authState, setAuthState] = useState<AuthState>('loading');
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            refetchOnWindowFocus: false,
+            retry: 1,
+          },
+        },
+      })
+  );
   const { setAuthRequired, setLogoutHandler } = useAuthStore();
 
   const checkAuthStatus = useCallback(async () => {
@@ -50,7 +52,7 @@ function App() {
       setAuthState('unauthenticated');
       queryClient.clear();
     });
-  }, [setLogoutHandler]);
+  }, [queryClient, setLogoutHandler]);
 
   const handleLoginSuccess = () => {
     setAuthState('authenticated');
