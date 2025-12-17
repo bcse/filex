@@ -1,6 +1,7 @@
 use axum::{Json, extract::State, http::StatusCode};
 use serde::Serialize;
 use std::sync::Arc;
+use tracing::{error, info};
 
 use crate::api::AppState;
 use crate::services::{IndexerService, MetadataService};
@@ -82,7 +83,21 @@ pub async fn trigger_index(
     // Spawn indexing in background
     let indexer_clone = indexer.clone();
     tokio::spawn(async move {
-        let _ = indexer_clone.run_full_index().await;
+        match indexer_clone.run_full_index().await {
+            Ok(stats) => {
+                info!(
+                    "Index complete: {} scanned, {} indexed, {} skipped, {} removed, {} errors",
+                    stats.files_scanned,
+                    stats.files_indexed,
+                    stats.files_skipped,
+                    stats.files_removed,
+                    stats.errors
+                );
+            }
+            Err(e) => {
+                error!("Indexer error: {}", e);
+            }
+        }
     });
 
     Ok(Json(IndexStatusResponse { is_running: true }))
