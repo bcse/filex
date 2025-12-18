@@ -2,7 +2,8 @@ pub mod queries;
 pub mod schema;
 
 pub use queries::{
-    SearchSortField, SortOrder, delete_by_paths, get_file_by_path, get_metadata_for_paths,
-    list_indexed_paths, rename_path, search_files, update_media_metadata, upsert_file, vacuum,
+    SearchSortField, SortOrder, delete_by_paths, get_file_by_path, get_files_by_ids,
+    get_metadata_for_paths, list_indexed_paths, rename_path, search_files, update_media_metadata,
+    upsert_file, vacuum,
 };
 pub use schema::init_db;

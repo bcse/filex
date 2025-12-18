@@ -132,6 +132,138 @@ pub async fn search_files(
     Ok((results, total))
 }
 
+/// Fetch indexed files by their IDs with sorting and pagination.
+///
+/// This is used by the in-memory search to fetch full records after ID matching.
+/// The total count is the length of the input IDs slice.
+pub async fn get_files_by_ids(
+    pool: &SqlitePool,
+    ids: &[i64],
+    limit: i64,
+    offset: i64,
+    sort_field: SearchSortField,
+    sort_order: SortOrder,
+) -> Result<(Vec<IndexedFileRow>, i64), sqlx::Error> {
+    if ids.is_empty() {
+        return Ok((vec![], 0));
+    }
+
+    let total = ids.len() as i64;
+
+    let order_expr = match sort_field {
+        SearchSortField::Name => "LOWER(name)",
+        SearchSortField::Path => "LOWER(path)",
+        SearchSortField::Size => "COALESCE(size, 0)",
+        SearchSortField::Modified => "COALESCE(modified_at, '')",
+        SearchSortField::Created => "COALESCE(created_at, '')",
+        SearchSortField::Type => "COALESCE(mime_type, '')",
+        SearchSortField::Dimensions => "COALESCE(width, 0) * COALESCE(height, 0)",
+        SearchSortField::Duration => "COALESCE(duration, 0)",
+    };
+
+    let order_dir = match sort_order {
+        SortOrder::Asc => "ASC",
+        SortOrder::Desc => "DESC",
+    };
+
+    // SQLite defaults to 999 bound parameters. We need to handle the case where
+    // we have more IDs than the limit. We'll chunk the IDs and sort in memory
+    // for large result sets.
+    const SQLITE_MAX_VARIABLES: usize = 999;
+    const IN_CLAUSE_HEADROOM: usize = 50; // Reserve some for LIMIT/OFFSET
+    let chunk_size = (SQLITE_MAX_VARIABLES - IN_CLAUSE_HEADROOM).max(1);
+
+    if ids.len() <= chunk_size {
+        // Simple case: can fit all IDs in one query
+        let placeholders = vec!["?"; ids.len()].join(", ");
+        let sql = format!(
+            r#"
+            SELECT id, path, name, is_dir, size, created_at, modified_at, mime_type, width, height, duration, metadata_status, indexed_at
+            FROM indexed_files
+            WHERE id IN ({placeholders})
+            ORDER BY is_dir DESC, {order_expr} {order_dir}, name ASC
+            LIMIT ? OFFSET ?
+            "#
+        );
+
+        let mut query_builder = sqlx::query_as::<_, IndexedFileRow>(&sql);
+        for id in ids {
+            query_builder = query_builder.bind(id);
+        }
+        query_builder = query_builder.bind(limit).bind(offset);
+
+        let results = query_builder.fetch_all(pool).await?;
+        Ok((results, total))
+    } else {
+        // Large result set: fetch all matching rows in chunks, then sort and paginate in memory
+        let mut all_rows = Vec::with_capacity(ids.len());
+
+        for chunk in ids.chunks(chunk_size) {
+            let placeholders = vec!["?"; chunk.len()].join(", ");
+            let sql = format!(
+                r#"
+                SELECT id, path, name, is_dir, size, created_at, modified_at, mime_type, width, height, duration, metadata_status, indexed_at
+                FROM indexed_files
+                WHERE id IN ({placeholders})
+                "#
+            );
+
+            let mut query_builder = sqlx::query_as::<_, IndexedFileRow>(&sql);
+            for id in chunk {
+                query_builder = query_builder.bind(id);
+            }
+
+            all_rows.extend(query_builder.fetch_all(pool).await?);
+        }
+
+        // Sort in memory
+        all_rows.sort_by(|a, b| {
+            // Directories first
+            match (a.is_dir, b.is_dir) {
+                (true, false) => return std::cmp::Ordering::Less,
+                (false, true) => return std::cmp::Ordering::Greater,
+                _ => {}
+            }
+
+            // Then by sort field
+            let cmp = match sort_field {
+                SearchSortField::Name => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+                SearchSortField::Path => a.path.to_lowercase().cmp(&b.path.to_lowercase()),
+                SearchSortField::Size => a.size.unwrap_or(0).cmp(&b.size.unwrap_or(0)),
+                SearchSortField::Modified => a.modified_at.cmp(&b.modified_at),
+                SearchSortField::Created => a.created_at.cmp(&b.created_at),
+                SearchSortField::Type => a.mime_type.cmp(&b.mime_type),
+                SearchSortField::Dimensions => {
+                    let a_dim = a.width.unwrap_or(0) as i64 * a.height.unwrap_or(0) as i64;
+                    let b_dim = b.width.unwrap_or(0) as i64 * b.height.unwrap_or(0) as i64;
+                    a_dim.cmp(&b_dim)
+                }
+                SearchSortField::Duration => a
+                    .duration
+                    .unwrap_or(0.0)
+                    .partial_cmp(&b.duration.unwrap_or(0.0))
+                    .unwrap_or(std::cmp::Ordering::Equal),
+            };
+
+            match sort_order {
+                SortOrder::Asc => cmp,
+                SortOrder::Desc => cmp.reverse(),
+            }
+        });
+
+        // Apply pagination
+        let offset_usize = offset as usize;
+        let limit_usize = limit as usize;
+        let results: Vec<IndexedFileRow> = all_rows
+            .into_iter()
+            .skip(offset_usize)
+            .take(limit_usize)
+            .collect();
+
+        Ok((results, total))
+    }
+}
+
 /// Tokenize a raw query string into lowercase whitespace-delimited tokens.
 fn tokenize_query(raw: &str) -> Vec<String> {
     raw.split_whitespace()

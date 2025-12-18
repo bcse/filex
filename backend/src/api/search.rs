@@ -65,9 +65,25 @@ pub async fn search_files(
         SortOrder::Desc => DbSortOrder::Desc,
     };
 
-    let (results, total) = db::search_files(
+    // Use in-memory search to get matching IDs
+    let matching_ids = state.search.search(&query.q).await;
+
+    if matching_ids.is_empty() {
+        return Ok(Json(SearchResponse {
+            query: query.q,
+            entries: vec![],
+            offset,
+            limit,
+            sort_by,
+            sort_order,
+            total: 0,
+        }));
+    }
+
+    // Fetch full records from SQLite by ID
+    let (results, total) = db::get_files_by_ids(
         &state.pool,
-        &query.q,
+        &matching_ids,
         limit as i64,
         offset as i64,
         db_sort_field,
@@ -124,12 +140,31 @@ mod tests {
             .unwrap();
         crate::db::init_db(&pool).await.unwrap();
 
+        let search = Arc::new(crate::services::SearchService::new());
+
         let state = Arc::new(AppState {
             fs: FilesystemService::new(root),
             pool,
+            search,
         });
 
         (state, tmp)
+    }
+
+    /// Helper to seed both the database and search index
+    async fn seed_file(state: &Arc<AppState>, indexed: &crate::models::IndexedFileRow) {
+        crate::db::upsert_file(&state.pool, indexed)
+            .await
+            .expect("seed index");
+
+        // Also add to search index - get the ID from the database
+        let id: i64 = sqlx::query_scalar("SELECT id FROM indexed_files WHERE path = ?")
+            .bind(&indexed.path)
+            .fetch_one(&state.pool)
+            .await
+            .expect("get id");
+
+        state.search.add_entry(id, &indexed.path).await;
     }
 
     #[tokio::test]
@@ -177,9 +212,7 @@ mod tests {
                 metadata_status: "complete".to_string(),
                 indexed_at: now_sqlite_timestamp(),
             };
-            crate::db::upsert_file(&state.pool, &indexed)
-                .await
-                .expect("seed index");
+            seed_file(&state, &indexed).await;
         }
 
         // Request limit below MIN_LIMIT to ensure clamp kicks in
@@ -236,9 +269,7 @@ mod tests {
                 metadata_status: "complete".to_string(),
                 indexed_at: now_sqlite_timestamp(),
             };
-            crate::db::upsert_file(&state.pool, &indexed)
-                .await
-                .expect("seed index");
+            seed_file(&state, &indexed).await;
         }
 
         let resp = search_files(
@@ -284,9 +315,7 @@ mod tests {
                 metadata_status: "complete".to_string(),
                 indexed_at: now_sqlite_timestamp(),
             };
-            crate::db::upsert_file(&state.pool, &indexed)
-                .await
-                .expect("seed index");
+            seed_file(&state, &indexed).await;
         }
 
         let resp = search_files(
@@ -328,9 +357,7 @@ mod tests {
                 metadata_status: "complete".to_string(),
                 indexed_at: now_sqlite_timestamp(),
             };
-            crate::db::upsert_file(&state.pool, &indexed)
-                .await
-                .expect("seed index");
+            seed_file(&state, &indexed).await;
         }
 
         let resp = search_files(
@@ -378,9 +405,7 @@ mod tests {
                 metadata_status: "complete".to_string(),
                 indexed_at: now_sqlite_timestamp(),
             };
-            crate::db::upsert_file(&state.pool, &indexed)
-                .await
-                .expect("seed index");
+            seed_file(&state, &indexed).await;
         }
 
         let resp = search_files(
