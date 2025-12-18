@@ -175,6 +175,8 @@ impl MetadataService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use tempfile::tempdir;
 
     #[test]
     fn test_media_file_detection() {
@@ -194,5 +196,22 @@ mod tests {
         assert!(MetadataService::is_media_mime(
             "application/vnd.rn-realmedia"
         ));
+    }
+
+    #[test]
+    fn test_media_mime_variants() {
+        assert!(MetadataService::is_media_mime("video/mp4"));
+        assert!(MetadataService::is_media_mime("audio/mpeg"));
+        assert!(!MetadataService::is_media_mime("application/octet-stream"));
+    }
+
+    #[tokio::test]
+    async fn extract_returns_not_media_for_non_media_file() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("notes.txt");
+        fs::write(&path, b"hello").unwrap();
+
+        let result = MetadataService::extract(&path).await;
+        assert!(matches!(result, Err(MetadataError::NotMediaFile)));
     }
 }

@@ -102,3 +102,116 @@ pub async fn trigger_index(
 
     Ok(Json(IndexStatusResponse { is_running: true }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::AppState;
+    use crate::config::{AuthConfig, Config};
+    use crate::db;
+    use crate::services::{FilesystemService, SearchService};
+    use sqlx::sqlite::SqlitePoolOptions;
+    use std::time::Duration;
+    use tempfile::tempdir;
+    use tokio::time::{sleep, timeout};
+
+    fn test_config(root: &std::path::Path) -> Config {
+        Config {
+            root_path: root.to_path_buf(),
+            host: "127.0.0.1".to_string(),
+            port: 0,
+            database_path: root.join("filex.db"),
+            enable_indexer: false,
+            index_interval_secs: 0,
+            static_path: root.to_path_buf(),
+            auth: AuthConfig {
+                enabled: false,
+                password: None,
+                session_timeout_secs: 0,
+                cookie_name: "test".to_string(),
+            },
+        }
+    }
+
+    #[tokio::test]
+    async fn health_reports_database_connected() {
+        let tmp = tempdir().unwrap();
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        db::init_db(&pool).await.unwrap();
+
+        let state = Arc::new(AppState {
+            fs: FilesystemService::new(tmp.path().to_path_buf()),
+            pool: pool.clone(),
+            search: Arc::new(SearchService::new()),
+        });
+
+        let (status, Json(resp)) = health(State(state)).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(resp.status, "ok");
+        assert!(resp.database_status.connected);
+    }
+
+    #[tokio::test]
+    async fn index_status_reflects_running_flag() {
+        let tmp = tempdir().unwrap();
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        db::init_db(&pool).await.unwrap();
+
+        let indexer = Arc::new(IndexerService::new(pool, &test_config(tmp.path()), None));
+
+        indexer.set_running_for_test(true).await;
+
+        let Json(resp) = index_status(State(indexer.clone())).await;
+        assert!(resp.is_running);
+    }
+
+    #[tokio::test]
+    async fn trigger_index_runs_in_background() {
+        let tmp = tempdir().unwrap();
+        let root = tmp.path().join("root");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("file.txt"), b"hello").unwrap();
+
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        db::init_db(&pool).await.unwrap();
+
+        let indexer = Arc::new(IndexerService::new(pool.clone(), &test_config(&root), None));
+
+        let Json(resp) = trigger_index(State(indexer.clone())).await.unwrap();
+        assert!(resp.is_running);
+
+        // Wait until the indexed row appears.
+        let count: i64 = timeout(Duration::from_secs(2), async {
+            loop {
+                let count: i64 = sqlx::query_scalar(
+                    "SELECT COUNT(*) FROM indexed_files WHERE path = '/file.txt'",
+                )
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+
+                if count == 1 {
+                    break count;
+                }
+
+                sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("indexing finished");
+
+        assert_eq!(count, 1);
+    }
+}
