@@ -15,7 +15,7 @@ use filex_backend::{
     api::{self, AppState, AuthState},
     config::Config,
     db,
-    services::{FilesystemService, IndexerService},
+    services::{FilesystemService, IndexerService, SearchService},
     version,
 };
 
@@ -69,7 +69,18 @@ async fn main() -> anyhow::Result<()> {
 
     // Initialize services
     let fs = FilesystemService::new(config.root_path.clone());
-    let indexer = Arc::new(IndexerService::new(pool.clone(), &config));
+
+    // Initialize search service and populate index from database
+    let search_service = Arc::new(SearchService::new());
+    if let Err(e) = search_service.rebuild_from_db(&pool).await {
+        tracing::warn!("Initial search index build failed: {}", e);
+    }
+
+    let indexer = Arc::new(IndexerService::new(
+        pool.clone(),
+        &config,
+        Some(search_service.clone()),
+    ));
 
     // Initialize auth state
     let auth_state = Arc::new(AuthState::new(config.auth.clone()));
@@ -84,7 +95,11 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Shared state
-    let app_state = Arc::new(AppState { fs, pool });
+    let app_state = Arc::new(AppState {
+        fs,
+        pool,
+        search: search_service,
+    });
 
     // CORS configuration
     let cors = CorsLayer::new()

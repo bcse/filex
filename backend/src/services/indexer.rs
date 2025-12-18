@@ -11,6 +11,7 @@ use crate::config::Config;
 use crate::db;
 use crate::models::IndexedFileRow;
 use crate::services::metadata::MetadataService;
+use crate::services::search::SearchService;
 
 const STATUS_PENDING: &str = "pending";
 const STATUS_COMPLETE: &str = "complete";
@@ -19,6 +20,7 @@ pub struct IndexerService {
     pool: SqlitePool,
     root: PathBuf,
     is_running: Arc<RwLock<bool>>,
+    search_service: Option<Arc<SearchService>>,
 }
 
 #[derive(Debug, Default)]
@@ -32,11 +34,16 @@ pub struct IndexStats {
 }
 
 impl IndexerService {
-    pub fn new(pool: SqlitePool, config: &Config) -> Self {
+    pub fn new(
+        pool: SqlitePool,
+        config: &Config,
+        search_service: Option<Arc<SearchService>>,
+    ) -> Self {
         Self {
             pool,
             root: config.root_path.clone(),
             is_running: Arc::new(RwLock::new(false)),
+            search_service,
         }
     }
 
@@ -301,6 +308,15 @@ impl IndexerService {
                     stats.errors += 1;
                     // Leave metadata_status as pending so future runs can retry
                 }
+            }
+        }
+
+        // Rebuild search index after successful indexing
+        if let Some(search) = &self.search_service {
+            info!("Rebuilding search index");
+            if let Err(e) = search.rebuild_from_db(&self.pool).await {
+                warn!("Failed to rebuild search index: {}", e);
+                stats.errors += 1;
             }
         }
 

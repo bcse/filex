@@ -143,6 +143,9 @@ pub async fn rename(
             )
         })?;
 
+    // Update search index
+    state.search.rename_entry(&req.path, &new_path).await;
+
     Ok(Json(SuccessResponse {
         success: true,
         path: Some(new_path),
@@ -184,6 +187,9 @@ pub async fn move_entry(
                     }),
                 )
             })?;
+
+        // Update search index
+        state.search.rename_entry(&req.from, &result.path).await;
     }
 
     Ok(Json(SuccessResponse {
@@ -258,6 +264,9 @@ pub async fn delete(
                 }),
             )
         })?;
+
+    // Update search index
+    state.search.remove_entry(&req.path).await;
 
     Ok(Json(SuccessResponse {
         success: true,
@@ -475,9 +484,12 @@ mod tests {
             .unwrap();
         crate::db::init_db(&pool).await.unwrap();
 
+        let search = Arc::new(crate::services::SearchService::new());
+
         let state = Arc::new(AppState {
             fs: FilesystemService::new(root.clone()),
             pool,
+            search,
         });
 
         (state, tmp, root)

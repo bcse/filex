@@ -11,11 +11,12 @@ use std::sync::Arc;
 use crate::api::{SortField, SortOrder};
 use crate::db;
 use crate::models::{FileEntry, TreeNode};
-use crate::services::FilesystemService;
+use crate::services::{FilesystemService, SearchService};
 
 pub struct AppState {
     pub fs: FilesystemService,
     pub pool: SqlitePool,
+    pub search: Arc<SearchService>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -218,9 +219,12 @@ mod tests {
             .unwrap();
         crate::db::init_db(&pool).await.unwrap();
 
+        let search = Arc::new(crate::services::SearchService::new());
+
         let state = Arc::new(AppState {
             fs: FilesystemService::new(root.clone()),
             pool,
+            search,
         });
 
         (state, tmp, root)
