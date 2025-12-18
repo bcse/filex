@@ -327,4 +327,111 @@ impl IndexerService {
     pub async fn is_running(&self) -> bool {
         *self.is_running.read().await
     }
+
+    #[cfg(test)]
+    pub async fn set_running_for_test(&self, running: bool) {
+        let mut guard = self.is_running.write().await;
+        *guard = running;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{AuthConfig, Config};
+    use sqlx::sqlite::SqlitePoolOptions;
+    use tempfile::tempdir;
+
+    fn test_config(root: &PathBuf) -> Config {
+        Config {
+            root_path: root.clone(),
+            host: "127.0.0.1".to_string(),
+            port: 0,
+            database_path: root.join("filex.db"),
+            enable_indexer: false,
+            index_interval_secs: 0,
+            static_path: root.clone(),
+            auth: AuthConfig {
+                enabled: false,
+                password: None,
+                session_timeout_secs: 0,
+                cookie_name: "test".to_string(),
+            },
+        }
+    }
+
+    #[tokio::test]
+    async fn run_full_index_indexes_files_and_cleans_missing_entries() {
+        let tmp = tempdir().unwrap();
+        let root = tmp.path().join("root");
+        std::fs::create_dir_all(root.join("docs")).unwrap();
+        std::fs::write(root.join("docs/file.txt"), b"hello").unwrap();
+
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        crate::db::init_db(&pool).await.unwrap();
+
+        // Seed a stale entry that should be removed.
+        sqlx::query("INSERT INTO indexed_files (path, name, is_dir) VALUES (?, ?, 0)")
+            .bind("/stale.txt")
+            .bind("stale.txt")
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let indexer = IndexerService::new(pool.clone(), &test_config(&root), None);
+
+        let stats = indexer.run_full_index().await.unwrap();
+
+        assert!(stats.files_scanned >= 3); // root, docs dir, file
+        assert!(stats.files_indexed >= 3);
+        assert_eq!(stats.files_removed, 1);
+        assert_eq!(stats.errors, 0);
+
+        let rows: Vec<(String, String, String)> =
+            sqlx::query_as("SELECT path, name, metadata_status FROM indexed_files WHERE path = ?")
+                .bind("/docs/file.txt")
+                .fetch_all(&pool)
+                .await
+                .unwrap();
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].0, "/docs/file.txt");
+        assert_eq!(rows[0].1, "file.txt");
+        assert_eq!(rows[0].2, STATUS_COMPLETE);
+
+        // Stale entry should be gone.
+        let stale: Option<(i64,)> =
+            sqlx::query_as("SELECT id FROM indexed_files WHERE path = '/stale.txt'")
+                .fetch_optional(&pool)
+                .await
+                .unwrap();
+        assert!(stale.is_none());
+    }
+
+    #[tokio::test]
+    async fn run_full_index_returns_early_when_already_running() {
+        let tmp = tempdir().unwrap();
+        let root = tmp.path().join("root");
+        std::fs::create_dir_all(&root).unwrap();
+
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        crate::db::init_db(&pool).await.unwrap();
+
+        let indexer = IndexerService::new(pool, &test_config(&root), None);
+
+        indexer.set_running_for_test(true).await;
+
+        let stats = indexer.run_full_index().await.unwrap();
+        assert_eq!(stats.files_scanned, 0);
+        assert_eq!(stats.files_indexed, 0);
+        assert!(indexer.is_running().await);
+    }
 }

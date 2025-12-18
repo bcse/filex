@@ -395,4 +395,123 @@ mod tests {
         let rows = get_metadata_for_paths(&pool, &paths).await.unwrap();
         assert_eq!(rows.len(), total);
     }
+
+    #[tokio::test]
+    async fn rename_path_cascades_to_descendants() {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        crate::db::init_db(&pool).await.unwrap();
+
+        sqlx::query("INSERT INTO indexed_files (path, name, is_dir) VALUES (?, ?, 1)")
+            .bind("/docs")
+            .bind("docs")
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        sqlx::query("INSERT INTO indexed_files (path, name, is_dir) VALUES (?, ?, 0)")
+            .bind("/docs/report.txt")
+            .bind("report.txt")
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let updated = rename_path(&pool, "/docs", "/archive/docs", "docs-renamed")
+            .await
+            .unwrap();
+        assert_eq!(updated, 2);
+
+        let rows: Vec<(String, String, bool)> =
+            sqlx::query_as("SELECT path, name, is_dir FROM indexed_files ORDER BY path ASC")
+                .fetch_all(&pool)
+                .await
+                .unwrap();
+
+        assert_eq!(
+            rows,
+            vec![
+                (
+                    "/archive/docs".to_string(),
+                    "docs-renamed".to_string(),
+                    true
+                ),
+                (
+                    "/archive/docs/report.txt".to_string(),
+                    "report.txt".to_string(),
+                    false
+                )
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn get_files_by_ids_chunks_and_sorts() {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        crate::db::init_db(&pool).await.unwrap();
+
+        let dir_id: i64 = sqlx::query_scalar(
+            "INSERT INTO indexed_files (path, name, is_dir) VALUES (?, ?, 1) RETURNING id",
+        )
+        .bind("/root")
+        .bind("root")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        // Use more than SQLITE_MAX_VARIABLES - IN_CLAUSE_HEADROOM to hit the chunked path.
+        let total_files = 960;
+        let mut ids = Vec::with_capacity(total_files + 1);
+        ids.push(dir_id);
+
+        for i in 0..total_files {
+            let name = format!("file{i:04}.txt");
+            let path = format!("/files/{name}");
+            let id: i64 = sqlx::query_scalar(
+                "INSERT INTO indexed_files (path, name, is_dir, size) VALUES (?, ?, 0, ?) RETURNING id",
+            )
+            .bind(&path)
+            .bind(&name)
+            .bind(i as i64)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+            ids.push(id);
+        }
+
+        // Page 1 should include the directory first, then the earliest file names.
+        let (page, total) =
+            get_files_by_ids(&pool, &ids, 5, 0, SearchSortField::Name, SortOrder::Asc)
+                .await
+                .unwrap();
+
+        assert_eq!(total, ids.len() as i64);
+        assert_eq!(page.len(), 5);
+        assert!(page[0].is_dir);
+        assert_eq!(page[0].name, "root");
+        assert_eq!(page[1].name, "file0000.txt");
+        assert_eq!(page[4].name, "file0003.txt");
+
+        // Offsetting past the directory should return only files, still sorted.
+        let (page_with_offset, _) =
+            get_files_by_ids(&pool, &ids, 3, 1, SearchSortField::Name, SortOrder::Asc)
+                .await
+                .unwrap();
+
+        let names: Vec<String> = page_with_offset.into_iter().map(|r| r.name).collect();
+        assert_eq!(
+            names,
+            vec![
+                "file0000.txt".to_string(),
+                "file0001.txt".to_string(),
+                "file0002.txt".to_string()
+            ]
+        );
+    }
 }
