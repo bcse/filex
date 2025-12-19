@@ -19,9 +19,15 @@ interface FileContextMenuProps {
   entry: FileEntry;
   children: React.ReactNode;
   onSelect: () => void;
+  showGoToParent?: boolean;
 }
 
-export function FileContextMenu({ entry, children, onSelect }: FileContextMenuProps) {
+export function FileContextMenu({
+  entry,
+  children,
+  onSelect,
+  showGoToParent = false,
+}: FileContextMenuProps) {
   const {
     setCurrentPath,
     selectedFiles,
@@ -38,6 +44,7 @@ export function FileContextMenu({ entry, children, onSelect }: FileContextMenuPr
   const selectedArray = Array.from(selectedFiles);
   const isSelected = selectedFiles.has(entry.path);
   const targetPaths = isSelected && selectedArray.length > 1 ? selectedArray : [entry.path];
+  const canGoToParent = showGoToParent && selectedFiles.size <= 1;
 
   const handleOpen = () => {
     if (!entry.is_dir) return;
@@ -72,6 +79,13 @@ export function FileContextMenu({ entry, children, onSelect }: FileContextMenuPr
     setDeleteOpen(true);
   };
 
+  const handleGoToParent = () => {
+    const trimmedPath = entry.path.replace(/\/+$/, '');
+    const lastSlash = trimmedPath.lastIndexOf('/');
+    const parentPath = trimmedPath === '' || lastSlash <= 0 ? '/' : trimmedPath.slice(0, lastSlash);
+    setCurrentPath(parentPath);
+  };
+
   const handleConfirmDelete = async () => {
     for (const path of targetPaths) {
       await deleteFile.mutateAsync(path);
@@ -94,6 +108,13 @@ export function FileContextMenu({ entry, children, onSelect }: FileContextMenuPr
               <FolderOpen className="mr-2 h-4 w-4" />
               Open
               <ContextMenuShortcut>Enter</ContextMenuShortcut>
+            </ContextMenuItem>
+          )}
+
+          {canGoToParent && (
+            <ContextMenuItem onClick={handleGoToParent}>
+              <FolderOpen className="mr-2 h-4 w-4" />
+              Go to parent folder
             </ContextMenuItem>
           )}
 

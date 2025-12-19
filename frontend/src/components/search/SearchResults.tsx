@@ -131,6 +131,7 @@ export function SearchResults() {
       wrapRow={(entry, row) => (
         <FileContextMenu
           entry={entry}
+          showGoToParent
           onSelect={() => {
             if (!selectedFiles.has(entry.path)) {
               selectFile(entry.path);
