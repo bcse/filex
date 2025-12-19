@@ -10,16 +10,16 @@ export function SearchBar() {
 
   const handleSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
+    setSearchOffset(0, { recordHistory: false });
     setSearchQuery(value);
     setIsSearching(value.length >= 2);
-    setSearchOffset(0);
   }, [setIsSearching, setSearchOffset, setSearchQuery]);
   
   const handleClear = useCallback(() => {
-    setSearchQuery('');
+    setSearchQuery('', { recordHistory: false });
     setIsSearching(false);
     setCurrentPath(currentPath, { exitSearch: true });
-    setSearchOffset(0);
+    setSearchOffset(0, { recordHistory: false });
     inputRef.current?.focus();
   }, [currentPath, setCurrentPath, setIsSearching, setSearchOffset, setSearchQuery]);
   

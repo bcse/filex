@@ -135,10 +135,10 @@ export function FileContextMenu({
 
     resolveOffset()
       .then((nextOffset) => {
-        setDirectoryOffset(nextOffset);
+        setDirectoryOffset(nextOffset, { replaceHistory: true });
       })
       .catch(() => {
-        setDirectoryOffset(0);
+        setDirectoryOffset(0, { replaceHistory: true });
       });
   };
 

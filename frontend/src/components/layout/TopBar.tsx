@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronRight, Home, Moon, Sun } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronRight, Home, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SearchBar } from './SearchBar';
 import { Toolbar } from './Toolbar';
@@ -10,12 +10,23 @@ import { useAuthStore } from '@/stores/auth';
 import { getEffectiveTheme, useThemeStore } from '@/stores/theme';
 
 export function TopBar() {
-  const { currentPath, setCurrentPath, isSearching, searchQuery } = useNavigationStore();
+  const {
+    currentPath,
+    setCurrentPath,
+    isSearching,
+    searchQuery,
+    history,
+    historyIndex,
+    goBack,
+    goForward,
+  } = useNavigationStore();
   const { authRequired, logout } = useAuthStore();
   const { theme, setTheme } = useThemeStore();
 
   const effectiveTheme = getEffectiveTheme(theme);
   const isSearchActive = isSearching && searchQuery.length >= 2;
+  const canGoBack = historyIndex > 0;
+  const canGoForward = historyIndex < history.length - 1;
   const ThemeIcon = effectiveTheme === 'dark' ? Moon : Sun;
 
   // Parse breadcrumb segments
@@ -42,6 +53,28 @@ export function TopBar() {
     <div className="flex items-center justify-between px-4 py-2 border-b bg-background">
       {/* Breadcrumbs / Search label */}
       <div className="flex items-center gap-1 text-sm min-w-0">
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={goBack}
+            disabled={!canGoBack}
+            title="Previous"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={goForward}
+            disabled={!canGoForward}
+            title="Next"
+          >
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </div>
         <Button
           variant="ghost"
           size="icon"
