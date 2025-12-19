@@ -1,4 +1,3 @@
-import React from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -11,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { SearchBar } from "./SearchBar";
 import { Toolbar } from "./Toolbar";
 import { IndexerStatus } from "./IndexerStatus";
+import { Breadcrumb } from "./Breadcrumb";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { useNavigationStore } from "@/stores/navigation";
 import { useAuthStore } from "@/stores/auth";
@@ -59,7 +59,7 @@ export function TopBar() {
   return (
     <div className="flex items-center justify-between px-4 py-2 border-b bg-background">
       {/* Breadcrumbs / Search label */}
-      <div className="flex items-center gap-1 text-sm min-w-0">
+      <div className="flex items-center gap-1 text-sm min-w-0 flex-1 overflow-hidden">
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -96,35 +96,21 @@ export function TopBar() {
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
             <span className="font-medium">Search results</span>
             {searchQuery && (
-              <span className="text-muted-foreground">for “{searchQuery}”</span>
+              <span className="text-muted-foreground">for "{searchQuery}"</span>
             )}
           </>
         ) : (
-          segments.map((segment, index) => {
-            const path = "/" + segments.slice(0, index + 1).join("/");
-            const isLast = index === segments.length - 1;
-
-            return (
-              <React.Fragment key={path}>
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                {isLast ? (
-                  <span className="font-medium truncate">{segment}</span>
-                ) : (
-                  <button
-                    className="hover:underline text-muted-foreground hover:text-foreground truncate"
-                    onClick={() => setCurrentPath(path)}
-                  >
-                    {segment}
-                  </button>
-                )}
-              </React.Fragment>
-            );
-          })
+          segments.length > 0 && (
+            <Breadcrumb
+              segments={segments}
+              onNavigate={(path) => setCurrentPath(path)}
+            />
+          )
         )}
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
+      <div className="flex items-center gap-2 flex-shrink-0">
         {!isSearchActive ? (
           <>
             <Toolbar />
