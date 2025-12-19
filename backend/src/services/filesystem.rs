@@ -100,8 +100,14 @@ impl FilesystemService {
         let mut entries = Vec::new();
 
         for entry in fs::read_dir(&path)? {
-            let entry = entry?;
-            let metadata = entry.metadata()?;
+            let entry = match entry {
+                Ok(e) => e,
+                Err(_) => continue, // Skip entries we can't read
+            };
+            let metadata = match entry.metadata() {
+                Ok(m) => m,
+                Err(_) => continue, // Skip entries with unreadable metadata
+            };
 
             let file_path = entry.path();
             let relative = self.relative_path(&file_path);
@@ -155,8 +161,14 @@ impl FilesystemService {
         let mut nodes = Vec::new();
 
         for entry in fs::read_dir(&path)? {
-            let entry = entry?;
-            let metadata = entry.metadata()?;
+            let entry = match entry {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
+            let metadata = match entry.metadata() {
+                Ok(m) => m,
+                Err(_) => continue,
+            };
 
             if !metadata.is_dir() {
                 continue;
@@ -262,6 +274,13 @@ impl FilesystemService {
             return Err(FsError::PermissionDenied("Cannot move root".to_string()));
         }
 
+        // Prevent moving a directory into itself
+        if source.is_dir() && dest_path.starts_with(&source) {
+            return Err(FsError::PermissionDenied(
+                "Cannot move a directory into itself".to_string(),
+            ));
+        }
+
         if dest_path.exists() {
             if overwrite {
                 if dest_path.is_dir() {
@@ -277,12 +296,30 @@ impl FilesystemService {
             }
         }
 
-        fs::rename(&source, &dest_path)?;
+        self.move_file_contents(&source, &dest_path)?;
 
         Ok(OperationResult {
             path: self.relative_path(&dest_path),
             performed: true,
         })
+    }
+
+    /// Move a file or directory, falling back to copy+delete for cross-device moves.
+    fn move_file_contents(&self, source: &Path, dest: &Path) -> Result<(), FsError> {
+        match fs::rename(source, dest) {
+            Ok(()) => Ok(()),
+            Err(e) if e.raw_os_error() == Some(18) => {
+                // EXDEV (18): cross-device link not permitted, fall back to copy+delete
+                self.copy_recursive(source, dest)?;
+                if source.is_dir() {
+                    fs::remove_dir_all(source)?;
+                } else {
+                    fs::remove_file(source)?;
+                }
+                Ok(())
+            }
+            Err(e) => Err(FsError::Io(e)),
+        }
     }
 
     /// Copy a file or directory recursively
@@ -340,13 +377,23 @@ impl FilesystemService {
                 if file_type.is_dir() {
                     self.copy_recursive(&child_source, &child_dest)?;
                 } else {
-                    fs::copy(&child_source, &child_dest)?;
+                    Self::copy_file_contents(&child_source, &child_dest)?;
                 }
             }
         } else {
-            fs::copy(&source, &dest)?;
+            Self::copy_file_contents(source, dest)?;
         }
 
+        Ok(())
+    }
+
+    /// Copy file contents without copying permissions.
+    /// This avoids "Operation not permitted" errors when copying across
+    /// different filesystem types (e.g., SAMBA to local).
+    fn copy_file_contents(source: &Path, dest: &Path) -> Result<(), FsError> {
+        let mut src_file = fs::File::open(source)?;
+        let mut dest_file = fs::File::create(dest)?;
+        std::io::copy(&mut src_file, &mut dest_file)?;
         Ok(())
     }
 
