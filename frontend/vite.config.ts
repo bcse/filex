@@ -9,6 +9,23 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  test: {
+    environment: "jsdom",
+    setupFiles: "./src/test/setup.ts",
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html", "lcov"],
+      all: true,
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: [
+        "src/**/*.d.ts",
+        "src/main.tsx",
+        "src/test/**",
+        "src/**/*.test.{ts,tsx}",
+        "src/components/ui/**",
+      ],
+    },
+  },
   server: {
     port: 5173,
     proxy: {
