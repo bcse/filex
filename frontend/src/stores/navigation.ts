@@ -46,6 +46,10 @@ interface NavigationState {
   deleteConfirmOpen: boolean;
   setDeleteConfirmOpen: (open: boolean) => void;
 
+  // Focus
+  pendingFocusPath: string | null;
+  setPendingFocusPath: (path: string | null) => void;
+
   // UI state
   sidebarWidth: number;
   setSidebarWidth: (width: number) => void;
@@ -130,6 +134,10 @@ export const useNavigationStore = create<NavigationState>((set) => ({
   // Delete confirmation
   deleteConfirmOpen: false,
   setDeleteConfirmOpen: (open) => set({ deleteConfirmOpen: open }),
+
+  // Focus
+  pendingFocusPath: null,
+  setPendingFocusPath: (path) => set({ pendingFocusPath: path }),
 
   // UI state
   sidebarWidth: 250,

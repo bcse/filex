@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   Loader2,
   Folder,
@@ -45,9 +45,13 @@ export function FileGrid() {
     selectFile,
     selectRange,
     toggleSelection,
+    pendingFocusPath,
+    setPendingFocusPath,
   } = useNavigationStore();
 
   const { data, isLoading, error } = useDirectory(currentPath);
+  const entries = useMemo(() => data?.entries || [], [data?.entries]);
+  const entryRefs = useRef(new Map<string, HTMLDivElement | null>());
 
   const buildPath = useCallback(
     (entry: FileEntry) => buildEntryPath(entry.name, entry.path, currentPath),
@@ -55,8 +59,8 @@ export function FileGrid() {
   );
 
   const orderedPaths = useMemo(
-    () => (data?.entries || []).map((entry) => buildPath(entry)),
-    [data?.entries, buildPath]
+    () => entries.map((entry) => buildPath(entry)),
+    [entries, buildPath]
   );
 
   const handleClick = useCallback((entry: FileEntry, e: React.MouseEvent) => {
@@ -88,6 +92,15 @@ export function FileGrid() {
     }
   }, [buildPath, setCurrentPath]);
 
+  useEffect(() => {
+    if (!pendingFocusPath) return;
+    const target = entryRefs.current.get(pendingFocusPath);
+    if (target) {
+      target.scrollIntoView({ block: 'center' });
+      setPendingFocusPath(null);
+    }
+  }, [pendingFocusPath, setPendingFocusPath, entries]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -103,8 +116,6 @@ export function FileGrid() {
       </div>
     );
   }
-
-  const entries = data?.entries || [];
 
   if (entries.length === 0) {
     return (
@@ -136,6 +147,9 @@ export function FileGrid() {
             }}
           >
             <div
+              ref={(node) => {
+                entryRefs.current.set(resolvedPath, node);
+              }}
               className={cn(
                 'flex flex-col items-center p-3 rounded-lg cursor-pointer transition-colors',
                 'hover:bg-accent',

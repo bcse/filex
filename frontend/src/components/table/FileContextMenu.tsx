@@ -13,6 +13,8 @@ import { DeleteConfirmDialog } from '@/components/dialogs/DeleteConfirmDialog';
 import { useNavigationStore } from '@/stores/navigation';
 import { useDelete, useRename } from '@/hooks/useDirectory';
 import { api } from '@/api/client';
+import { DEFAULT_PAGE_SIZE_FALLBACK } from '@/config/pagination';
+import { getParentPath } from '@/lib/utils';
 import type { FileEntry } from '@/types/file';
 
 interface FileContextMenuProps {
@@ -30,8 +32,13 @@ export function FileContextMenu({
 }: FileContextMenuProps) {
   const {
     setCurrentPath,
+    setDirectoryOffset,
     selectedFiles,
     clearSelection,
+    sortConfig,
+    directoryLimit,
+    setPendingFocusPath,
+    selectFile,
   } = useNavigationStore();
 
   const [renameOpen, setRenameOpen] = useState(false);
@@ -80,10 +87,59 @@ export function FileContextMenu({
   };
 
   const handleGoToParent = () => {
-    const trimmedPath = entry.path.replace(/\/+$/, '');
-    const lastSlash = trimmedPath.lastIndexOf('/');
-    const parentPath = trimmedPath === '' || lastSlash <= 0 ? '/' : trimmedPath.slice(0, lastSlash);
+    const mapSortField = (field: typeof sortConfig.field) => {
+      switch (field) {
+        case 'mime_type':
+          return 'type';
+        case 'width':
+        case 'height':
+          return 'dimensions';
+        default:
+          return field;
+      }
+    };
+
+    const parentPath = getParentPath(entry.path);
+    const pageSize = directoryLimit || DEFAULT_PAGE_SIZE_FALLBACK;
+    const batchSize = Math.max(pageSize, DEFAULT_PAGE_SIZE_FALLBACK);
+
+    const resolveOffset = async () => {
+      let offset = 0;
+      let total = Infinity;
+
+      while (offset < total) {
+        const resp = await api.listDirectory(parentPath, {
+          offset,
+          limit: batchSize,
+          sort_by: mapSortField(sortConfig.field),
+          sort_order: sortConfig.order,
+        });
+
+        total = resp.total;
+        const index = resp.entries.findIndex((item) => item.path === entry.path);
+        if (index !== -1) {
+          const absoluteIndex = offset + index;
+          return Math.floor(absoluteIndex / pageSize) * pageSize;
+        }
+
+        if (resp.entries.length === 0) break;
+        offset += resp.entries.length;
+      }
+
+      return 0;
+    };
+
     setCurrentPath(parentPath);
+    setPendingFocusPath(entry.path);
+    selectFile(entry.path);
+
+    resolveOffset()
+      .then((nextOffset) => {
+        setDirectoryOffset(nextOffset);
+      })
+      .catch(() => {
+        setDirectoryOffset(0);
+      });
   };
 
   const handleConfirmDelete = async () => {

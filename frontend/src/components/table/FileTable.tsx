@@ -25,6 +25,8 @@ export function FileTable() {
     sortConfig,
     setSortConfig,
     clearSelection,
+    pendingFocusPath,
+    setPendingFocusPath,
   } = useNavigationStore();
 
   const { data, isLoading, error } = useDirectory(currentPath);
@@ -225,6 +227,12 @@ export function FileTable() {
         onSort={handleSort}
         selectedPaths={selectedFiles}
         getRowKey={buildPath}
+        scrollToKey={pendingFocusPath}
+        onScrolledToKey={(key) => {
+          if (pendingFocusPath === key) {
+            setPendingFocusPath(null);
+          }
+        }}
         getRowClassName={(entry) => {
           const resolvedPath = buildPath(entry);
           return cn(

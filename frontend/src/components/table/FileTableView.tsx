@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -22,6 +22,8 @@ interface FileTableViewProps {
   onRowDoubleClick?: (entry: FileEntry) => void;
   wrapRow?: (entry: FileEntry, row: React.ReactNode) => React.ReactNode;
   afterRows?: React.ReactNode;
+  scrollToKey?: string | null;
+  onScrolledToKey?: (key: string) => void;
 }
 
 interface FileTableRowProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -162,6 +164,8 @@ export function FileTableView({
   onRowDoubleClick,
   wrapRow,
   afterRows,
+  scrollToKey,
+  onScrolledToKey,
 }: FileTableViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { handleResizeStart, getGridTemplate, getTotalWidth } = useColumnResize(columns);
@@ -174,7 +178,18 @@ export function FileTableView({
 
   const gridTemplate = getGridTemplate();
   const totalWidth = getTotalWidth();
-  const resolveKey = getRowKey ?? ((entry: FileEntry) => entry.path);
+  const resolveKey = useMemo(
+    () => getRowKey ?? ((entry: FileEntry) => entry.path),
+    [getRowKey]
+  );
+
+  useEffect(() => {
+    if (!scrollToKey) return;
+    const index = entries.findIndex((entry) => resolveKey(entry) === scrollToKey);
+    if (index === -1) return;
+    rowVirtualizer.scrollToIndex(index, { align: 'center' });
+    onScrolledToKey?.(scrollToKey);
+  }, [entries, onScrolledToKey, resolveKey, rowVirtualizer, scrollToKey]);
 
   return (
     <div className="flex flex-col h-full">
