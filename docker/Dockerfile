@@ -1,3 +1,4 @@
+ARG VERSION=unknown
 ARG GIT_COMMIT_SHA=unknown
 
 # Build stage for frontend
@@ -11,7 +12,9 @@ RUN npm run build
 
 # Build stage for backend
 FROM rust:1 AS backend-builder
+ARG VERSION
 ARG GIT_COMMIT_SHA
+ENV VERSION=${VERSION}
 ENV GIT_COMMIT_SHA=${GIT_COMMIT_SHA}
 
 WORKDIR /app/backend

@@ -5,8 +5,9 @@ IMAGE="${IMAGE:-ghcr.io/bcse/filex}"
 PLATFORMS="${PLATFORMS:-linux/amd64,linux/arm64}"
 
 # OCI metadata (override via env vars if needed)
-VERSION="${VERSION:-$(cargo metadata --no-deps --format-version 1 --manifest-path ../backend/Cargo.toml 2>/dev/null | jq -r '.packages[0].version' 2>/dev/null || grep -m1 '^version' ../backend/Cargo.toml | cut -d'\"' -f2 || echo latest)}"
 REVISION="${REVISION:-$(git rev-parse --short HEAD 2>/dev/null || echo unknown)}"
+REVISION_DATE="${REVISION_DATE:-$(git show -s --format=%cs HEAD 2>/dev/null || echo 1970-01-01)}"
+VERSION="${VERSION:-$(echo "${REVISION_DATE}" | tr '-' '.')}"
 BUILD_DATE="${BUILD_DATE:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}"
 SOURCE_URL="${SOURCE_URL:-https://github.com/bcse/filex}"
 DESCRIPTION="${DESCRIPTION:-Filex - a self-hosted file manager}"
@@ -15,6 +16,8 @@ docker buildx build \
   --platform "${PLATFORMS}" \
   -f Dockerfile \
   -t "${IMAGE}:latest" \
+  -t "${IMAGE}:v${VERSION}" \
+  --build-arg "VERSION=${VERSION}" \
   --build-arg "GIT_COMMIT_SHA=${REVISION}" \
   --label "org.opencontainers.image.created=${BUILD_DATE}" \
   --label "org.opencontainers.image.authors=Grey Lee" \
@@ -43,3 +46,4 @@ docker buildx build \
   --load ..
 
 docker push "${IMAGE}:latest"
+docker push "${IMAGE}:v${VERSION}"
