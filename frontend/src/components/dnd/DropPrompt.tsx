@@ -1,7 +1,7 @@
-import { Files, FolderInput } from 'lucide-react';
+import { Files, FolderInput } from "lucide-react";
 
-export type DropOperation = 'move' | 'copy';
-export type ConflictStrategy = 'overwrite' | 'skip';
+export type DropOperation = "move" | "copy";
+export type ConflictStrategy = "overwrite" | "skip";
 export type DropAction = {
   operation: DropOperation;
   strategy: ConflictStrategy;
@@ -32,28 +32,28 @@ export function DropPrompt({ dropPrompt, onClose, onAction }: DropPromptProps) {
       >
         <button
           className="flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm text-left hover:bg-accent focus:outline-none focus:bg-accent"
-          onClick={() => onAction({ operation: 'copy', strategy: 'overwrite' })}
+          onClick={() => onAction({ operation: "copy", strategy: "overwrite" })}
         >
           <Files className="mr-2 h-4 w-4" />
           Copy & Overwrite
         </button>
         <button
           className="flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm text-left hover:bg-accent focus:outline-none focus:bg-accent"
-          onClick={() => onAction({ operation: 'copy', strategy: 'skip' })}
+          onClick={() => onAction({ operation: "copy", strategy: "skip" })}
         >
           <Files className="mr-2 h-4 w-4" />
           Copy & Skip
         </button>
         <button
           className="flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm text-left hover:bg-accent focus:outline-none focus:bg-accent"
-          onClick={() => onAction({ operation: 'move', strategy: 'overwrite' })}
+          onClick={() => onAction({ operation: "move", strategy: "overwrite" })}
         >
           <FolderInput className="mr-2 h-4 w-4" />
           Move & Overwrite
         </button>
         <button
           className="flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm text-left hover:bg-accent focus:outline-none focus:bg-accent"
-          onClick={() => onAction({ operation: 'move', strategy: 'skip' })}
+          onClick={() => onAction({ operation: "move", strategy: "skip" })}
         >
           <FolderInput className="mr-2 h-4 w-4" />
           Move & Skip

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from "react";
 import {
   FolderPlus,
   Trash2,
@@ -8,9 +8,9 @@ import {
   Loader2,
   LayoutGrid,
   LayoutList,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -18,21 +18,34 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { RenameDialog } from '@/components/dialogs/RenameDialog';
-import { DeleteConfirmDialog } from '@/components/dialogs/DeleteConfirmDialog';
-import { useNavigationStore } from '@/stores/navigation';
-import { useCreateDirectory, useDelete, useRename, useUploadWithProgress } from '@/hooks/useDirectory';
-import { api } from '@/api/client';
+} from "@/components/ui/dialog";
+import { RenameDialog } from "@/components/dialogs/RenameDialog";
+import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog";
+import { useNavigationStore } from "@/stores/navigation";
+import {
+  useCreateDirectory,
+  useDelete,
+  useRename,
+  useUploadWithProgress,
+} from "@/hooks/useDirectory";
+import { api } from "@/api/client";
 
 export function Toolbar() {
-  const { currentPath, selectedFiles, clearSelection, viewMode, setViewMode, deleteConfirmOpen, setDeleteConfirmOpen } = useNavigationStore();
+  const {
+    currentPath,
+    selectedFiles,
+    clearSelection,
+    viewMode,
+    setViewMode,
+    deleteConfirmOpen,
+    setDeleteConfirmOpen,
+  } = useNavigationStore();
 
   // Dialog states
   const [newFolderOpen, setNewFolderOpen] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderName, setNewFolderName] = useState("");
   const [renameOpen, setRenameOpen] = useState(false);
-  const [renameValue, setRenameValue] = useState('');
+  const [renameValue, setRenameValue] = useState("");
 
   // File input ref for upload
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -49,18 +62,19 @@ export function Toolbar() {
 
   // New Folder
   const handleNewFolder = () => {
-    setNewFolderName('New Folder');
+    setNewFolderName("New Folder");
     setNewFolderOpen(true);
   };
 
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
-    const path = currentPath === '/'
-      ? `/${newFolderName.trim()}`
-      : `${currentPath}/${newFolderName.trim()}`;
+    const path =
+      currentPath === "/"
+        ? `/${newFolderName.trim()}`
+        : `${currentPath}/${newFolderName.trim()}`;
     await createDir.mutateAsync(path);
     setNewFolderOpen(false);
-    setNewFolderName('');
+    setNewFolderName("");
   };
 
   // Delete
@@ -81,7 +95,7 @@ export function Toolbar() {
   const handleRename = () => {
     if (!singleSelection) return;
     const path = selectedArray[0];
-    const name = path.split('/').pop() || '';
+    const name = path.split("/").pop() || "";
     setRenameValue(name);
     setRenameOpen(true);
   };
@@ -92,16 +106,16 @@ export function Toolbar() {
     await rename.mutateAsync({ path, newName: renameValue.trim() });
     clearSelection();
     setRenameOpen(false);
-    setRenameValue('');
+    setRenameValue("");
   };
 
   // Download
   const handleDownload = () => {
     for (const path of selectedArray) {
       const url = api.getDownloadUrl(path);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = path.split('/').pop() || 'download';
+      a.download = path.split("/").pop() || "download";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -118,11 +132,12 @@ export function Toolbar() {
     if (!files || files.length === 0) return;
     await uploadFiles(currentPath, files);
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
-  const isLoading = createDir.isPending || deleteFile.isPending || rename.isPending;
+  const isLoading =
+    createDir.isPending || deleteFile.isPending || rename.isPending;
 
   return (
     <>
@@ -215,10 +230,12 @@ export function Toolbar() {
           variant="ghost"
           size="icon"
           className="h-8 w-8"
-          onClick={() => setViewMode(viewMode === 'table' ? 'grid' : 'table')}
-          title={viewMode === 'table' ? 'Switch to grid view' : 'Switch to list view'}
+          onClick={() => setViewMode(viewMode === "table" ? "grid" : "table")}
+          title={
+            viewMode === "table" ? "Switch to grid view" : "Switch to list view"
+          }
         >
-          {viewMode === 'table' ? (
+          {viewMode === "table" ? (
             <LayoutGrid className="w-4 h-4" />
           ) : (
             <LayoutList className="w-4 h-4" />
@@ -241,7 +258,7 @@ export function Toolbar() {
               onChange={(e) => setNewFolderName(e.target.value)}
               placeholder="Folder name"
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreateFolder();
+                if (e.key === "Enter") handleCreateFolder();
               }}
               autoFocus
             />
@@ -250,7 +267,10 @@ export function Toolbar() {
             <Button variant="outline" onClick={() => setNewFolderOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateFolder} disabled={!newFolderName.trim()}>
+            <Button
+              onClick={handleCreateFolder}
+              disabled={!newFolderName.trim()}
+            >
               Create
             </Button>
           </DialogFooter>

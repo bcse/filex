@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { LogOut, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { api } from '@/api/client';
+import { useState } from "react";
+import { LogOut, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { api } from "@/api/client";
 
 interface UserMenuProps {
   onLogout: () => void;

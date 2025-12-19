@@ -1,8 +1,13 @@
-import { toast } from 'sonner';
-import type { DropAction, DropPromptState } from './DropPrompt';
+import { toast } from "sonner";
+import type { DropAction, DropPromptState } from "./DropPrompt";
 
 type MutationHandler = {
-  mutateAsync: (params: { from: string; to: string; overwrite?: boolean; suppressToast?: boolean }) => Promise<{
+  mutateAsync: (params: {
+    from: string;
+    to: string;
+    overwrite?: boolean;
+    suppressToast?: boolean;
+  }) => Promise<{
     performed?: boolean;
   } | void>;
 };
@@ -29,22 +34,33 @@ export async function performDropAction({
     const total = paths.length;
 
     for (const fromPath of paths) {
-      const fileName = fromPath.split('/').pop() || '';
-      const toPath = targetPath === '/' ? `/${fileName}` : `${targetPath}/${fileName}`;
+      const fileName = fromPath.split("/").pop() || "";
+      const toPath =
+        targetPath === "/" ? `/${fileName}` : `${targetPath}/${fileName}`;
 
       if (fromPath === toPath) continue;
 
-      if (toPath.startsWith(fromPath + '/')) {
+      if (toPath.startsWith(fromPath + "/")) {
         toast.error(`Cannot move "${fileName}" into itself`);
         continue;
       }
 
-      const overwrite = action.strategy === 'overwrite';
+      const overwrite = action.strategy === "overwrite";
 
       const result =
-        action.operation === 'move'
-          ? await move.mutateAsync({ from: fromPath, to: toPath, overwrite, suppressToast: true })
-          : await copy.mutateAsync({ from: fromPath, to: toPath, overwrite, suppressToast: true });
+        action.operation === "move"
+          ? await move.mutateAsync({
+              from: fromPath,
+              to: toPath,
+              overwrite,
+              suppressToast: true,
+            })
+          : await copy.mutateAsync({
+              from: fromPath,
+              to: toPath,
+              overwrite,
+              suppressToast: true,
+            });
 
       if (result?.performed === false) {
         skippedCount += 1;
@@ -56,11 +72,14 @@ export async function performDropAction({
     clearSelection();
 
     if (performedCount > 0 || skippedCount > 0) {
-      const verb = action.operation === 'copy' ? 'Copied' : 'Moved';
-      const skippedSuffix = skippedCount > 0 ? ` (skipped ${skippedCount})` : '';
-      toast.success(`${verb} ${performedCount} of ${total} items${skippedSuffix}`);
+      const verb = action.operation === "copy" ? "Copied" : "Moved";
+      const skippedSuffix =
+        skippedCount > 0 ? ` (skipped ${skippedCount})` : "";
+      toast.success(
+        `${verb} ${performedCount} of ${total} items${skippedSuffix}`,
+      );
     }
   } catch (error) {
-    console.error('Drop action failed:', error);
+    console.error("Drop action failed:", error);
   }
 }

@@ -1,8 +1,8 @@
-import { useEffect, useCallback } from 'react';
-import { useNavigationStore } from '@/stores/navigation';
-import { useMove, useCopy } from '@/hooks/useDirectory';
-import { api } from '@/api/client';
-import type { FileEntry } from '@/types/file';
+import { useEffect, useCallback } from "react";
+import { useNavigationStore } from "@/stores/navigation";
+import { useMove, useCopy } from "@/hooks/useDirectory";
+import { api } from "@/api/client";
+import type { FileEntry } from "@/types/file";
 
 interface UseKeyboardOptions {
   entries: FileEntry[];
@@ -40,19 +40,19 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
     if (clipboard.files.length === 0) return;
 
     for (const filePath of clipboard.files) {
-      const fileName = filePath.split('/').pop() || '';
+      const fileName = filePath.split("/").pop() || "";
       const targetPath =
-        currentPath === '/' ? `/${fileName}` : `${currentPath}/${fileName}`;
+        currentPath === "/" ? `/${fileName}` : `${currentPath}/${fileName}`;
 
-      if (clipboard.operation === 'cut') {
+      if (clipboard.operation === "cut") {
         await move.mutateAsync({ from: filePath, to: targetPath });
       }
-      if (clipboard.operation === 'copy') {
+      if (clipboard.operation === "copy") {
         await copy.mutateAsync({ from: filePath, to: targetPath });
       }
     }
 
-    if (clipboard.operation === 'cut') {
+    if (clipboard.operation === "cut") {
       clearClipboard();
     }
   }, [clipboard, clearClipboard, copy, currentPath, move]);
@@ -71,7 +71,7 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
 
       switch (e.key) {
-        case 'ArrowDown': {
+        case "ArrowDown": {
           e.preventDefault();
           const nextIndex = Math.min(focusedIndex + 1, entries.length - 1);
           if (nextIndex >= 0 && entries[nextIndex]) {
@@ -79,7 +79,9 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
               // Range selection
               const start = Math.min(focusedIndex, nextIndex);
               const end = Math.max(focusedIndex, nextIndex);
-              const rangePaths = entries.slice(start, end + 1).map((e) => e.path);
+              const rangePaths = entries
+                .slice(start, end + 1)
+                .map((e) => e.path);
               selectRange([...Array.from(selectedFiles), ...rangePaths]);
             } else {
               selectFile(entries[nextIndex].path);
@@ -88,7 +90,7 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
           break;
         }
 
-        case 'ArrowUp': {
+        case "ArrowUp": {
           e.preventDefault();
           const prevIndex = Math.max(focusedIndex - 1, 0);
           if (entries[prevIndex]) {
@@ -96,7 +98,9 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
               // Range selection
               const start = Math.min(focusedIndex, prevIndex);
               const end = Math.max(focusedIndex, prevIndex);
-              const rangePaths = entries.slice(start, end + 1).map((e) => e.path);
+              const rangePaths = entries
+                .slice(start, end + 1)
+                .map((e) => e.path);
               selectRange([...Array.from(selectedFiles), ...rangePaths]);
             } else {
               selectFile(entries[prevIndex].path);
@@ -105,7 +109,7 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
           break;
         }
 
-        case 'Home': {
+        case "Home": {
           e.preventDefault();
           if (entries.length > 0) {
             selectFile(entries[0].path);
@@ -113,7 +117,7 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
           break;
         }
 
-        case 'End': {
+        case "End": {
           e.preventDefault();
           if (entries.length > 0) {
             selectFile(entries[entries.length - 1].path);
@@ -121,21 +125,21 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
           break;
         }
 
-        case 'Enter': {
+        case "Enter": {
           e.preventDefault();
           if (focusedIndex >= 0 && entries[focusedIndex]) {
             const entry = entries[focusedIndex];
             if (entry.is_dir) {
               setCurrentPath(entry.path);
             } else {
-              window.open(api.getDownloadUrl(entry.path), '_blank');
+              window.open(api.getDownloadUrl(entry.path), "_blank");
             }
           }
           break;
         }
 
-        case 'Backspace':
-        case 'Delete': {
+        case "Backspace":
+        case "Delete": {
           if (selectedFiles.size > 0) {
             e.preventDefault();
             setDeleteConfirmOpen(true);
@@ -143,7 +147,7 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
           break;
         }
 
-        case 'F2': {
+        case "F2": {
           if (selectedFiles.size === 1 && onRename) {
             e.preventDefault();
             const path = Array.from(selectedFiles)[0];
@@ -152,8 +156,8 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
           break;
         }
 
-        case 'a':
-        case 'A': {
+        case "a":
+        case "A": {
           if (isCtrlOrCmd) {
             e.preventDefault();
             selectRange(entries.map((e) => e.path));
@@ -161,8 +165,8 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
           break;
         }
 
-        case 'c':
-        case 'C': {
+        case "c":
+        case "C": {
           if (isCtrlOrCmd && selectedFiles.size > 0) {
             e.preventDefault();
             copyFiles(Array.from(selectedFiles));
@@ -170,8 +174,8 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
           break;
         }
 
-        case 'x':
-        case 'X': {
+        case "x":
+        case "X": {
           if (isCtrlOrCmd && selectedFiles.size > 0) {
             e.preventDefault();
             cutFiles(Array.from(selectedFiles));
@@ -179,8 +183,8 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
           break;
         }
 
-        case 'v':
-        case 'V': {
+        case "v":
+        case "V": {
           if (isCtrlOrCmd && clipboard.files.length > 0) {
             e.preventDefault();
             void handlePaste();
@@ -188,7 +192,7 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
           break;
         }
 
-        case 'Escape': {
+        case "Escape": {
           clearSelection();
           break;
         }
@@ -208,13 +212,13 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
       setDeleteConfirmOpen,
       handlePaste,
       onRename,
-    ]
+    ],
   );
 
   useEffect(() => {
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [handleKeyDown]);
 }

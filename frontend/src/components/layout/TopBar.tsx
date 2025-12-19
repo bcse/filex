@@ -1,13 +1,20 @@
-import React from 'react';
-import { ArrowLeft, ArrowRight, ChevronRight, Home, Moon, Sun } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { SearchBar } from './SearchBar';
-import { Toolbar } from './Toolbar';
-import { IndexerStatus } from './IndexerStatus';
-import { UserMenu } from '@/components/auth/UserMenu';
-import { useNavigationStore } from '@/stores/navigation';
-import { useAuthStore } from '@/stores/auth';
-import { getEffectiveTheme, useThemeStore } from '@/stores/theme';
+import React from "react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ChevronRight,
+  Home,
+  Moon,
+  Sun,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { SearchBar } from "./SearchBar";
+import { Toolbar } from "./Toolbar";
+import { IndexerStatus } from "./IndexerStatus";
+import { UserMenu } from "@/components/auth/UserMenu";
+import { useNavigationStore } from "@/stores/navigation";
+import { useAuthStore } from "@/stores/auth";
+import { getEffectiveTheme, useThemeStore } from "@/stores/theme";
 
 export function TopBar() {
   const {
@@ -27,13 +34,13 @@ export function TopBar() {
   const isSearchActive = isSearching && searchQuery.length >= 2;
   const canGoBack = historyIndex > 0;
   const canGoForward = historyIndex < history.length - 1;
-  const ThemeIcon = effectiveTheme === 'dark' ? Moon : Sun;
+  const ThemeIcon = effectiveTheme === "dark" ? Moon : Sun;
 
   // Parse breadcrumb segments
-  const segments = currentPath.split('/').filter(Boolean);
+  const segments = currentPath.split("/").filter(Boolean);
 
   const toggleTheme = () => {
-    const next = effectiveTheme === 'dark' ? 'light' : 'dark';
+    const next = effectiveTheme === "dark" ? "light" : "dark";
     setTheme(next);
   };
 
@@ -43,7 +50,7 @@ export function TopBar() {
       size="icon"
       className="h-8 w-8"
       onClick={toggleTheme}
-      title={`Theme: ${effectiveTheme}${theme === 'system' ? ' (system)' : ''}`}
+      title={`Theme: ${effectiveTheme}${theme === "system" ? " (system)" : ""}`}
     >
       <ThemeIcon className="w-4 h-4" />
     </Button>
@@ -79,7 +86,7 @@ export function TopBar() {
           variant="ghost"
           size="icon"
           className="h-7 w-7"
-          onClick={() => setCurrentPath('/', { exitSearch: true })}
+          onClick={() => setCurrentPath("/", { exitSearch: true })}
         >
           <Home className="w-4 h-4" />
         </Button>
@@ -94,7 +101,7 @@ export function TopBar() {
           </>
         ) : (
           segments.map((segment, index) => {
-            const path = '/' + segments.slice(0, index + 1).join('/');
+            const path = "/" + segments.slice(0, index + 1).join("/");
             const isLast = index === segments.length - 1;
 
             return (
@@ -115,7 +122,7 @@ export function TopBar() {
           })
         )}
       </div>
-      
+
       {/* Actions */}
       <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
         {!isSearchActive ? (

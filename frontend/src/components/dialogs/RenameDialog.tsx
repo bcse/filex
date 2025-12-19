@@ -5,9 +5,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface RenameDialogProps {
   open: boolean;
@@ -44,7 +44,7 @@ export function RenameDialog({
             onChange={(e) => onValueChange(e.target.value)}
             placeholder="New name"
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleConfirm();
+              if (e.key === "Enter") handleConfirm();
             }}
             autoFocus
           />

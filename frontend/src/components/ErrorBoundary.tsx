@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 type ErrorBoundaryState = {
   hasError: boolean;
@@ -23,7 +23,7 @@ export class ErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Keep console logging minimal but useful for diagnostics.
-    console.error('Unhandled render error:', error, errorInfo);
+    console.error("Unhandled render error:", error, errorInfo);
   }
 
   handleReload = () => {

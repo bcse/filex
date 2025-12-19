@@ -1,10 +1,10 @@
-import { format } from 'date-fns';
-import type { FileEntry, SortField } from '@/types/file';
-import { formatFileSize, formatDuration, formatDimensions } from '@/lib/utils';
-import { FileIcon } from './FileIcon';
+import { format } from "date-fns";
+import type { FileEntry, SortField } from "@/types/file";
+import { formatFileSize, formatDuration, formatDimensions } from "@/lib/utils";
+import { FileIcon } from "./FileIcon";
 
 export interface Column {
-  key: SortField | 'icon' | 'path';
+  key: SortField | "icon" | "path";
   label: string;
   width: string;
   sortable: boolean;
@@ -12,32 +12,32 @@ export interface Column {
 }
 
 const getBasedir = (path: string) => {
-  const lastSlash = path.lastIndexOf('/');
-  if (lastSlash <= 0) return '/';
+  const lastSlash = path.lastIndexOf("/");
+  if (lastSlash <= 0) return "/";
   return path.substring(0, lastSlash);
 };
 
 const formatDate = (dateStr?: string) => {
-  if (!dateStr) return '-';
+  if (!dateStr) return "-";
   try {
-    return format(new Date(dateStr), 'yyyy-MM-dd HH:mm');
+    return format(new Date(dateStr), "yyyy-MM-dd HH:mm");
   } catch {
-    return '-';
+    return "-";
   }
 };
 
 const iconColumn: Column = {
-  key: 'icon',
-  label: '',
-  width: '40px',
+  key: "icon",
+  label: "",
+  width: "40px",
   sortable: false,
   render: (entry) => <FileIcon entry={entry} />,
 };
 
 const nameColumn: Column = {
-  key: 'name',
-  label: 'Name',
-  width: '1fr',
+  key: "name",
+  label: "Name",
+  width: "1fr",
   sortable: true,
   render: (entry) => (
     <span className="truncate" title={entry.name}>
@@ -47,9 +47,9 @@ const nameColumn: Column = {
 };
 
 const pathColumn: Column = {
-  key: 'path',
-  label: 'Path',
-  width: '1fr',
+  key: "path",
+  label: "Path",
+  width: "1fr",
   sortable: true,
   render: (entry) => {
     const basedir = getBasedir(entry.path);
@@ -65,20 +65,20 @@ export const columns: Column[] = [
   iconColumn,
   nameColumn,
   {
-    key: 'size',
-    label: 'Size',
-    width: '100px',
+    key: "size",
+    label: "Size",
+    width: "100px",
     sortable: true,
     render: (entry) => (
       <span className="text-muted-foreground">
-        {entry.is_dir ? '-' : formatFileSize(entry.size)}
+        {entry.is_dir ? "-" : formatFileSize(entry.size)}
       </span>
     ),
   },
   {
-    key: 'modified',
-    label: 'Modified',
-    width: '150px',
+    key: "modified",
+    label: "Modified",
+    width: "150px",
     sortable: true,
     render: (entry) => (
       <span className="text-muted-foreground">
@@ -87,31 +87,29 @@ export const columns: Column[] = [
     ),
   },
   {
-    key: 'created',
-    label: 'Created',
-    width: '150px',
+    key: "created",
+    label: "Created",
+    width: "150px",
     sortable: true,
     render: (entry) => (
-      <span className="text-muted-foreground">
-        {formatDate(entry.created)}
-      </span>
+      <span className="text-muted-foreground">{formatDate(entry.created)}</span>
     ),
   },
   {
-    key: 'mime_type',
-    label: 'Type',
-    width: '120px',
+    key: "mime_type",
+    label: "Type",
+    width: "120px",
     sortable: true,
     render: (entry) => (
       <span className="text-muted-foreground truncate" title={entry.mime_type}>
-        {entry.is_dir ? 'Folder' : entry.mime_type?.split('/')[1] || '-'}
+        {entry.is_dir ? "Folder" : entry.mime_type?.split("/")[1] || "-"}
       </span>
     ),
   },
   {
-    key: 'width',
-    label: 'Dimensions',
-    width: '100px',
+    key: "width",
+    label: "Dimensions",
+    width: "100px",
     sortable: true,
     render: (entry) => (
       <span className="text-muted-foreground">
@@ -120,9 +118,9 @@ export const columns: Column[] = [
     ),
   },
   {
-    key: 'duration',
-    label: 'Duration',
-    width: '80px',
+    key: "duration",
+    label: "Duration",
+    width: "80px",
     sortable: true,
     render: (entry) => (
       <span className="text-muted-foreground">

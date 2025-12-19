@@ -1,13 +1,13 @@
-import React, { useMemo, useCallback } from 'react';
-import { Loader2, FolderOpen, Search } from 'lucide-react';
-import { FileContextMenu } from '@/components/table/FileContextMenu';
-import type { FileEntry } from '@/types/file';
-import { useNavigationStore } from '@/stores/navigation';
-import { useSearch } from '@/hooks/useSearch';
-import { api } from '@/api/client';
-import type { SortField } from '@/types/file';
-import { searchColumns } from '@/components/table/columns';
-import { FileTableView } from '@/components/table/FileTableView';
+import React, { useMemo, useCallback } from "react";
+import { Loader2, FolderOpen, Search } from "lucide-react";
+import { FileContextMenu } from "@/components/table/FileContextMenu";
+import type { FileEntry } from "@/types/file";
+import { useNavigationStore } from "@/stores/navigation";
+import { useSearch } from "@/hooks/useSearch";
+import { api } from "@/api/client";
+import type { SortField } from "@/types/file";
+import { searchColumns } from "@/components/table/columns";
+import { FileTableView } from "@/components/table/FileTableView";
 
 function toRow(entry: FileEntry): FileEntry {
   return {
@@ -43,7 +43,10 @@ export function SearchResults() {
   const handleSort = (field: SortField) => {
     setSearchSortConfig({
       field,
-      order: searchSortConfig.field === field && searchSortConfig.order === 'asc' ? 'desc' : 'asc',
+      order:
+        searchSortConfig.field === field && searchSortConfig.order === "asc"
+          ? "desc"
+          : "asc",
     });
   };
 
@@ -51,7 +54,10 @@ export function SearchResults() {
     (row: ReturnType<typeof toRow>, e: React.MouseEvent) => {
       if (e.shiftKey) {
         const paths = rows.map((item) => item.path);
-        const anchor = lastSelected && paths.includes(lastSelected) ? lastSelected : row.path;
+        const anchor =
+          lastSelected && paths.includes(lastSelected)
+            ? lastSelected
+            : row.path;
         const start = paths.indexOf(anchor);
         const end = paths.indexOf(row.path);
         if (start !== -1 && end !== -1) {
@@ -67,7 +73,14 @@ export function SearchResults() {
         selectFile(row.path);
       }
     },
-    [lastSelected, rows, selectFile, selectRange, selectedFiles, toggleSelection]
+    [
+      lastSelected,
+      rows,
+      selectFile,
+      selectRange,
+      selectedFiles,
+      toggleSelection,
+    ],
   );
 
   const handleRowDoubleClick = useCallback(
@@ -76,10 +89,10 @@ export function SearchResults() {
         setIsSearching(false);
         setCurrentPath(row.path);
       } else {
-        window.open(api.getDownloadUrl(row.path), '_blank');
+        window.open(api.getDownloadUrl(row.path), "_blank");
       }
     },
-    [setCurrentPath, setIsSearching]
+    [setCurrentPath, setIsSearching],
   );
 
   if (!searchQuery || searchQuery.length < 2) {

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FolderOpen, Download, Pencil, Trash2 } from 'lucide-react';
+import React, { useState } from "react";
+import { FolderOpen, Download, Pencil, Trash2 } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -7,15 +7,15 @@ import {
   ContextMenuSeparator,
   ContextMenuShortcut,
   ContextMenuTrigger,
-} from '@/components/ui/context-menu';
-import { RenameDialog } from '@/components/dialogs/RenameDialog';
-import { DeleteConfirmDialog } from '@/components/dialogs/DeleteConfirmDialog';
-import { useNavigationStore } from '@/stores/navigation';
-import { useDelete, useRename } from '@/hooks/useDirectory';
-import { api } from '@/api/client';
-import { DEFAULT_PAGE_SIZE_FALLBACK } from '@/config/pagination';
-import { getParentPath } from '@/lib/utils';
-import type { FileEntry } from '@/types/file';
+} from "@/components/ui/context-menu";
+import { RenameDialog } from "@/components/dialogs/RenameDialog";
+import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog";
+import { useNavigationStore } from "@/stores/navigation";
+import { useDelete, useRename } from "@/hooks/useDirectory";
+import { api } from "@/api/client";
+import { DEFAULT_PAGE_SIZE_FALLBACK } from "@/config/pagination";
+import { getParentPath } from "@/lib/utils";
+import type { FileEntry } from "@/types/file";
 
 interface FileContextMenuProps {
   entry: FileEntry;
@@ -42,7 +42,7 @@ export function FileContextMenu({
   } = useNavigationStore();
 
   const [renameOpen, setRenameOpen] = useState(false);
-  const [renameValue, setRenameValue] = useState('');
+  const [renameValue, setRenameValue] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const deleteFile = useDelete();
@@ -50,7 +50,8 @@ export function FileContextMenu({
 
   const selectedArray = Array.from(selectedFiles);
   const isSelected = selectedFiles.has(entry.path);
-  const targetPaths = isSelected && selectedArray.length > 1 ? selectedArray : [entry.path];
+  const targetPaths =
+    isSelected && selectedArray.length > 1 ? selectedArray : [entry.path];
   const canGoToParent = showGoToParent && selectedFiles.size <= 1;
 
   const handleOpen = () => {
@@ -61,9 +62,9 @@ export function FileContextMenu({
   const handleDownload = () => {
     for (const path of targetPaths) {
       const url = api.getDownloadUrl(path);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = path.split('/').pop() || 'download';
+      a.download = path.split("/").pop() || "download";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -89,11 +90,11 @@ export function FileContextMenu({
   const handleGoToParent = () => {
     const mapSortField = (field: typeof sortConfig.field) => {
       switch (field) {
-        case 'mime_type':
-          return 'type';
-        case 'width':
-        case 'height':
-          return 'dimensions';
+        case "mime_type":
+          return "type";
+        case "width":
+        case "height":
+          return "dimensions";
         default:
           return field;
       }
@@ -116,7 +117,9 @@ export function FileContextMenu({
         });
 
         total = resp.total;
-        const index = resp.entries.findIndex((item) => item.path === entry.path);
+        const index = resp.entries.findIndex(
+          (item) => item.path === entry.path,
+        );
         if (index !== -1) {
           const absoluteIndex = offset + index;
           return Math.floor(absoluteIndex / pageSize) * pageSize;
@@ -152,12 +155,12 @@ export function FileContextMenu({
 
   return (
     <>
-      <ContextMenu onOpenChange={(open) => {
-        if (open) onSelect();
-      }}>
-        <ContextMenuTrigger asChild>
-          {children}
-        </ContextMenuTrigger>
+      <ContextMenu
+        onOpenChange={(open) => {
+          if (open) onSelect();
+        }}
+      >
+        <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
         <ContextMenuContent className="w-56">
           {entry.is_dir && (
             <ContextMenuItem onClick={handleOpen}>

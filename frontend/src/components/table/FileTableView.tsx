@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { ArrowUp, ArrowDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useColumnResize } from '@/hooks/useColumnResize';
-import type { Column } from '@/components/table/columns';
-import type { FileEntry, SortConfig, SortField } from '@/types/file';
+import React, { useEffect, useMemo, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { ArrowUp, ArrowDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useColumnResize } from "@/hooks/useColumnResize";
+import type { Column } from "@/components/table/columns";
+import type { FileEntry, SortConfig, SortField } from "@/types/file";
 
 type RowProps = React.HTMLAttributes<HTMLDivElement>;
 
@@ -16,7 +16,10 @@ interface FileTableViewProps {
   estimateSize?: number;
   selectedPaths?: Set<string>;
   getRowKey?: (entry: FileEntry) => string;
-  getRowClassName?: (entry: FileEntry, isSelected: boolean) => string | undefined;
+  getRowClassName?: (
+    entry: FileEntry,
+    isSelected: boolean,
+  ) => string | undefined;
   getRowProps?: (entry: FileEntry) => RowProps | undefined;
   onRowClick?: (entry: FileEntry, event: React.MouseEvent) => void;
   onRowDoubleClick?: (entry: FileEntry) => void;
@@ -65,90 +68,96 @@ function areRowPropsEqual(prev: FileTableRowProps, next: FileTableRowProps) {
   );
 }
 
-const FileTableRow = React.memo(React.forwardRef<HTMLDivElement, FileTableRowProps>(function FileTableRow({
-  entry,
-  columns,
-  gridTemplate,
-  totalWidth,
-  isSelected,
-  rowClassName,
-  rowHeight,
-  rowStart,
-  getRowProps,
-  onRowClick,
-  onRowDoubleClick,
-  className: triggerClassName,
-  style: triggerStyle,
-  onClick: triggerOnClick,
-  onDoubleClick: triggerOnDoubleClick,
-  onContextMenu: triggerOnContextMenu,
-  onPointerDown: triggerOnPointerDown,
-  onKeyDown: triggerOnKeyDown,
-  ...restTriggerProps
-}, ref) {
-  const rowProps = getRowProps?.(entry);
-  const {
-    className: rowExtraClassName,
-    style: rowExtraStyle,
-    onClick: rowExtraOnClick,
-    onDoubleClick: rowExtraOnDoubleClick,
-    onContextMenu: rowExtraOnContextMenu,
-    onPointerDown: rowExtraOnPointerDown,
-    onKeyDown: rowExtraOnKeyDown,
-    ...restRowProps
-  } = rowProps ?? {};
+const FileTableRow = React.memo(
+  React.forwardRef<HTMLDivElement, FileTableRowProps>(function FileTableRow(
+    {
+      entry,
+      columns,
+      gridTemplate,
+      totalWidth,
+      isSelected,
+      rowClassName,
+      rowHeight,
+      rowStart,
+      getRowProps,
+      onRowClick,
+      onRowDoubleClick,
+      className: triggerClassName,
+      style: triggerStyle,
+      onClick: triggerOnClick,
+      onDoubleClick: triggerOnDoubleClick,
+      onContextMenu: triggerOnContextMenu,
+      onPointerDown: triggerOnPointerDown,
+      onKeyDown: triggerOnKeyDown,
+      ...restTriggerProps
+    },
+    ref,
+  ) {
+    const rowProps = getRowProps?.(entry);
+    const {
+      className: rowExtraClassName,
+      style: rowExtraStyle,
+      onClick: rowExtraOnClick,
+      onDoubleClick: rowExtraOnDoubleClick,
+      onContextMenu: rowExtraOnContextMenu,
+      onPointerDown: rowExtraOnPointerDown,
+      onKeyDown: rowExtraOnKeyDown,
+      ...restRowProps
+    } = rowProps ?? {};
 
-  return (
-    <div
-      {...restRowProps}
-      {...restTriggerProps}
-      ref={ref}
-      className={cn(
-        'grid px-2 items-center text-sm border-b border-transparent hover:bg-accent cursor-pointer absolute top-0 left-0',
-        isSelected && 'bg-accent',
-        rowClassName,
-        rowExtraClassName,
-        triggerClassName
-      )}
-      style={{
-        gridTemplateColumns: gridTemplate,
-        height: `${rowHeight}px`,
-        transform: `translateY(${rowStart}px)`,
-        minWidth: totalWidth,
-        ...rowExtraStyle,
-        ...triggerStyle,
-      }}
-      onClick={(event) => {
-        rowExtraOnClick?.(event);
-        triggerOnClick?.(event);
-        onRowClick?.(entry, event);
-      }}
-      onDoubleClick={(event) => {
-        rowExtraOnDoubleClick?.(event);
-        triggerOnDoubleClick?.(event);
-        onRowDoubleClick?.(entry);
-      }}
-      onContextMenu={(event) => {
-        rowExtraOnContextMenu?.(event);
-        triggerOnContextMenu?.(event);
-      }}
-      onPointerDown={(event) => {
-        rowExtraOnPointerDown?.(event);
-        triggerOnPointerDown?.(event);
-      }}
-      onKeyDown={(event) => {
-        rowExtraOnKeyDown?.(event);
-        triggerOnKeyDown?.(event);
-      }}
-    >
-      {columns.map((column) => (
-        <div key={column.key} className="truncate">
-          {column.render(entry)}
-        </div>
-      ))}
-    </div>
-  );
-}), areRowPropsEqual);
+    return (
+      <div
+        {...restRowProps}
+        {...restTriggerProps}
+        ref={ref}
+        className={cn(
+          "grid px-2 items-center text-sm border-b border-transparent hover:bg-accent cursor-pointer absolute top-0 left-0",
+          isSelected && "bg-accent",
+          rowClassName,
+          rowExtraClassName,
+          triggerClassName,
+        )}
+        style={{
+          gridTemplateColumns: gridTemplate,
+          height: `${rowHeight}px`,
+          transform: `translateY(${rowStart}px)`,
+          minWidth: totalWidth,
+          ...rowExtraStyle,
+          ...triggerStyle,
+        }}
+        onClick={(event) => {
+          rowExtraOnClick?.(event);
+          triggerOnClick?.(event);
+          onRowClick?.(entry, event);
+        }}
+        onDoubleClick={(event) => {
+          rowExtraOnDoubleClick?.(event);
+          triggerOnDoubleClick?.(event);
+          onRowDoubleClick?.(entry);
+        }}
+        onContextMenu={(event) => {
+          rowExtraOnContextMenu?.(event);
+          triggerOnContextMenu?.(event);
+        }}
+        onPointerDown={(event) => {
+          rowExtraOnPointerDown?.(event);
+          triggerOnPointerDown?.(event);
+        }}
+        onKeyDown={(event) => {
+          rowExtraOnKeyDown?.(event);
+          triggerOnKeyDown?.(event);
+        }}
+      >
+        {columns.map((column) => (
+          <div key={column.key} className="truncate">
+            {column.render(entry)}
+          </div>
+        ))}
+      </div>
+    );
+  }),
+  areRowPropsEqual,
+);
 
 export function FileTableView({
   columns,
@@ -168,7 +177,8 @@ export function FileTableView({
   onScrolledToKey,
 }: FileTableViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { handleResizeStart, getGridTemplate, getTotalWidth } = useColumnResize(columns);
+  const { handleResizeStart, getGridTemplate, getTotalWidth } =
+    useColumnResize(columns);
   const rowVirtualizer = useVirtualizer({
     count: entries.length,
     getScrollElement: () => scrollRef.current,
@@ -180,14 +190,16 @@ export function FileTableView({
   const totalWidth = getTotalWidth();
   const resolveKey = useMemo(
     () => getRowKey ?? ((entry: FileEntry) => entry.path),
-    [getRowKey]
+    [getRowKey],
   );
 
   useEffect(() => {
     if (!scrollToKey) return;
-    const index = entries.findIndex((entry) => resolveKey(entry) === scrollToKey);
+    const index = entries.findIndex(
+      (entry) => resolveKey(entry) === scrollToKey,
+    );
     if (index === -1) return;
-    rowVirtualizer.scrollToIndex(index, { align: 'center' });
+    rowVirtualizer.scrollToIndex(index, { align: "center" });
     onScrolledToKey?.(scrollToKey);
   }, [entries, onScrolledToKey, resolveKey, rowVirtualizer, scrollToKey]);
 
@@ -200,25 +212,28 @@ export function FileTableView({
             style={{ gridTemplateColumns: gridTemplate }}
           >
             {columns.map((column, index) => {
-              const isSortable = Boolean(onSort) && column.sortable && column.key !== 'icon';
+              const isSortable =
+                Boolean(onSort) && column.sortable && column.key !== "icon";
               const isActive = sortConfig?.field === column.key;
               return (
                 <div key={column.key} className="relative flex items-center">
                   <div
                     className={cn(
-                      'flex items-center gap-1 flex-1 truncate',
-                      isSortable && 'cursor-pointer hover:text-foreground'
+                      "flex items-center gap-1 flex-1 truncate",
+                      isSortable && "cursor-pointer hover:text-foreground",
                     )}
-                    onClick={() => isSortable && onSort?.(column.key as SortField)}
+                    onClick={() =>
+                      isSortable && onSort?.(column.key as SortField)
+                    }
                   >
                     <span>{column.label}</span>
-                    {isSortable && isActive && (
-                      sortConfig?.order === 'asc' ? (
+                    {isSortable &&
+                      isActive &&
+                      (sortConfig?.order === "asc" ? (
                         <ArrowUp className="w-3 h-3 flex-shrink-0" />
                       ) : (
                         <ArrowDown className="w-3 h-3 flex-shrink-0" />
-                      )
-                    )}
+                      ))}
                   </div>
                   {index < columns.length - 1 && (
                     <div
@@ -237,8 +252,8 @@ export function FileTableView({
             <div
               style={{
                 height: `${rowVirtualizer.getTotalSize()}px`,
-                width: '100%',
-                position: 'relative',
+                width: "100%",
+                position: "relative",
               }}
             >
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {

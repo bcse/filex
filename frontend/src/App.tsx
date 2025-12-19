@@ -1,19 +1,19 @@
-import { useState, useEffect, useCallback } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from 'sonner';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { TopBar } from '@/components/layout/TopBar';
-import { MainPanel } from '@/components/layout/MainPanel';
-import { UploadProgress } from '@/components/layout/UploadProgress';
-import { LoginPage } from '@/components/auth/LoginPage';
-import { api } from '@/api/client';
-import { useAuthStore } from '@/stores/auth';
-import { Loader2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "sonner";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { TopBar } from "@/components/layout/TopBar";
+import { MainPanel } from "@/components/layout/MainPanel";
+import { UploadProgress } from "@/components/layout/UploadProgress";
+import { LoginPage } from "@/components/auth/LoginPage";
+import { api } from "@/api/client";
+import { useAuthStore } from "@/stores/auth";
+import { Loader2 } from "lucide-react";
 
-type AuthState = 'loading' | 'authenticated' | 'unauthenticated';
+type AuthState = "loading" | "authenticated" | "unauthenticated";
 
 function App() {
-  const [authState, setAuthState] = useState<AuthState>('loading');
+  const [authState, setAuthState] = useState<AuthState>("loading");
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -23,7 +23,7 @@ function App() {
             retry: 1,
           },
         },
-      })
+      }),
   );
   const { setAuthRequired, setLogoutHandler } = useAuthStore();
 
@@ -32,13 +32,13 @@ function App() {
       const status = await api.getAuthStatus();
       setAuthRequired(status.auth_required);
       if (!status.auth_required || status.authenticated) {
-        setAuthState('authenticated');
+        setAuthState("authenticated");
       } else {
-        setAuthState('unauthenticated');
+        setAuthState("unauthenticated");
       }
     } catch {
       // If we can't check auth status, assume authenticated (auth might be disabled)
-      setAuthState('authenticated');
+      setAuthState("authenticated");
     }
   }, [setAuthRequired]);
 
@@ -49,18 +49,18 @@ function App() {
   useEffect(() => {
     // Set up the logout handler
     setLogoutHandler(() => {
-      setAuthState('unauthenticated');
+      setAuthState("unauthenticated");
       queryClient.clear();
     });
   }, [queryClient, setLogoutHandler]);
 
   const handleLoginSuccess = () => {
-    setAuthState('authenticated');
+    setAuthState("authenticated");
     // Clear any stale query cache
     queryClient.clear();
   };
 
-  if (authState === 'loading') {
+  if (authState === "loading") {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
@@ -71,7 +71,7 @@ function App() {
     );
   }
 
-  if (authState === 'unauthenticated') {
+  if (authState === "unauthenticated") {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 

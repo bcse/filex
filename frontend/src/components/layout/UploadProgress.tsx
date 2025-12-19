@@ -1,9 +1,16 @@
-import React from 'react';
-import { X, CheckCircle, AlertCircle, Upload, ChevronDown, ChevronUp } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { useUploadStore, UploadItem } from '@/stores/upload';
-import { cn, formatFileSize } from '@/lib/utils';
+import React from "react";
+import {
+  X,
+  CheckCircle,
+  AlertCircle,
+  Upload,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { useUploadStore, UploadItem } from "@/stores/upload";
+import { cn, formatFileSize } from "@/lib/utils";
 
 function UploadItemRow({ item }: { item: UploadItem }) {
   const { removeUpload } = useUploadStore();
@@ -11,13 +18,13 @@ function UploadItemRow({ item }: { item: UploadItem }) {
   return (
     <div className="flex items-center gap-3 py-2 px-3 border-b border-border last:border-b-0">
       <div className="flex-shrink-0">
-        {item.status === 'completed' && (
+        {item.status === "completed" && (
           <CheckCircle className="w-4 h-4 text-green-500" />
         )}
-        {item.status === 'error' && (
+        {item.status === "error" && (
           <AlertCircle className="w-4 h-4 text-destructive" />
         )}
-        {(item.status === 'uploading' || item.status === 'pending') && (
+        {(item.status === "uploading" || item.status === "pending") && (
           <Upload className="w-4 h-4 text-muted-foreground animate-pulse" />
         )}
       </div>
@@ -30,7 +37,7 @@ function UploadItemRow({ item }: { item: UploadItem }) {
             {formatFileSize(item.size)}
           </span>
         </div>
-        {item.status === 'uploading' && (
+        {item.status === "uploading" && (
           <div className="mt-1 flex items-center gap-2">
             <Progress value={item.progress} className="h-1.5" />
             <span className="text-xs text-muted-foreground w-8">
@@ -38,8 +45,10 @@ function UploadItemRow({ item }: { item: UploadItem }) {
             </span>
           </div>
         )}
-        {item.status === 'error' && item.error && (
-          <p className="text-xs text-destructive mt-0.5 truncate">{item.error}</p>
+        {item.status === "error" && item.error && (
+          <p className="text-xs text-destructive mt-0.5 truncate">
+            {item.error}
+          </p>
         )}
       </div>
       <Button
@@ -64,9 +73,13 @@ export function UploadProgress() {
     return null;
   }
 
-  const completedCount = uploadsList.filter((u) => u.status === 'completed').length;
-  const uploadingCount = uploadsList.filter((u) => u.status === 'uploading').length;
-  const errorCount = uploadsList.filter((u) => u.status === 'error').length;
+  const completedCount = uploadsList.filter(
+    (u) => u.status === "completed",
+  ).length;
+  const uploadingCount = uploadsList.filter(
+    (u) => u.status === "uploading",
+  ).length;
+  const errorCount = uploadsList.filter((u) => u.status === "error").length;
 
   const totalProgress = uploadsList.reduce((acc, u) => acc + u.progress, 0);
   const averageProgress = Math.round(totalProgress / uploadsList.length);
@@ -82,8 +95,8 @@ export function UploadProgress() {
           <Upload className="w-4 h-4" />
           <span className="text-sm font-medium">
             {uploadingCount > 0
-              ? `Uploading ${uploadingCount} file${uploadingCount > 1 ? 's' : ''}`
-              : `${uploadsList.length} upload${uploadsList.length > 1 ? 's' : ''}`}
+              ? `Uploading ${uploadingCount} file${uploadingCount > 1 ? "s" : ""}`
+              : `${uploadsList.length} upload${uploadsList.length > 1 ? "s" : ""}`}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -117,7 +130,12 @@ export function UploadProgress() {
 
       {/* Upload list */}
       {!collapsed && (
-        <div className={cn('max-h-64 overflow-y-auto', uploadsList.length > 5 && 'pr-1')}>
+        <div
+          className={cn(
+            "max-h-64 overflow-y-auto",
+            uploadsList.length > 5 && "pr-1",
+          )}
+        >
           {uploadsList.map((item) => (
             <UploadItemRow key={item.id} item={item} />
           ))}

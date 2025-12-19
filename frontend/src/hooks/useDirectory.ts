@@ -1,27 +1,34 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import { api } from '@/api/client';
-import { useUploadStore } from '@/stores/upload';
-import { useNavigationStore } from '@/stores/navigation';
-import type { SortField } from '@/types/file';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { api } from "@/api/client";
+import { useUploadStore } from "@/stores/upload";
+import { useNavigationStore } from "@/stores/navigation";
+import type { SortField } from "@/types/file";
 
 export function useDirectory(path: string) {
   const { directoryOffset, directoryLimit, sortConfig } = useNavigationStore();
 
   const mapSortField = (field: SortField) => {
     switch (field) {
-      case 'mime_type':
-        return 'type';
-      case 'width':
-      case 'height':
-        return 'dimensions';
+      case "mime_type":
+        return "type";
+      case "width":
+      case "height":
+        return "dimensions";
       default:
         return field;
     }
   };
 
   return useQuery({
-    queryKey: ['directory', path, directoryOffset, directoryLimit, sortConfig.field, sortConfig.order],
+    queryKey: [
+      "directory",
+      path,
+      directoryOffset,
+      directoryLimit,
+      sortConfig.field,
+      sortConfig.order,
+    ],
     queryFn: ({ signal }) =>
       api.listDirectory(path, {
         signal,
@@ -36,7 +43,7 @@ export function useDirectory(path: string) {
 
 export function useTree(path: string, enabled = true) {
   return useQuery({
-    queryKey: ['tree', path],
+    queryKey: ["tree", path],
     queryFn: () => api.getTree(path),
     enabled,
     staleTime: 60_000,
@@ -49,11 +56,11 @@ export function useCreateDirectory() {
   return useMutation({
     mutationFn: (path: string) => api.createDirectory(path),
     onSuccess: (_, path) => {
-      const name = path.split('/').pop();
+      const name = path.split("/").pop();
       toast.success(`Created folder "${name}"`);
-      const parent = path.split('/').slice(0, -1).join('/') || '/';
-      queryClient.invalidateQueries({ queryKey: ['directory', parent] });
-      queryClient.invalidateQueries({ queryKey: ['tree'] });
+      const parent = path.split("/").slice(0, -1).join("/") || "/";
+      queryClient.invalidateQueries({ queryKey: ["directory", parent] });
+      queryClient.invalidateQueries({ queryKey: ["tree"] });
     },
     onError: (error) => {
       toast.error(`Failed to create folder: ${error.message}`);
@@ -69,8 +76,8 @@ export function useRename() {
       api.rename(path, newName),
     onSuccess: (_, { newName }) => {
       toast.success(`Renamed to "${newName}"`);
-      queryClient.invalidateQueries({ queryKey: ['directory'] });
-      queryClient.invalidateQueries({ queryKey: ['tree'] });
+      queryClient.invalidateQueries({ queryKey: ["directory"] });
+      queryClient.invalidateQueries({ queryKey: ["tree"] });
     },
     onError: (error) => {
       toast.error(`Failed to rename: ${error.message}`);
@@ -87,10 +94,15 @@ export function useMove() {
       to,
       overwrite = false,
       suppressToast,
-    }: { from: string; to: string; overwrite?: boolean; suppressToast?: boolean }) =>
+    }: {
+      from: string;
+      to: string;
+      overwrite?: boolean;
+      suppressToast?: boolean;
+    }) =>
       api.move(from, to, overwrite).then((res) => ({ ...res, suppressToast })),
     onSuccess: (data, { from, suppressToast }) => {
-      const name = from.split('/').pop();
+      const name = from.split("/").pop();
       if (!suppressToast) {
         if (data?.performed === false) {
           toast.info(`Skipped moving "${name}" (already exists)`);
@@ -98,8 +110,8 @@ export function useMove() {
           toast.success(`Moved "${name}"`);
         }
       }
-      queryClient.invalidateQueries({ queryKey: ['directory'] });
-      queryClient.invalidateQueries({ queryKey: ['tree'] });
+      queryClient.invalidateQueries({ queryKey: ["directory"] });
+      queryClient.invalidateQueries({ queryKey: ["tree"] });
     },
     onError: (error) => {
       toast.error(`Failed to move: ${error.message}`);
@@ -116,10 +128,15 @@ export function useCopy() {
       to,
       overwrite = false,
       suppressToast,
-    }: { from: string; to: string; overwrite?: boolean; suppressToast?: boolean }) =>
+    }: {
+      from: string;
+      to: string;
+      overwrite?: boolean;
+      suppressToast?: boolean;
+    }) =>
       api.copy(from, to, overwrite).then((res) => ({ ...res, suppressToast })),
     onSuccess: (data, { from, suppressToast }) => {
-      const name = from.split('/').pop();
+      const name = from.split("/").pop();
       if (!suppressToast) {
         if (data?.performed === false) {
           toast.info(`Skipped copying "${name}" (already exists)`);
@@ -127,8 +144,8 @@ export function useCopy() {
           toast.success(`Copied "${name}"`);
         }
       }
-      queryClient.invalidateQueries({ queryKey: ['directory'] });
-      queryClient.invalidateQueries({ queryKey: ['tree'] });
+      queryClient.invalidateQueries({ queryKey: ["directory"] });
+      queryClient.invalidateQueries({ queryKey: ["tree"] });
     },
     onError: (error) => {
       toast.error(`Failed to copy: ${error.message}`);
@@ -142,11 +159,11 @@ export function useDelete() {
   return useMutation({
     mutationFn: (path: string) => api.delete(path),
     onSuccess: (_, path) => {
-      const name = path.split('/').pop();
+      const name = path.split("/").pop();
       toast.success(`Deleted "${name}"`);
-      const parent = path.split('/').slice(0, -1).join('/') || '/';
-      queryClient.invalidateQueries({ queryKey: ['directory', parent] });
-      queryClient.invalidateQueries({ queryKey: ['tree'] });
+      const parent = path.split("/").slice(0, -1).join("/") || "/";
+      queryClient.invalidateQueries({ queryKey: ["directory", parent] });
+      queryClient.invalidateQueries({ queryKey: ["tree"] });
     },
     onError: (error) => {
       toast.error(`Failed to delete: ${error.message}`);
@@ -158,11 +175,18 @@ export function useUpload() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ targetPath, files }: { targetPath: string; files: FileList }) =>
-      api.upload(targetPath, files),
+    mutationFn: ({
+      targetPath,
+      files,
+    }: {
+      targetPath: string;
+      files: FileList;
+    }) => api.upload(targetPath, files),
     onSuccess: (_, { files, targetPath }) => {
-      toast.success(`Uploaded ${files.length} file${files.length > 1 ? 's' : ''}`);
-      queryClient.invalidateQueries({ queryKey: ['directory', targetPath] });
+      toast.success(
+        `Uploaded ${files.length} file${files.length > 1 ? "s" : ""}`,
+      );
+      queryClient.invalidateQueries({ queryKey: ["directory", targetPath] });
     },
     onError: (error) => {
       toast.error(`Failed to upload: ${error.message}`);
@@ -172,7 +196,7 @@ export function useUpload() {
 
 export function useIndexerStatus() {
   return useQuery({
-    queryKey: ['indexer-status'],
+    queryKey: ["indexer-status"],
     queryFn: () => api.getIndexStatus(),
     refetchInterval: 5000, // Poll every 5 seconds
     staleTime: 2000,
@@ -185,9 +209,9 @@ export function useIndexer() {
   const triggerIndex = useMutation({
     mutationFn: () => api.triggerIndex(),
     onSuccess: () => {
-      toast.success('Indexing started');
+      toast.success("Indexing started");
       // Immediately invalidate status to show it's running
-      queryClient.invalidateQueries({ queryKey: ['indexer-status'] });
+      queryClient.invalidateQueries({ queryKey: ["indexer-status"] });
     },
     onError: (error) => {
       toast.error(`Failed to start indexing: ${error.message}`);
@@ -210,7 +234,7 @@ export function useUploadWithProgress() {
       name: file.name,
       size: file.size,
       progress: 0,
-      status: 'pending' as const,
+      status: "pending" as const,
     }));
 
     uploadItems.forEach((item) => addUpload(item));
@@ -223,31 +247,38 @@ export function useUploadWithProgress() {
       const file = fileArray[i];
       const uploadItem = uploadItems[i];
 
-      setStatus(uploadItem.id, 'uploading');
+      setStatus(uploadItem.id, "uploading");
 
       try {
         await api.uploadWithProgress(targetPath, file, (progress) => {
           updateProgress(uploadItem.id, progress);
         });
-        setStatus(uploadItem.id, 'completed');
+        setStatus(uploadItem.id, "completed");
         successCount++;
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Upload failed';
-        setStatus(uploadItem.id, 'error', message);
+        const message =
+          error instanceof Error ? error.message : "Upload failed";
+        setStatus(uploadItem.id, "error", message);
         errorCount++;
       }
     }
 
     // Invalidate queries after all uploads
-    queryClient.invalidateQueries({ queryKey: ['directory', targetPath] });
+    queryClient.invalidateQueries({ queryKey: ["directory", targetPath] });
 
     // Show summary toast
     if (successCount > 0 && errorCount === 0) {
-      toast.success(`Uploaded ${successCount} file${successCount > 1 ? 's' : ''}`);
+      toast.success(
+        `Uploaded ${successCount} file${successCount > 1 ? "s" : ""}`,
+      );
     } else if (successCount > 0 && errorCount > 0) {
-      toast.warning(`Uploaded ${successCount} file${successCount > 1 ? 's' : ''}, ${errorCount} failed`);
+      toast.warning(
+        `Uploaded ${successCount} file${successCount > 1 ? "s" : ""}, ${errorCount} failed`,
+      );
     } else if (errorCount > 0) {
-      toast.error(`Failed to upload ${errorCount} file${errorCount > 1 ? 's' : ''}`);
+      toast.error(
+        `Failed to upload ${errorCount} file${errorCount > 1 ? "s" : ""}`,
+      );
     }
   };
 

@@ -1,28 +1,44 @@
-import React, { useCallback, useRef } from 'react';
-import { Search, X } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { useNavigationStore } from '@/stores/navigation';
+import React, { useCallback, useRef } from "react";
+import { Search, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useNavigationStore } from "@/stores/navigation";
 
 export function SearchBar() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { searchQuery, setSearchQuery, setIsSearching, setCurrentPath, currentPath, setSearchOffset } = useNavigationStore();
+  const {
+    searchQuery,
+    setSearchQuery,
+    setIsSearching,
+    setCurrentPath,
+    currentPath,
+    setSearchOffset,
+  } = useNavigationStore();
 
-  const handleSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchOffset(0, { recordHistory: false });
-    setSearchQuery(value);
-    setIsSearching(value.length >= 2);
-  }, [setIsSearching, setSearchOffset, setSearchQuery]);
-  
+  const handleSearch = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      setSearchOffset(0, { recordHistory: false });
+      setSearchQuery(value);
+      setIsSearching(value.length >= 2);
+    },
+    [setIsSearching, setSearchOffset, setSearchQuery],
+  );
+
   const handleClear = useCallback(() => {
-    setSearchQuery('', { recordHistory: false });
+    setSearchQuery("", { recordHistory: false });
     setIsSearching(false);
     setCurrentPath(currentPath, { exitSearch: true });
     setSearchOffset(0, { recordHistory: false });
     inputRef.current?.focus();
-  }, [currentPath, setCurrentPath, setIsSearching, setSearchOffset, setSearchQuery]);
-  
+  }, [
+    currentPath,
+    setCurrentPath,
+    setIsSearching,
+    setSearchOffset,
+    setSearchQuery,
+  ]);
+
   return (
     <div className="relative">
       <div className="relative">

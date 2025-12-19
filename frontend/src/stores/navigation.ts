@@ -1,12 +1,18 @@
-import { create } from 'zustand';
-import type { SortConfig } from '@/types/file';
-import { DEFAULT_PAGE_SIZE } from '@/config/pagination';
+import { create } from "zustand";
+import type { SortConfig } from "@/types/file";
+import { DEFAULT_PAGE_SIZE } from "@/config/pagination";
 
-type ViewMode = 'table' | 'grid';
+type ViewMode = "table" | "grid";
 
 type HistoryEntry =
-  | { type: 'path'; path: string; offset: number }
-  | { type: 'search'; path: string; pathOffset: number; query: string; offset: number };
+  | { type: "path"; path: string; offset: number }
+  | {
+      type: "search";
+      path: string;
+      pathOffset: number;
+      query: string;
+      offset: number;
+    };
 
 type HistoryUpdateOptions = {
   replace?: boolean;
@@ -20,7 +26,10 @@ type HistoryRecordOptions = {
 interface NavigationState {
   // Current path
   currentPath: string;
-  setCurrentPath: (path: string, options?: { exitSearch?: boolean; recordHistory?: boolean }) => void;
+  setCurrentPath: (
+    path: string,
+    options?: { exitSearch?: boolean; recordHistory?: boolean },
+  ) => void;
   directoryOffset: number;
   directoryLimit: number;
   setDirectoryOffset: (offset: number, options?: HistoryRecordOptions) => void;
@@ -49,7 +58,7 @@ interface NavigationState {
   // Clipboard (for copy/cut)
   clipboard: {
     files: string[];
-    operation: 'copy' | 'cut' | null;
+    operation: "copy" | "cut" | null;
   };
   copyFiles: (paths: string[]) => void;
   cutFiles: (paths: string[]) => void;
@@ -76,12 +85,15 @@ interface NavigationState {
   goForward: () => void;
 }
 
-const isSameEntry = (a: HistoryEntry | undefined, b: HistoryEntry | undefined) => {
+const isSameEntry = (
+  a: HistoryEntry | undefined,
+  b: HistoryEntry | undefined,
+) => {
   if (!a || !b || a.type !== b.type) return false;
-  if (a.type === 'path' && b.type === 'path') {
+  if (a.type === "path" && b.type === "path") {
     return a.path === b.path && a.offset === b.offset;
   }
-  if (a.type === 'search' && b.type === 'search') {
+  if (a.type === "search" && b.type === "search") {
     return (
       a.path === b.path &&
       a.pathOffset === b.pathOffset &&
@@ -93,14 +105,14 @@ const isSameEntry = (a: HistoryEntry | undefined, b: HistoryEntry | undefined) =
 };
 
 const applyHistoryEntry = (entry: HistoryEntry) => {
-  if (entry.type === 'path') {
+  if (entry.type === "path") {
     return {
       currentPath: entry.path,
       directoryOffset: entry.offset,
       selectedFiles: new Set<string>(),
       lastSelected: null,
       isSearching: false,
-      searchQuery: '',
+      searchQuery: "",
       searchOffset: 0,
     };
   }
@@ -118,7 +130,7 @@ const applyHistoryEntry = (entry: HistoryEntry) => {
 const commitHistory = (
   state: NavigationState,
   entry: HistoryEntry,
-  options: HistoryUpdateOptions = {}
+  options: HistoryUpdateOptions = {},
 ) => {
   const nextHistory = state.history.slice(0, state.historyIndex + 1);
   if (options.replace && nextHistory.length) {
@@ -134,7 +146,7 @@ const commitHistory = (
 
 export const useNavigationStore = create<NavigationState>((set) => ({
   // Current path
-  currentPath: '/',
+  currentPath: "/",
   setCurrentPath: (path, options = { exitSearch: true, recordHistory: true }) =>
     set((state) => {
       const recordHistory = options.recordHistory ?? true;
@@ -145,13 +157,13 @@ export const useNavigationStore = create<NavigationState>((set) => ({
         selectedFiles: new Set<string>(),
         lastSelected: null,
         isSearching: exitSearch ? false : state.isSearching,
-        searchQuery: exitSearch ? '' : state.searchQuery,
+        searchQuery: exitSearch ? "" : state.searchQuery,
         searchOffset: exitSearch ? 0 : state.searchOffset,
       };
       if (!recordHistory) {
         return nextState;
       }
-      const entry: HistoryEntry = { type: 'path', path, offset: 0 };
+      const entry: HistoryEntry = { type: "path", path, offset: 0 };
       if (isSameEntry(entry, state.history[state.historyIndex])) {
         return nextState;
       }
@@ -168,18 +180,21 @@ export const useNavigationStore = create<NavigationState>((set) => ({
         return nextState;
       }
       const entry: HistoryEntry = {
-        type: 'path',
+        type: "path",
         path: state.currentPath,
         offset: nextOffset,
       };
       if (isSameEntry(entry, state.history[state.historyIndex])) {
         return nextState;
       }
-      return { ...nextState, ...commitHistory(state, entry, { replace: options.replaceHistory }) };
+      return {
+        ...nextState,
+        ...commitHistory(state, entry, { replace: options.replaceHistory }),
+      };
     }),
-  sortConfig: { field: 'name', order: 'asc' },
+  sortConfig: { field: "name", order: "asc" },
   setSortConfig: (config) => set({ sortConfig: config }),
-  
+
   // Selection
   selectedFiles: new Set(),
   lastSelected: null,
@@ -209,7 +224,9 @@ export const useNavigationStore = create<NavigationState>((set) => ({
       if (newSelection.has(path)) {
         newSelection.delete(path);
         if (state.lastSelected === path) {
-          nextLastSelected = newSelection.size ? Array.from(newSelection).pop() || null : null;
+          nextLastSelected = newSelection.size
+            ? Array.from(newSelection).pop() || null
+            : null;
         }
       } else {
         newSelection.add(path);
@@ -217,9 +234,9 @@ export const useNavigationStore = create<NavigationState>((set) => ({
       }
       return { selectedFiles: newSelection, lastSelected: nextLastSelected };
     }),
-  
+
   // Search
-  searchQuery: '',
+  searchQuery: "",
   setSearchQuery: (query, options = {}) =>
     set((state) => {
       const recordHistory = options.recordHistory ?? true;
@@ -228,14 +245,14 @@ export const useNavigationStore = create<NavigationState>((set) => ({
         return nextState;
       }
       const entry: HistoryEntry = {
-        type: 'search',
+        type: "search",
         query,
         offset: state.searchOffset,
         path: state.currentPath,
         pathOffset: state.directoryOffset,
       };
       const lastEntry = state.history[state.historyIndex];
-      const replace = lastEntry?.type === 'search';
+      const replace = lastEntry?.type === "search";
       if (isSameEntry(entry, lastEntry)) {
         return nextState;
       }
@@ -250,11 +267,15 @@ export const useNavigationStore = create<NavigationState>((set) => ({
       const recordHistory = options.recordHistory ?? true;
       const nextOffset = Math.max(0, offset);
       const nextState = { searchOffset: nextOffset };
-      if (!recordHistory || state.searchQuery.length < 2 || !state.isSearching) {
+      if (
+        !recordHistory ||
+        state.searchQuery.length < 2 ||
+        !state.isSearching
+      ) {
         return nextState;
       }
       const entry: HistoryEntry = {
-        type: 'search',
+        type: "search",
         query: state.searchQuery,
         offset: nextOffset,
         path: state.currentPath,
@@ -263,15 +284,18 @@ export const useNavigationStore = create<NavigationState>((set) => ({
       if (isSameEntry(entry, state.history[state.historyIndex])) {
         return nextState;
       }
-      return { ...nextState, ...commitHistory(state, entry, { replace: options.replaceHistory }) };
+      return {
+        ...nextState,
+        ...commitHistory(state, entry, { replace: options.replaceHistory }),
+      };
     }),
-  searchSortConfig: { field: 'name', order: 'asc' },
+  searchSortConfig: { field: "name", order: "asc" },
   setSearchSortConfig: (config) => set({ searchSortConfig: config }),
-  
+
   // Clipboard
   clipboard: { files: [], operation: null },
-  copyFiles: (paths) => set({ clipboard: { files: paths, operation: 'copy' } }),
-  cutFiles: (paths) => set({ clipboard: { files: paths, operation: 'cut' } }),
+  copyFiles: (paths) => set({ clipboard: { files: paths, operation: "copy" } }),
+  cutFiles: (paths) => set({ clipboard: { files: paths, operation: "cut" } }),
   clearClipboard: () => set({ clipboard: { files: [], operation: null } }),
 
   // Delete confirmation
@@ -285,14 +309,17 @@ export const useNavigationStore = create<NavigationState>((set) => ({
   // UI state
   sidebarWidth: 250,
   setSidebarWidth: (width) => set({ sidebarWidth: width }),
-  viewMode: (typeof window !== 'undefined' ? localStorage.getItem('viewMode') as ViewMode : null) || 'table',
+  viewMode:
+    (typeof window !== "undefined"
+      ? (localStorage.getItem("viewMode") as ViewMode)
+      : null) || "table",
   setViewMode: (mode) => {
-    localStorage.setItem('viewMode', mode);
+    localStorage.setItem("viewMode", mode);
     set({ viewMode: mode });
   },
 
   // History
-  history: [{ type: 'path', path: '/', offset: 0 }],
+  history: [{ type: "path", path: "/", offset: 0 }],
   historyIndex: 0,
   goBack: () =>
     set((state) => {

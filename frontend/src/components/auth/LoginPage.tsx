@@ -1,15 +1,15 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { api } from '@/api/client';
-import { Folder, Lock, Loader2 } from 'lucide-react';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { api } from "@/api/client";
+import { Folder, Lock, Loader2 } from "lucide-react";
 
 interface LoginPageProps {
   onLoginSuccess: () => void;
 }
 
 export function LoginPage({ onLoginSuccess }: LoginPageProps) {
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -23,10 +23,10 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       if (result.success) {
         onLoginSuccess();
       } else {
-        setError(result.error || 'Login failed');
+        setError(result.error || "Login failed");
       }
     } catch {
-      setError('An error occurred. Please try again.');
+      setError("An error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -40,7 +40,9 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             <Folder className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-2xl font-semibold text-foreground">Filex</h1>
-          <p className="text-sm text-muted-foreground mt-1">Enter password to continue</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Enter password to continue
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -63,14 +65,18 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </div>
           )}
 
-          <Button type="submit" className="w-full" disabled={isLoading || !password}>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={isLoading || !password}
+          >
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Signing in...
               </>
             ) : (
-              'Sign in'
+              "Sign in"
             )}
           </Button>
         </form>

@@ -1,9 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 
-import { api } from '@/api/client';
-import { useNavigationStore } from '@/stores/navigation';
-import type { SortField } from '@/types/file';
+import { api } from "@/api/client";
+import { useNavigationStore } from "@/stores/navigation";
+import type { SortField } from "@/types/file";
 
 export function useSearch(query: string, options: { enabled?: boolean } = {}) {
   const [debouncedQuery, setDebouncedQuery] = useState(query);
@@ -11,11 +11,11 @@ export function useSearch(query: string, options: { enabled?: boolean } = {}) {
 
   const mapSortField = (field: SortField) => {
     switch (field) {
-      case 'mime_type':
-        return 'type';
-      case 'width':
-      case 'height':
-        return 'dimensions';
+      case "mime_type":
+        return "type";
+      case "width":
+      case "height":
+        return "dimensions";
       default:
         return field;
     }
@@ -29,7 +29,7 @@ export function useSearch(query: string, options: { enabled?: boolean } = {}) {
 
   return useQuery({
     queryKey: [
-      'search',
+      "search",
       debouncedQuery,
       searchOffset,
       searchLimit,

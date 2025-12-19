@@ -1,14 +1,24 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
-import { Upload, ChevronFirst, ChevronLeft, ChevronRight, ChevronLast } from 'lucide-react';
-import { FileTable } from '@/components/table/FileTable';
-import { FileGrid } from '@/components/table/FileGrid';
-import { SearchResults } from '@/components/search/SearchResults';
-import { useNavigationStore } from '@/stores/navigation';
-import { useUploadWithProgress } from '@/hooks/useDirectory';
-import { useDirectory } from '@/hooks/useDirectory';
-import { useSearch } from '@/hooks/useSearch';
-import { DEFAULT_PAGE_SIZE, PAGINATION_THRESHOLD, PAGE_WINDOW } from '@/config/pagination';
-import { Button } from '@/components/ui/button';
+import React, { useState, useCallback, useRef, useMemo } from "react";
+import {
+  Upload,
+  ChevronFirst,
+  ChevronLeft,
+  ChevronRight,
+  ChevronLast,
+} from "lucide-react";
+import { FileTable } from "@/components/table/FileTable";
+import { FileGrid } from "@/components/table/FileGrid";
+import { SearchResults } from "@/components/search/SearchResults";
+import { useNavigationStore } from "@/stores/navigation";
+import { useUploadWithProgress } from "@/hooks/useDirectory";
+import { useDirectory } from "@/hooks/useDirectory";
+import { useSearch } from "@/hooks/useSearch";
+import {
+  DEFAULT_PAGE_SIZE,
+  PAGINATION_THRESHOLD,
+  PAGE_WINDOW,
+} from "@/config/pagination";
+import { Button } from "@/components/ui/button";
 
 export function MainPanel() {
   const {
@@ -27,7 +37,9 @@ export function MainPanel() {
   const { uploadFiles } = useUploadWithProgress();
   const isSearchActive = isSearching && searchQuery.length >= 2;
   const { data: directoryData } = useDirectory(currentPath);
-  const { data: searchData } = useSearch(searchQuery, { enabled: isSearchActive });
+  const { data: searchData } = useSearch(searchQuery, {
+    enabled: isSearchActive,
+  });
 
   // Counter to handle nested elements - dragenter/dragleave fire for each child
   const dragCounterRef = useRef(0);
@@ -39,7 +51,10 @@ export function MainPanel() {
     e.stopPropagation();
 
     dragCounterRef.current++;
-    if (e.dataTransfer.types.includes('Files') && dragCounterRef.current === 1) {
+    if (
+      e.dataTransfer.types.includes("Files") &&
+      dragCounterRef.current === 1
+    ) {
       setIsDragging(true);
     }
   }, []);
@@ -73,9 +88,9 @@ export function MainPanel() {
         await uploadFiles(currentPath, files);
       }
     },
-    [currentPath, uploadFiles]
+    [currentPath, uploadFiles],
   );
-  
+
   return (
     <div
       className="flex-1 flex flex-col min-w-0 relative"
@@ -93,12 +108,12 @@ export function MainPanel() {
           </div>
         </div>
       )}
-      
+
       {/* File Table/Grid */}
       <div className="flex-1 min-h-0 overflow-auto">
         {isSearchActive ? (
           <SearchResults />
-        ) : viewMode === 'table' ? (
+        ) : viewMode === "table" ? (
           <FileTable />
         ) : (
           <FileGrid />
@@ -166,26 +181,46 @@ function StatusBar({
     <div className="border-t bg-muted/40 px-2 py-2 flex items-center justify-between text-sm">
       {showPagination ? (
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => goToPage(1)} disabled={!hasPrev}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => goToPage(1)}
+            disabled={!hasPrev}
+          >
             <ChevronFirst className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => goToPage(currentPage - 1)} disabled={!hasPrev}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => goToPage(currentPage - 1)}
+            disabled={!hasPrev}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
           {pageNumbers.map((p) => (
             <Button
               key={p}
-              variant={p === currentPage ? 'outline' : 'ghost'}
+              variant={p === currentPage ? "outline" : "ghost"}
               size="sm"
               onClick={() => goToPage(p)}
             >
               {p}
             </Button>
           ))}
-          <Button variant="ghost" size="sm" onClick={() => goToPage(currentPage + 1)} disabled={!hasNext}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => goToPage(currentPage + 1)}
+            disabled={!hasNext}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => goToPage(totalPages)} disabled={!hasNext}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => goToPage(totalPages)}
+            disabled={!hasNext}
+          >
             <ChevronLast className="h-4 w-4" />
           </Button>
         </div>
@@ -193,7 +228,9 @@ function StatusBar({
         <div />
       )}
       <div className="text-muted-foreground">
-        {total !== undefined ? `${total} ${isSearchActive ? 'results' : 'items'}` : '—'}
+        {total !== undefined
+          ? `${total} ${isSearchActive ? "results" : "items"}`
+          : "—"}
       </div>
     </div>
   );

@@ -7,7 +7,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
 
 interface DeleteConfirmDialogProps {
   open: boolean;
@@ -22,7 +22,7 @@ export function DeleteConfirmDialog({
   onConfirm,
   itemCount,
 }: DeleteConfirmDialogProps) {
-  const pluralSuffix = itemCount === 1 ? '' : 's';
+  const pluralSuffix = itemCount === 1 ? "" : "s";
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -32,7 +32,8 @@ export function DeleteConfirmDialog({
             Delete {itemCount} item{pluralSuffix}?
           </AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. The selected item{pluralSuffix} will be permanently deleted.
+            This action cannot be undone. The selected item{pluralSuffix} will
+            be permanently deleted.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

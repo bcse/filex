@@ -44,18 +44,18 @@ export interface SuccessResponse {
 }
 
 export type SortField =
-  | 'name'
-  | 'path'
-  | 'size'
-  | 'created'
-  | 'modified'
-  | 'mime_type'
-  | 'width'
-  | 'height'
-  | 'duration'
-  | 'type'
-  | 'dimensions';
-export type SortOrder = 'asc' | 'desc';
+  | "name"
+  | "path"
+  | "size"
+  | "created"
+  | "modified"
+  | "mime_type"
+  | "width"
+  | "height"
+  | "duration"
+  | "type"
+  | "dimensions";
+export type SortOrder = "asc" | "desc";
 
 export interface SortConfig {
   field: SortField;
