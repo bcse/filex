@@ -4,6 +4,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { SearchResults } from "./SearchResults";
 import { useSearch } from "@/hooks/useSearch";
 import { useNavigationStore } from "@/stores/navigation";
+import { useMove, useCopy } from "@/hooks/useDirectory";
 import { api } from "@/api/client";
 import type { FileEntry, SearchResponse } from "@/types/file";
 
@@ -15,6 +16,11 @@ vi.mock("@/hooks/useSearch", () => ({
 
 vi.mock("@/stores/navigation", () => ({
   useNavigationStore: vi.fn(),
+}));
+
+vi.mock("@/hooks/useDirectory", () => ({
+  useMove: vi.fn(),
+  useCopy: vi.fn(),
 }));
 
 vi.mock("@/api/client", () => ({
@@ -62,6 +68,7 @@ const baseNavigationState = () => ({
   setCurrentPath: vi.fn(),
   searchSortConfig: { field: "name", order: "asc" as const },
   setSearchSortConfig: vi.fn(),
+  clearSelection: vi.fn(),
 });
 
 const makeEntries = (): FileEntry[] => [
@@ -96,6 +103,12 @@ const mockSearchResult = (result: {
 describe("SearchResults", () => {
   beforeEach(() => {
     latestTableProps = null;
+    vi.mocked(useMove).mockReturnValue({
+      mutateAsync: vi.fn(),
+    } as unknown as ReturnType<typeof useMove>);
+    vi.mocked(useCopy).mockReturnValue({
+      mutateAsync: vi.fn(),
+    } as unknown as ReturnType<typeof useCopy>);
   });
 
   afterEach(() => {
