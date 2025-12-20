@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { FolderOpen, Download, Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -146,8 +147,35 @@ export function FileContextMenu({
   };
 
   const handleConfirmDelete = async () => {
+    const shouldSummarize = targetPaths.length > 1;
+    let successCount = 0;
+    let errorCount = 0;
+
     for (const path of targetPaths) {
-      await deleteFile.mutateAsync(path);
+      try {
+        await deleteFile.mutateAsync(
+          shouldSummarize ? { path, suppressToast: true } : path,
+        );
+        successCount++;
+      } catch {
+        errorCount++;
+      }
+    }
+
+    if (shouldSummarize) {
+      if (successCount > 0 && errorCount === 0) {
+        toast.success(
+          `Deleted ${successCount} item${successCount > 1 ? "s" : ""}`,
+        );
+      } else if (successCount > 0 && errorCount > 0) {
+        toast.warning(
+          `Deleted ${successCount} item${successCount > 1 ? "s" : ""}, ${errorCount} failed`,
+        );
+      } else if (errorCount > 0) {
+        toast.error(
+          `Failed to delete ${errorCount} item${errorCount > 1 ? "s" : ""}`,
+        );
+      }
     }
     clearSelection();
     setDeleteOpen(false);

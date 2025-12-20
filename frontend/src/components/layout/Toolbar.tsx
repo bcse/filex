@@ -9,6 +9,7 @@ import {
   LayoutGrid,
   LayoutList,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -84,8 +85,36 @@ export function Toolbar() {
   };
 
   const handleConfirmDelete = async () => {
+    if (!hasSelection) return;
+    const shouldSummarize = selectedArray.length > 1;
+    let successCount = 0;
+    let errorCount = 0;
+
     for (const path of selectedArray) {
-      await deleteFile.mutateAsync(path);
+      try {
+        await deleteFile.mutateAsync(
+          shouldSummarize ? { path, suppressToast: true } : path,
+        );
+        successCount++;
+      } catch {
+        errorCount++;
+      }
+    }
+
+    if (shouldSummarize) {
+      if (successCount > 0 && errorCount === 0) {
+        toast.success(
+          `Deleted ${successCount} item${successCount > 1 ? "s" : ""}`,
+        );
+      } else if (successCount > 0 && errorCount > 0) {
+        toast.warning(
+          `Deleted ${successCount} item${successCount > 1 ? "s" : ""}, ${errorCount} failed`,
+        );
+      } else if (errorCount > 0) {
+        toast.error(
+          `Failed to delete ${errorCount} item${errorCount > 1 ? "s" : ""}`,
+        );
+      }
     }
     clearSelection();
     setDeleteConfirmOpen(false);

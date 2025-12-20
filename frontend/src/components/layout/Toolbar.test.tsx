@@ -3,6 +3,15 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { api } from "@/api/client";
 
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    warning: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+  },
+}));
+
 const navigationStore = vi.hoisted(() => ({
   state: {
     currentPath: "/",
@@ -153,8 +162,14 @@ describe("Toolbar", () => {
     await waitFor(() => {
       expect(deleteMock.mutateAsync).toHaveBeenCalledTimes(2);
     });
-    expect(deleteMock.mutateAsync).toHaveBeenCalledWith("/Docs/report.txt");
-    expect(deleteMock.mutateAsync).toHaveBeenCalledWith("/Docs/notes.txt");
+    expect(deleteMock.mutateAsync).toHaveBeenNthCalledWith(1, {
+      path: "/Docs/report.txt",
+      suppressToast: true,
+    });
+    expect(deleteMock.mutateAsync).toHaveBeenNthCalledWith(2, {
+      path: "/Docs/notes.txt",
+      suppressToast: true,
+    });
     expect(navigationStore.state.clearSelection).toHaveBeenCalled();
     expect(navigationStore.state.setDeleteConfirmOpen).toHaveBeenCalledWith(
       false,

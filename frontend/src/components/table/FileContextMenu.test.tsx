@@ -5,6 +5,15 @@ import userEvent from "@testing-library/user-event";
 import { FileContextMenu } from "./FileContextMenu";
 import type { FileEntry } from "@/types/file";
 
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    warning: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+  },
+}));
+
 const mocks = vi.hoisted(() => ({
   listDirectory: vi.fn(),
   getDownloadUrl: vi.fn((path: string) => `/download?path=${path}`),
@@ -147,8 +156,14 @@ describe("FileContextMenu", () => {
     await user.click(screen.getByText("confirm-delete"));
 
     expect(mocks.deleteMutateAsync).toHaveBeenCalledTimes(2);
-    expect(mocks.deleteMutateAsync).toHaveBeenCalledWith("/photos/photo.png");
-    expect(mocks.deleteMutateAsync).toHaveBeenCalledWith("/photos/other.png");
+    expect(mocks.deleteMutateAsync).toHaveBeenNthCalledWith(1, {
+      path: "/photos/photo.png",
+      suppressToast: true,
+    });
+    expect(mocks.deleteMutateAsync).toHaveBeenNthCalledWith(2, {
+      path: "/photos/other.png",
+      suppressToast: true,
+    });
     expect(mocks.navigationState.clearSelection).toHaveBeenCalled();
   });
 

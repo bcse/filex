@@ -157,16 +157,28 @@ export function useDelete() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (path: string) => api.delete(path),
-    onSuccess: (_, path) => {
+    mutationFn: (input: string | { path: string; suppressToast?: boolean }) => {
+      const path = typeof input === "string" ? input : input.path;
+      return api.delete(path);
+    },
+    onSuccess: (_, input) => {
+      const path = typeof input === "string" ? input : input.path;
+      const suppressToast =
+        typeof input === "string" ? false : input.suppressToast;
       const name = path.split("/").pop();
-      toast.success(`Deleted "${name}"`);
+      if (!suppressToast) {
+        toast.success(`Deleted "${name}"`);
+      }
       const parent = path.split("/").slice(0, -1).join("/") || "/";
       queryClient.invalidateQueries({ queryKey: ["directory", parent] });
       queryClient.invalidateQueries({ queryKey: ["tree"] });
     },
-    onError: (error) => {
-      toast.error(`Failed to delete: ${error.message}`);
+    onError: (error, input) => {
+      const suppressToast =
+        typeof input === "string" ? false : input?.suppressToast;
+      if (!suppressToast) {
+        toast.error(`Failed to delete: ${error.message}`);
+      }
     },
   });
 }
