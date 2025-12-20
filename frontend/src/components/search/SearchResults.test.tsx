@@ -4,7 +4,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { SearchResults } from "./SearchResults";
 import { useSearch } from "@/hooks/useSearch";
 import { useNavigationStore } from "@/stores/navigation";
-import { useMove, useCopy } from "@/hooks/useDirectory";
+import { useMove, useCopy, useRename } from "@/hooks/useDirectory";
+import { useKeyboard } from "@/hooks/useKeyboard";
 import { api } from "@/api/client";
 import type { FileEntry, SearchResponse } from "@/types/file";
 
@@ -21,6 +22,11 @@ vi.mock("@/stores/navigation", () => ({
 vi.mock("@/hooks/useDirectory", () => ({
   useMove: vi.fn(),
   useCopy: vi.fn(),
+  useRename: vi.fn(),
+}));
+
+vi.mock("@/hooks/useKeyboard", () => ({
+  useKeyboard: vi.fn(),
 }));
 
 vi.mock("@/api/client", () => ({
@@ -109,6 +115,10 @@ describe("SearchResults", () => {
     vi.mocked(useCopy).mockReturnValue({
       mutateAsync: vi.fn(),
     } as unknown as ReturnType<typeof useCopy>);
+    vi.mocked(useRename).mockReturnValue({
+      mutateAsync: vi.fn(),
+    } as unknown as ReturnType<typeof useRename>);
+    vi.mocked(useKeyboard).mockReturnValue(undefined);
   });
 
   afterEach(() => {

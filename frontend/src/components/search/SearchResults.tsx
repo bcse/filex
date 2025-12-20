@@ -4,7 +4,8 @@ import { FileContextMenu } from "@/components/table/FileContextMenu";
 import type { FileEntry } from "@/types/file";
 import { useNavigationStore } from "@/stores/navigation";
 import { useSearch } from "@/hooks/useSearch";
-import { useMove, useCopy } from "@/hooks/useDirectory";
+import { useMove, useCopy, useRename } from "@/hooks/useDirectory";
+import { useKeyboard } from "@/hooks/useKeyboard";
 import { api } from "@/api/client";
 import type { SortField } from "@/types/file";
 import { searchColumns } from "@/components/table/columns";
@@ -16,6 +17,7 @@ import {
   DropAction,
 } from "@/components/dnd/DropPrompt";
 import { performDropAction } from "@/components/dnd/dropActions";
+import { RenameDialog } from "@/components/dialogs/RenameDialog";
 
 function toRow(entry: FileEntry): FileEntry {
   return {
@@ -49,10 +51,14 @@ export function SearchResults() {
   const { data, isLoading, error } = useSearch(searchQuery, { enabled: true });
   const move = useMove();
   const copy = useCopy();
+  const rename = useRename();
   const rows = useMemo(() => (data?.entries || []).map(toRow), [data?.entries]);
   const [draggedPaths, setDraggedPaths] = useState<string[]>([]);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [dropPrompt, setDropPrompt] = useState<DropPromptState>(null);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [renamePath, setRenamePath] = useState("");
 
   const handleSort = (field: SortField) => {
     setSearchSortConfig({
@@ -108,6 +114,24 @@ export function SearchResults() {
     },
     [setCurrentPath, setIsSearching],
   );
+
+  const handleRenameRequest = useCallback((path: string) => {
+    const name = path.split("/").pop() || "";
+    setRenamePath(path);
+    setRenameValue(name);
+    setRenameOpen(true);
+  }, []);
+
+  const handleConfirmRename = useCallback(async () => {
+    if (!renameValue.trim() || !renamePath) return;
+    await rename.mutateAsync({ path: renamePath, newName: renameValue.trim() });
+    clearSelection();
+    setRenameOpen(false);
+    setRenamePath("");
+    setRenameValue("");
+  }, [clearSelection, rename, renamePath, renameValue]);
+
+  useKeyboard({ entries: rows, onRename: handleRenameRequest });
 
   const handleDragStart = useCallback(
     (e: React.DragEvent, entry: ReturnType<typeof toRow>) => {
@@ -280,6 +304,14 @@ export function SearchResults() {
         dropPrompt={dropPrompt}
         onClose={() => setDropPrompt(null)}
         onAction={handleDropAction}
+      />
+
+      <RenameDialog
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
+        value={renameValue}
+        onValueChange={setRenameValue}
+        onConfirm={handleConfirmRename}
       />
     </>
   );
