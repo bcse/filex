@@ -3,6 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useColumnResize } from "@/hooks/useColumnResize";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Column } from "@/components/table/columns";
 import type { FileEntry, SortConfig, SortField } from "@/types/file";
 
@@ -205,7 +206,7 @@ export function FileTableView({
 
   return (
     <div className="flex flex-col h-full">
-      <div ref={scrollRef} className="flex-1 overflow-auto">
+      <ScrollArea viewportRef={scrollRef} scrollbars="both" className="flex-1">
         <div style={{ minWidth: totalWidth }}>
           <div
             className="grid px-2 py-2 border-b bg-muted/60 backdrop-blur text-sm font-medium sticky top-0 z-10"
@@ -284,7 +285,7 @@ export function FileTableView({
             {afterRows}
           </div>
         </div>
-      </div>
+      </ScrollArea>
     </div>
   );
 }
