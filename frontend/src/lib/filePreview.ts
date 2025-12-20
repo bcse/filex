@@ -36,6 +36,47 @@ const videoExtensions = new Set([
   "ogm",
 ]);
 
+const textExtensions = new Set([
+  "txt",
+  "md",
+  "markdown",
+  "json",
+  "yaml",
+  "yml",
+  "csv",
+  "tsv",
+  "log",
+  "ini",
+  "toml",
+  "env",
+  "conf",
+  "config",
+  "html",
+  "htm",
+  "css",
+  "scss",
+  "less",
+  "js",
+  "jsx",
+  "ts",
+  "tsx",
+  "py",
+  "rb",
+  "go",
+  "rs",
+  "java",
+  "c",
+  "cc",
+  "cpp",
+  "h",
+  "hpp",
+  "sh",
+  "bash",
+  "zsh",
+  "xml",
+  "svg",
+]);
+
 const getExtension = (name: string): string => {
   const parts = name.toLowerCase().split(".");
   return parts.length > 1 ? parts[parts.length - 1] : "";
@@ -54,5 +95,10 @@ export const isVideoFile = (entry: Pick<FileEntry, "is_dir" | "name">) => {
   return hasExtension(entry.name, videoExtensions);
 };
 
+export const isTextFile = (entry: Pick<FileEntry, "is_dir" | "name">) => {
+  if (entry.is_dir) return false;
+  return hasExtension(entry.name, textExtensions);
+};
+
 export const isPreviewableFile = (entry: Pick<FileEntry, "is_dir" | "name">) =>
-  isImageFile(entry) || isVideoFile(entry);
+  isImageFile(entry) || isVideoFile(entry) || isTextFile(entry);

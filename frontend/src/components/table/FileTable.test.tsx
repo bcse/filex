@@ -175,6 +175,7 @@ describe("FileTable", () => {
     mocks.navigationState.selectRange.mockClear();
     mocks.navigationState.toggleSelection.mockClear();
     mocks.navigationState.clearSelection.mockClear();
+    mocks.navigationState.openPreview.mockClear();
     mocks.navigationState.setPendingFocusPath.mockClear();
     mocks.getDownloadUrl.mockClear();
     mocks.rename.mutateAsync.mockClear();
@@ -239,7 +240,9 @@ describe("FileTable", () => {
     lastTableViewProps?.onRowDoubleClick?.(
       mocks.directoryState.data!.entries[1],
     );
-    expect(mocks.getDownloadUrl).toHaveBeenCalledWith("/root/file.txt");
+    expect(mocks.navigationState.openPreview).toHaveBeenCalledWith(
+      mocks.directoryState.data!.entries[1],
+    );
   });
 
   it("renders loading and error states", () => {

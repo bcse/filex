@@ -5,14 +5,19 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { EditorState } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
+import { basicSetup } from "codemirror";
+import { oneDark } from "@codemirror/theme-one-dark";
 import { Maximize2, Square, X, ZoomIn, ZoomOut } from "lucide-react";
 import { api } from "@/api/client";
-import { isImageFile, isVideoFile } from "@/lib/filePreview";
+import { isImageFile, isTextFile, isVideoFile } from "@/lib/filePreview";
 import { cn } from "@/lib/utils";
 import { useNavigationStore } from "@/stores/navigation";
 
 const ZOOM_STEP = 1.2;
 const MIN_SCALE = 0.1;
+const MAX_TEXT_BYTES = 200000;
 
 export function FilePreviewOverlay() {
   const { previewEntry, closePreview } = useNavigationStore();
@@ -21,8 +26,13 @@ export function FilePreviewOverlay() {
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [enableTransition, setEnableTransition] = useState(false);
+  const [textContent, setTextContent] = useState<string | null>(null);
+  const [textError, setTextError] = useState<string | null>(null);
+  const [isLoadingText, setIsLoadingText] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const editorViewRef = useRef<EditorView | null>(null);
   const dragStartRef = useRef({ x: 0, y: 0, offsetX: 0, offsetY: 0 });
   const fitScaleRef = useRef(1);
 
@@ -34,6 +44,10 @@ export function FilePreviewOverlay() {
     () => (previewEntry ? isVideoFile(previewEntry) : false),
     [previewEntry],
   );
+  const isText = useMemo(
+    () => (previewEntry ? isTextFile(previewEntry) : false),
+    [previewEntry],
+  );
 
   useEffect(() => {
     if (!previewEntry) return;
@@ -42,6 +56,9 @@ export function FilePreviewOverlay() {
     setOffset({ x: 0, y: 0 });
     setIsDragging(false);
     setEnableTransition(false);
+    setTextContent(null);
+    setTextError(null);
+    setIsLoadingText(false);
   }, [previewEntry?.path]);
 
   useEffect(() => {
@@ -101,7 +118,67 @@ export function FilePreviewOverlay() {
     }
   }, [fitScale, scale]);
 
-  if (!previewEntry || (!isImage && !isVideo)) {
+  useEffect(() => {
+    if (!previewEntry || !isText) return;
+    let isActive = true;
+    setIsLoadingText(true);
+    setTextError(null);
+    api
+      .getTextContent(previewEntry.path, MAX_TEXT_BYTES)
+      .then((content) => {
+        if (!isActive) return;
+        setTextContent(content);
+      })
+      .catch(() => {
+        if (!isActive) return;
+        setTextError("Unable to load text preview.");
+      })
+      .finally(() => {
+        if (!isActive) return;
+        setIsLoadingText(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [isText, previewEntry?.path]);
+
+  useEffect(() => {
+    if (!editorRef.current) return;
+
+    if (editorViewRef.current) {
+      editorViewRef.current.destroy();
+      editorViewRef.current = null;
+    }
+
+    if (textContent === null) return;
+
+    const state = EditorState.create({
+      doc: textContent,
+      extensions: [
+        basicSetup,
+        EditorState.readOnly.of(true),
+        EditorView.editable.of(false),
+        EditorView.lineWrapping,
+        EditorView.editorAttributes.of({
+          style: "height: 100%",
+        }),
+        oneDark,
+      ],
+    });
+
+    editorViewRef.current = new EditorView({
+      state,
+      parent: editorRef.current,
+    });
+
+    return () => {
+      editorViewRef.current?.destroy();
+      editorViewRef.current = null;
+    };
+  }, [textContent]);
+
+  if (!previewEntry || (!isImage && !isVideo && !isText)) {
     return null;
   }
 
@@ -231,6 +308,31 @@ export function FilePreviewOverlay() {
             </button>
           </div>
         </>
+      )}
+
+      {isText && (
+        <div className="flex h-full w-full items-center justify-center pointer-events-none">
+          <div className="flex h-[85vh] w-[92vw] max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-950/90 shadow-2xl backdrop-blur pointer-events-auto">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-2 text-sm text-slate-200">
+              <span className="truncate">{previewEntry.name}</span>
+            </div>
+            <div className="relative flex-1 overflow-hidden">
+              {isLoadingText && (
+                <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                  Loading preview...
+                </div>
+              )}
+              {!isLoadingText && textError && (
+                <div className="flex h-full items-center justify-center text-sm text-rose-200">
+                  {textError}
+                </div>
+              )}
+              {!isLoadingText && !textError && (
+                <div ref={editorRef} className="h-full" />
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {isVideo && (

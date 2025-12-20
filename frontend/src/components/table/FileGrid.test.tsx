@@ -61,6 +61,7 @@ describe("FileGrid", () => {
     mocks.navigationState.selectFile.mockClear();
     mocks.navigationState.selectRange.mockClear();
     mocks.navigationState.toggleSelection.mockClear();
+    mocks.navigationState.openPreview.mockClear();
     mocks.navigationState.selectedFiles = new Set<string>();
     mocks.getDownloadUrl.mockClear();
     mocks.directoryState = {
@@ -117,7 +118,7 @@ describe("FileGrid", () => {
     );
 
     await user.dblClick(screen.getByText("file.txt"));
-    expect(mocks.getDownloadUrl).toHaveBeenCalledWith("/root/file.txt");
+    expect(mocks.navigationState.openPreview).toHaveBeenCalledWith(entries[0]);
 
     await user.dblClick(screen.getByText("Photos"));
     expect(mocks.navigationState.setCurrentPath).toHaveBeenCalledWith(
