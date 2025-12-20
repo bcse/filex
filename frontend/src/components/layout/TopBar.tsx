@@ -59,7 +59,7 @@ export function TopBar() {
   return (
     <div className="flex items-center justify-between px-4 py-2 border-b bg-background">
       {/* Breadcrumbs / Search label */}
-      <div className="flex items-center gap-1 text-sm min-w-0 flex-1 overflow-hidden">
+      <div className="flex items-center gap-1 text-sm min-w-0 flex-1 overflow-hidden pr-4">
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
