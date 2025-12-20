@@ -48,9 +48,10 @@ export function FilePreviewOverlay() {
     () => (previewEntry ? isTextFile(previewEntry) : false),
     [previewEntry],
   );
+  const previewPath = previewEntry?.path;
 
   useEffect(() => {
-    if (!previewEntry) return;
+    if (!previewPath) return;
     setScale(1);
     setFitScale(1);
     setOffset({ x: 0, y: 0 });
@@ -59,7 +60,7 @@ export function FilePreviewOverlay() {
     setTextContent(null);
     setTextError(null);
     setIsLoadingText(false);
-  }, [previewEntry?.path]);
+  }, [previewPath]);
 
   useEffect(() => {
     fitScaleRef.current = fitScale;
@@ -119,12 +120,12 @@ export function FilePreviewOverlay() {
   }, [fitScale, scale]);
 
   useEffect(() => {
-    if (!previewEntry || !isText) return;
+    if (!previewPath || !isText) return;
     let isActive = true;
     setIsLoadingText(true);
     setTextError(null);
     api
-      .getTextContent(previewEntry.path, MAX_TEXT_BYTES)
+      .getTextContent(previewPath, MAX_TEXT_BYTES)
       .then((content) => {
         if (!isActive) return;
         setTextContent(content);
@@ -141,7 +142,7 @@ export function FilePreviewOverlay() {
     return () => {
       isActive = false;
     };
-  }, [isText, previewEntry?.path]);
+  }, [isText, previewPath]);
 
   useEffect(() => {
     if (!editorRef.current) return;
