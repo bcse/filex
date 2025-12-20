@@ -2,21 +2,18 @@
 
 A self-hosted, web-based file manager with a familiar desktop-like interface.
 
-Filex is a minimal, opinionated file browser for managing files on remote servers through your web browser. Single binary + SQLite. No external dependencies.
+Filex is a minimal, opinionated file browser for managing files on remote servers through your web browser. Single binary + SQLite, with optional ffprobe for richer media metadata.
 
 ![Screenshot](/docs/screenshot.png?raw=true "Screenshot")
 
 ## Features
 
 - **Desktop-like UX** — Keyboard shortcuts, drag & drop, multi-select, context menus
-- **Fast browsing** — Real-time directory listings, virtual scrolling for large folders
-- **Full-text search** — Background-indexed file search with filters
+- **Fast browsing** — Handles huge folders without eating memory
+- **Search** — Search files and folders by path
 - **File operations** — Create, rename, delete, copy, move, upload, download
-- **Media-aware** — Image/video/audio metadata, dimensions, duration
-- **Grid & list views** — Toggle between table and thumbnail grid
+- **Media-aware** — Image/video/audio metadata when ffprobe is available, dimensions, duration
 - **Dark mode** — Follows system preference with manual toggle
-- **Optional auth** — Simple password protection
-- **Docker-ready** — UID/GID mapping, health checks
 
 ## Quick Start
 
@@ -40,14 +37,22 @@ All configuration via environment variables:
 | `FM_HOST` | `0.0.0.0` | Server bind address |
 | `FM_PORT` | `3000` | Server port |
 | `FM_DATABASE_PATH` | `/app/data/filex.db` | SQLite database location |
-| `FM_ENABLE_INDEXER` | `true` | Enable background indexing |
+| `FM_STATIC_PATH` | `./static` | Frontend build directory |
+| `FM_ENABLE_INDEXER` | `true` | Enable background indexing for path search + metadata |
 | `FM_INDEX_INTERVAL` | `300` | Indexer run interval (seconds) |
 | `FM_AUTH_ENABLED` | `false` | Enable password authentication |
 | `FM_AUTH_PASSWORD` | (none) | Password for authentication |
 | `FM_SESSION_TIMEOUT` | `86400` | Session timeout in seconds |
+| `FM_SESSION_COOKIE` | `fm_session` | Session cookie name |
 | `RUST_LOG` | `info` | Log level |
 | `PUID` | `1000` | User ID for file permissions (Docker) |
 | `PGID` | `1000` | Group ID for file permissions (Docker) |
+
+### Search & indexing
+
+Search matches file/folder paths (not file contents). Indexing runs in the background and powers search and media metadata.
+
+Ignore rules: add `.fxignore` files (gitignore-style patterns) anywhere under the root to exclude paths from the search index. Ignored files still appear in directory browsing.
 
 ## Docker Deployment
 
