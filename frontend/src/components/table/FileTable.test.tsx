@@ -144,12 +144,13 @@ vi.mock("@/components/dialogs/RenameDialog", () => ({
 }));
 
 type ChildrenOnlyProps = React.PropsWithChildren;
+type ContextMenuProps = ChildrenOnlyProps & {
+  onSelect: () => void;
+  resolveEntry?: (path: string) => FileEntry | undefined;
+};
 
 vi.mock("./FileContextMenu", () => ({
-  FileContextMenu: ({
-    children,
-    onSelect,
-  }: ChildrenOnlyProps & { onSelect: () => void }) => {
+  FileContextMenu: ({ children, onSelect }: ContextMenuProps) => {
     lastContextMenuProps = { onSelect };
     return <div>{children}</div>;
   },

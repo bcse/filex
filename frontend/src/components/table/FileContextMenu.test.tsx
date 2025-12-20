@@ -120,6 +120,33 @@ describe("FileContextMenu", () => {
     expect(mocks.getDownloadUrl).toHaveBeenCalledWith(entry.path);
   });
 
+  it("skips folders when downloading mixed selections", async () => {
+    const user = userEvent.setup();
+    mocks.navigationState.selectedFiles = new Set<string>([
+      "/photos/photo.png",
+      "/photos/Album",
+    ]);
+    const resolveEntry = (path: string) =>
+      path === "/photos/Album"
+        ? { name: "Album", path, is_dir: true }
+        : { name: "photo.png", path, is_dir: false };
+
+    render(
+      <FileContextMenu
+        entry={entry}
+        onSelect={vi.fn()}
+        resolveEntry={resolveEntry}
+      >
+        <div>child</div>
+      </FileContextMenu>,
+    );
+
+    await user.click(screen.getByText("Download"));
+
+    expect(mocks.getDownloadUrl).toHaveBeenCalledTimes(1);
+    expect(mocks.getDownloadUrl).toHaveBeenCalledWith("/photos/photo.png");
+  });
+
   it("renames via dialog confirmation", async () => {
     const user = userEvent.setup();
 

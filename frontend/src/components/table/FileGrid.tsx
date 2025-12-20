@@ -62,9 +62,24 @@ export function FileGrid() {
     [currentPath],
   );
 
-  const orderedPaths = useMemo(
-    () => entries.map((entry) => buildPath(entry)),
+  const normalizedEntries = useMemo(
+    () =>
+      entries.map((entry) => {
+        const path = buildPath(entry);
+        return entry.path === path ? entry : { ...entry, path };
+      }),
     [entries, buildPath],
+  );
+  const entryLookup = useMemo(() => {
+    const map = new Map<string, FileEntry>();
+    for (const entry of normalizedEntries) {
+      map.set(entry.path, entry);
+    }
+    return map;
+  }, [normalizedEntries]);
+  const orderedPaths = useMemo(
+    () => normalizedEntries.map((entry) => entry.path),
+    [normalizedEntries],
   );
 
   const handleClick = useCallback(
@@ -152,20 +167,17 @@ export function FileGrid() {
 
   return (
     <div className="p-4 grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4">
-      {entries.map((entry) => {
-        const resolvedPath = buildPath(entry);
-        const normalizedEntry =
-          entry.path === resolvedPath
-            ? entry
-            : { ...entry, path: resolvedPath };
+      {normalizedEntries.map((entry) => {
+        const resolvedPath = entry.path;
         const isSelected = selectedFiles.has(resolvedPath);
-        const Icon = getFileIcon(normalizedEntry);
-        const showThumbnail = isImageFile(normalizedEntry);
+        const Icon = getFileIcon(entry);
+        const showThumbnail = isImageFile(entry);
 
         return (
           <FileContextMenu
             key={resolvedPath}
-            entry={normalizedEntry}
+            entry={entry}
+            resolveEntry={(path) => entryLookup.get(path)}
             onSelect={() => {
               if (!selectedFiles.has(resolvedPath)) {
                 selectFile(resolvedPath);
@@ -181,15 +193,15 @@ export function FileGrid() {
                 "hover:bg-accent",
                 isSelected && "bg-accent ring-2 ring-primary",
               )}
-              onClick={(e) => handleClick(normalizedEntry, e)}
-              onDoubleClick={() => handleDoubleClick(normalizedEntry)}
+              onClick={(e) => handleClick(entry, e)}
+              onDoubleClick={() => handleDoubleClick(entry)}
             >
               {/* Thumbnail or Icon */}
               <div className="w-20 h-20 flex items-center justify-center mb-2 rounded overflow-hidden bg-muted/50">
                 {showThumbnail ? (
                   <img
                     src={api.getDownloadUrl(resolvedPath)}
-                    alt={normalizedEntry.name}
+                    alt={entry.name}
                     className="max-w-full max-h-full object-contain"
                     loading="lazy"
                   />

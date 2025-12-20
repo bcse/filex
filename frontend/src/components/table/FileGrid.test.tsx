@@ -44,9 +44,12 @@ vi.mock("@/api/client", () => ({
 }));
 
 type ChildrenOnlyProps = React.PropsWithChildren;
+type ContextMenuProps = ChildrenOnlyProps & {
+  resolveEntry?: (path: string) => FileEntry | undefined;
+};
 
 vi.mock("./FileContextMenu", () => ({
-  FileContextMenu: ({ children }: ChildrenOnlyProps) => <div>{children}</div>,
+  FileContextMenu: ({ children }: ContextMenuProps) => <div>{children}</div>,
 }));
 
 describe("FileGrid", () => {

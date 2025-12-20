@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   FolderPlus,
   Trash2,
@@ -25,11 +25,14 @@ import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog";
 import { useNavigationStore } from "@/stores/navigation";
 import {
   useCreateDirectory,
+  useDirectory,
   useDelete,
   useRename,
   useUploadWithProgress,
 } from "@/hooks/useDirectory";
 import { api } from "@/api/client";
+import { buildEntryPath } from "@/lib/utils";
+import type { FileEntry } from "@/types/file";
 
 export function Toolbar() {
   const {
@@ -56,10 +59,29 @@ export function Toolbar() {
   const deleteFile = useDelete();
   const rename = useRename();
   const { uploadFiles } = useUploadWithProgress();
+  const { data } = useDirectory(currentPath);
 
   const selectedArray = Array.from(selectedFiles);
   const hasSelection = selectedArray.length > 0;
   const singleSelection = selectedArray.length === 1;
+  const entryLookup = useMemo(() => {
+    const map = new Map<string, FileEntry>();
+    for (const entry of data?.entries ?? []) {
+      const path = buildEntryPath(entry.name, entry.path, currentPath);
+      const normalizedEntry = entry.path === path ? entry : { ...entry, path };
+      map.set(path, normalizedEntry);
+    }
+    return map;
+  }, [currentPath, data?.entries]);
+  const downloadablePaths = useMemo(
+    () =>
+      selectedArray.filter((path) => {
+        const entry = entryLookup.get(path);
+        return entry ? !entry.is_dir : true;
+      }),
+    [entryLookup, selectedArray],
+  );
+  const hasDownloadableSelection = downloadablePaths.length > 0;
 
   // New Folder
   const handleNewFolder = () => {
@@ -140,7 +162,7 @@ export function Toolbar() {
 
   // Download
   const handleDownload = () => {
-    for (const path of selectedArray) {
+    for (const path of downloadablePaths) {
       const url = api.getDownloadUrl(path);
       const a = document.createElement("a");
       a.href = url;
@@ -230,7 +252,7 @@ export function Toolbar() {
           size="icon"
           className="h-8 w-8"
           onClick={handleDownload}
-          disabled={!hasSelection || isLoading}
+          disabled={!hasDownloadableSelection || isLoading}
           title="Download"
         >
           <Download className="w-4 h-4" />

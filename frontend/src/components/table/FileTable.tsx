@@ -68,6 +68,13 @@ export function FileTable() {
       }),
     [buildPath, serverEntries],
   );
+  const entryLookup = useMemo(() => {
+    const map = new Map<string, FileEntry>();
+    for (const entry of normalizedEntries) {
+      map.set(entry.path, entry);
+    }
+    return map;
+  }, [normalizedEntries]);
 
   const orderedPaths = useMemo(
     () => normalizedEntries.map((entry) => entry.path),
@@ -305,6 +312,7 @@ export function FileTable() {
           return (
             <FileContextMenu
               entry={entry}
+              resolveEntry={(path) => entryLookup.get(path)}
               onSelect={() => {
                 if (!selectedFiles.has(resolvedPath)) {
                   selectFile(resolvedPath);

@@ -53,6 +53,13 @@ export function SearchResults() {
   const copy = useCopy();
   const rename = useRename();
   const rows = useMemo(() => (data?.entries || []).map(toRow), [data?.entries]);
+  const entryLookup = useMemo(() => {
+    const map = new Map<string, FileEntry>();
+    for (const entry of rows) {
+      map.set(entry.path, entry);
+    }
+    return map;
+  }, [rows]);
   const [draggedPaths, setDraggedPaths] = useState<string[]>([]);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [dropPrompt, setDropPrompt] = useState<DropPromptState>(null);
@@ -289,6 +296,7 @@ export function SearchResults() {
           <FileContextMenu
             entry={entry}
             showGoToParent
+            resolveEntry={(path) => entryLookup.get(path)}
             onSelect={() => {
               if (!selectedFiles.has(entry.path)) {
                 selectFile(entry.path);

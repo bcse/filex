@@ -23,6 +23,7 @@ interface FileContextMenuProps {
   children: React.ReactNode;
   onSelect: () => void;
   showGoToParent?: boolean;
+  resolveEntry?: (path: string) => FileEntry | undefined;
 }
 
 export function FileContextMenu({
@@ -30,6 +31,7 @@ export function FileContextMenu({
   children,
   onSelect,
   showGoToParent = false,
+  resolveEntry,
 }: FileContextMenuProps) {
   const {
     setCurrentPath,
@@ -60,8 +62,13 @@ export function FileContextMenu({
     setCurrentPath(entry.path);
   };
 
+  const downloadablePaths = targetPaths.filter((path) => {
+    const resolved = resolveEntry?.(path);
+    return resolved ? !resolved.is_dir : true;
+  });
+
   const handleDownload = () => {
-    for (const path of targetPaths) {
+    for (const path of downloadablePaths) {
       const url = api.getDownloadUrl(path);
       const a = document.createElement("a");
       a.href = url;

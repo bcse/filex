@@ -56,6 +56,7 @@ vi.mock("@/components/table/FileContextMenu", () => ({
   }: {
     children: React.ReactNode;
     onSelect?: () => void;
+    resolveEntry?: (path: string) => FileEntry | undefined;
   }) => (
     <button type="button" data-testid="context" onClick={onSelect}>
       {children}

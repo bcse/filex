@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { api } from "@/api/client";
@@ -26,6 +26,7 @@ const navigationStore = vi.hoisted(() => ({
 
 const mocks = vi.hoisted(() => ({
   useCreateDirectory: vi.fn(),
+  useDirectory: vi.fn(),
   useDelete: vi.fn(),
   useRename: vi.fn(),
   useUploadWithProgress: vi.fn(),
@@ -37,6 +38,7 @@ vi.mock("@/stores/navigation", () => ({
 
 vi.mock("@/hooks/useDirectory", () => ({
   useCreateDirectory: () => mocks.useCreateDirectory(),
+  useDirectory: () => mocks.useDirectory(),
   useDelete: () => mocks.useDelete(),
   useRename: () => mocks.useRename(),
   useUploadWithProgress: () => mocks.useUploadWithProgress(),
@@ -83,6 +85,15 @@ describe("Toolbar", () => {
     mocks.useUploadWithProgress.mockReturnValue({
       uploadFiles: uploadFilesMock,
     });
+    mocks.useDirectory.mockReturnValue({
+      data: { entries: [] },
+      isLoading: false,
+      error: null,
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("creates a new folder in the current path", async () => {
@@ -182,6 +193,16 @@ describe("Toolbar", () => {
       "/Docs/report.txt",
       "/Docs/notes.txt",
     ]);
+    mocks.useDirectory.mockReturnValue({
+      data: {
+        entries: [
+          { name: "report.txt", path: "/Docs/report.txt", is_dir: false },
+          { name: "notes.txt", path: "/Docs/notes.txt", is_dir: false },
+        ],
+      },
+      isLoading: false,
+      error: null,
+    });
     const downloadSpy = vi.spyOn(api, "getDownloadUrl");
 
     render(<Toolbar />);
@@ -190,6 +211,47 @@ describe("Toolbar", () => {
 
     expect(downloadSpy).toHaveBeenCalledWith("/Docs/report.txt");
     expect(downloadSpy).toHaveBeenCalledWith("/Docs/notes.txt");
+  });
+
+  it("disables download when only folders are selected", () => {
+    navigationStore.state.selectedFiles = new Set(["/Docs"]);
+    mocks.useDirectory.mockReturnValue({
+      data: {
+        entries: [{ name: "Docs", path: "/Docs", is_dir: true }],
+      },
+      isLoading: false,
+      error: null,
+    });
+
+    render(<Toolbar />);
+
+    expect(screen.getByRole("button", { name: "Download" })).toBeDisabled();
+  });
+
+  it("skips folders when downloading mixed selections", async () => {
+    const user = userEvent.setup();
+    navigationStore.state.selectedFiles = new Set([
+      "/Docs",
+      "/Docs/report.txt",
+    ]);
+    mocks.useDirectory.mockReturnValue({
+      data: {
+        entries: [
+          { name: "Docs", path: "/Docs", is_dir: true },
+          { name: "report.txt", path: "/Docs/report.txt", is_dir: false },
+        ],
+      },
+      isLoading: false,
+      error: null,
+    });
+    const downloadSpy = vi.spyOn(api, "getDownloadUrl");
+
+    render(<Toolbar />);
+
+    await user.click(screen.getByRole("button", { name: "Download" }));
+
+    expect(downloadSpy).toHaveBeenCalledTimes(1);
+    expect(downloadSpy).toHaveBeenCalledWith("/Docs/report.txt");
   });
 
   it("uploads files from the file input", async () => {
