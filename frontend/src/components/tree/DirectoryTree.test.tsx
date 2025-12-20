@@ -87,6 +87,27 @@ describe("DirectoryTree", () => {
     });
   });
 
+  it("adds a title attribute for folder names", async () => {
+    const nodes: TreeNode[] = [
+      {
+        name: "A Very Long Folder Name That Truncates",
+        path: "/A Very Long Folder Name That Truncates",
+        has_children: false,
+      },
+    ];
+    mockedUseTree.mockImplementation((path: string) => {
+      if (path === "/") {
+        return { data: nodes, isLoading: false } as never;
+      }
+      return { data: [], isLoading: false } as never;
+    });
+
+    render(<DirectoryTree />);
+
+    const item = await screen.findByText(nodes[0].name);
+    expect(item).toHaveAttribute("title", nodes[0].name);
+  });
+
   it("opens drop prompt when dropping on root", async () => {
     mockedUseTree.mockReturnValue({ data: [], isLoading: false } as never);
 

@@ -197,7 +197,9 @@ const TreeNode = React.memo(
           ) : (
             <Folder className="w-4 h-4 text-yellow-500" />
           )}
-          <span className="text-sm truncate">{node.name}</span>
+          <span className="text-sm truncate" title={node.name}>
+            {node.name}
+          </span>
         </div>
 
         {isExpanded && children && (
