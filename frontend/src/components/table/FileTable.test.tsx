@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
     clearSelection: vi.fn(),
     pendingFocusPath: null as string | null,
     setPendingFocusPath: vi.fn(),
+    openPreview: vi.fn(),
   },
   rename: { mutateAsync: vi.fn() },
   move: { mutateAsync: vi.fn() },

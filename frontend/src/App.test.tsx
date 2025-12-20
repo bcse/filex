@@ -50,6 +50,9 @@ vi.mock("@/components/layout/MainPanel", () => ({
 vi.mock("@/components/layout/UploadProgress", () => ({
   UploadProgress: () => <div>upload-progress</div>,
 }));
+vi.mock("@/components/preview/FilePreviewOverlay", () => ({
+  FilePreviewOverlay: () => <div>file-preview</div>,
+}));
 vi.mock("@/components/auth/LoginPage", () => ({
   LoginPage: ({ onLoginSuccess }: { onLoginSuccess: () => void }) => (
     <div>

@@ -16,6 +16,7 @@ import { useDelete, useRename } from "@/hooks/useDirectory";
 import { api } from "@/api/client";
 import { DEFAULT_PAGE_SIZE_FALLBACK } from "@/config/pagination";
 import { getParentPath } from "@/lib/utils";
+import { isPreviewableFile } from "@/lib/filePreview";
 import type { FileEntry } from "@/types/file";
 
 interface FileContextMenuProps {
@@ -42,6 +43,7 @@ export function FileContextMenu({
     directoryLimit,
     setPendingFocusPath,
     selectFile,
+    openPreview,
   } = useNavigationStore();
 
   const [renameOpen, setRenameOpen] = useState(false);
@@ -57,9 +59,16 @@ export function FileContextMenu({
     isSelected && selectedArray.length > 1 ? selectedArray : [entry.path];
   const canGoToParent = showGoToParent && selectedFiles.size <= 1;
 
+  const isPreviewable = isPreviewableFile(entry);
+
   const handleOpen = () => {
-    if (!entry.is_dir) return;
-    setCurrentPath(entry.path);
+    if (entry.is_dir) {
+      setCurrentPath(entry.path);
+      return;
+    }
+    if (isPreviewable) {
+      openPreview(entry);
+    }
   };
 
   const downloadablePaths = targetPaths.filter((path) => {
@@ -197,7 +206,7 @@ export function FileContextMenu({
       >
         <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
         <ContextMenuContent className="w-56">
-          {entry.is_dir && (
+          {(entry.is_dir || isPreviewable) && (
             <ContextMenuItem onClick={handleOpen}>
               <FolderOpen className="mr-2 h-4 w-4" />
               Open

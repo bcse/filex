@@ -76,6 +76,7 @@ const baseNavigationState = () => ({
   searchSortConfig: { field: "name", order: "asc" as const },
   setSearchSortConfig: vi.fn(),
   clearSelection: vi.fn(),
+  openPreview: vi.fn(),
 });
 
 const makeEntries = (): FileEntry[] => [

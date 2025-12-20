@@ -1,6 +1,7 @@
 import React, { useMemo, useCallback, useState } from "react";
 import { Loader2, FolderOpen } from "lucide-react";
 import { buildEntryPath, cn } from "@/lib/utils";
+import { isPreviewableFile } from "@/lib/filePreview";
 import { useNavigationStore } from "@/stores/navigation";
 import {
   useDirectory,
@@ -36,6 +37,7 @@ export function FileTable() {
     clearSelection,
     pendingFocusPath,
     setPendingFocusPath,
+    openPreview,
   } = useNavigationStore();
 
   const { data, isLoading, error } = useDirectory(currentPath);
@@ -156,11 +158,16 @@ export function FileTable() {
       const path = buildPath(entry);
       if (entry.is_dir) {
         setCurrentPath(path);
-      } else {
-        window.open(api.getDownloadUrl(path), "_blank");
+        return;
       }
+      const resolvedEntry = entry.path === path ? entry : { ...entry, path };
+      if (isPreviewableFile(resolvedEntry)) {
+        openPreview(resolvedEntry);
+        return;
+      }
+      window.open(api.getDownloadUrl(path), "_blank");
     },
-    [buildPath, setCurrentPath],
+    [buildPath, openPreview, setCurrentPath],
   );
 
   // Drag handlers

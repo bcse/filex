@@ -28,6 +28,7 @@ const mocks = vi.hoisted(() => ({
     directoryLimit: 20,
     setPendingFocusPath: vi.fn(),
     selectFile: vi.fn(),
+    openPreview: vi.fn(),
   },
 }));
 

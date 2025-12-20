@@ -11,6 +11,7 @@ import type { SortField } from "@/types/file";
 import { searchColumns } from "@/components/table/columns";
 import { FileTableView } from "@/components/table/FileTableView";
 import { cn } from "@/lib/utils";
+import { isPreviewableFile } from "@/lib/filePreview";
 import {
   DropPrompt,
   DropPromptState,
@@ -47,6 +48,7 @@ export function SearchResults() {
     searchSortConfig,
     setSearchSortConfig,
     clearSelection,
+    openPreview,
   } = useNavigationStore();
   const { data, isLoading, error } = useSearch(searchQuery, { enabled: true });
   const move = useMove();
@@ -115,11 +117,15 @@ export function SearchResults() {
       if (row.is_dir) {
         setIsSearching(false);
         setCurrentPath(row.path);
-      } else {
-        window.open(api.getDownloadUrl(row.path), "_blank");
+        return;
       }
+      if (isPreviewableFile(row)) {
+        openPreview(row);
+        return;
+      }
+      window.open(api.getDownloadUrl(row.path), "_blank");
     },
-    [setCurrentPath, setIsSearching],
+    [openPreview, setCurrentPath, setIsSearching],
   );
 
   const handleRenameRequest = useCallback((path: string) => {

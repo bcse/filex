@@ -6,6 +6,7 @@ import { TopBar } from "@/components/layout/TopBar";
 import { MainPanel } from "@/components/layout/MainPanel";
 import { UploadProgress } from "@/components/layout/UploadProgress";
 import { LoginPage } from "@/components/auth/LoginPage";
+import { FilePreviewOverlay } from "@/components/preview/FilePreviewOverlay";
 import { api } from "@/api/client";
 import { useAuthStore } from "@/stores/auth";
 import { Loader2 } from "lucide-react";
@@ -85,6 +86,7 @@ function App() {
         </div>
       </div>
       <UploadProgress />
+      <FilePreviewOverlay />
       <Toaster position="bottom-right" richColors />
     </QueryClientProvider>
   );

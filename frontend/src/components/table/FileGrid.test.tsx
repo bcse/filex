@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
     toggleSelection: vi.fn(),
     pendingFocusPath: null as string | null,
     setPendingFocusPath: vi.fn(),
+    openPreview: vi.fn(),
   },
   getDownloadUrl: vi.fn((path: string) => `/download?path=${path}`),
 }));

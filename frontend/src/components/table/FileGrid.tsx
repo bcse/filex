@@ -12,15 +12,12 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { buildEntryPath, cn } from "@/lib/utils";
+import { isImageFile, isPreviewableFile } from "@/lib/filePreview";
 import { useNavigationStore } from "@/stores/navigation";
 import { useDirectory } from "@/hooks/useDirectory";
 import { api } from "@/api/client";
 import { FileContextMenu } from "./FileContextMenu";
 import type { FileEntry } from "@/types/file";
-
-function isImageFile(entry: FileEntry): boolean {
-  return (entry.mime_type || "").startsWith("image/");
-}
 
 function getFileIcon(entry: FileEntry) {
   if (entry.is_dir) return Folder;
@@ -51,6 +48,7 @@ export function FileGrid() {
     toggleSelection,
     pendingFocusPath,
     setPendingFocusPath,
+    openPreview,
   } = useNavigationStore();
 
   const { data, isLoading, error } = useDirectory(currentPath);
@@ -121,11 +119,16 @@ export function FileGrid() {
       const path = buildPath(entry);
       if (entry.is_dir) {
         setCurrentPath(path);
-      } else {
-        window.open(api.getDownloadUrl(path), "_blank");
+        return;
       }
+      const resolvedEntry = entry.path === path ? entry : { ...entry, path };
+      if (isPreviewableFile(resolvedEntry)) {
+        openPreview(resolvedEntry);
+        return;
+      }
+      window.open(api.getDownloadUrl(path), "_blank");
     },
-    [buildPath, setCurrentPath],
+    [buildPath, openPreview, setCurrentPath],
   );
 
   useEffect(() => {
