@@ -213,8 +213,7 @@ export function FileTableView({
             style={{ gridTemplateColumns: gridTemplate }}
           >
             {columns.map((column, index) => {
-              const isSortable =
-                Boolean(onSort) && column.sortable && column.key !== "icon";
+              const isSortable = Boolean(onSort) && column.sortable;
               const isActive = sortConfig?.field === column.key;
               return (
                 <div key={column.key} className="relative flex items-center">
@@ -236,12 +235,12 @@ export function FileTableView({
                         <ArrowDown className="w-3 h-3 flex-shrink-0" />
                       ))}
                   </div>
-                  {index < columns.length - 1 && (
+                  {index < columns.length - 1 && column.resizable && (
                     <div
-                      className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 group"
+                      className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-primary/50 group"
                       onMouseDown={(e) => handleResizeStart(column.key, e)}
                     >
-                      <div className="absolute right-0 top-1 bottom-1 w-px bg-border group-hover:bg-primary" />
+                      <div className="absolute right-1 top-0 bottom-0 w-px bg-border group-hover:bg-primary" />
                     </div>
                   )}
                 </div>

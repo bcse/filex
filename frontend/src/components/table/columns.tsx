@@ -8,6 +8,7 @@ export interface Column {
   label: string;
   width: string;
   sortable: boolean;
+  resizable: boolean;
   render: (entry: FileEntry) => React.ReactNode;
 }
 
@@ -29,8 +30,9 @@ const formatDate = (dateStr?: string) => {
 const iconColumn: Column = {
   key: "icon",
   label: "",
-  width: "40px",
+  width: "32px",
   sortable: false,
+  resizable: false,
   render: (entry) => <FileIcon entry={entry} />,
 };
 
@@ -39,6 +41,7 @@ const nameColumn: Column = {
   label: "Name",
   width: "1fr",
   sortable: true,
+  resizable: true,
   render: (entry) => (
     <span className="truncate" title={entry.name}>
       {entry.name}
@@ -51,6 +54,7 @@ const pathColumn: Column = {
   label: "Path",
   width: "1fr",
   sortable: true,
+  resizable: true,
   render: (entry) => {
     const basedir = getBasedir(entry.path);
     return (
@@ -69,6 +73,7 @@ export const columns: Column[] = [
     label: "Size",
     width: "100px",
     sortable: true,
+    resizable: true,
     render: (entry) => (
       <span className="text-muted-foreground">
         {entry.is_dir ? "-" : formatFileSize(entry.size)}
@@ -80,6 +85,7 @@ export const columns: Column[] = [
     label: "Modified",
     width: "150px",
     sortable: true,
+    resizable: true,
     render: (entry) => (
       <span className="text-muted-foreground">
         {formatDate(entry.modified)}
@@ -91,6 +97,7 @@ export const columns: Column[] = [
     label: "Created",
     width: "150px",
     sortable: true,
+    resizable: true,
     render: (entry) => (
       <span className="text-muted-foreground">{formatDate(entry.created)}</span>
     ),
@@ -100,6 +107,7 @@ export const columns: Column[] = [
     label: "Type",
     width: "120px",
     sortable: true,
+    resizable: true,
     render: (entry) => (
       <span className="text-muted-foreground truncate" title={entry.mime_type}>
         {entry.is_dir ? "Folder" : entry.mime_type?.split("/")[1] || "-"}
@@ -111,6 +119,7 @@ export const columns: Column[] = [
     label: "Resolution",
     width: "100px",
     sortable: true,
+    resizable: true,
     render: (entry) => (
       <span className="text-muted-foreground">
         {formatResolutions(entry.width, entry.height)}
@@ -122,6 +131,7 @@ export const columns: Column[] = [
     label: "Duration",
     width: "80px",
     sortable: true,
+    resizable: true,
     render: (entry) => (
       <span className="text-muted-foreground">
         {formatDuration(entry.duration)}

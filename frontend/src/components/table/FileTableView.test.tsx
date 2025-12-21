@@ -41,6 +41,7 @@ const columns: Column[] = [
     label: "Name",
     width: "1fr",
     sortable: true,
+    resizable: true,
     render: (entry: FileEntry) => <span>{entry.name}</span>,
   },
   {
@@ -48,6 +49,7 @@ const columns: Column[] = [
     label: "Size",
     width: "100px",
     sortable: true,
+    resizable: true,
     render: (entry: FileEntry) => <span>{entry.size}</span>,
   },
 ];
@@ -127,7 +129,8 @@ describe("FileTableView", () => {
         key: "icon",
         label: "Icon",
         width: "40px",
-        sortable: true,
+        sortable: false,
+        resizable: false,
         render: () => <span>Icon</span>,
       },
       ...columns,

@@ -9,6 +9,7 @@ const columns: Column[] = [
     label: "Name",
     width: "1fr",
     sortable: true,
+    resizable: true,
     render: () => null,
   },
   {
@@ -16,6 +17,7 @@ const columns: Column[] = [
     label: "Size",
     width: "120px",
     sortable: true,
+    resizable: true,
     render: () => null,
   },
 ];

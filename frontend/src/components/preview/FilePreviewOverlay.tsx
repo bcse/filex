@@ -313,13 +313,13 @@ export function FilePreviewOverlay() {
 
       {isText && (
         <div className="flex h-full w-full items-center justify-center pointer-events-none">
-          <div className="flex h-[85vh] w-[92vw] max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-950/90 shadow-2xl backdrop-blur pointer-events-auto">
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-2 text-sm text-slate-200">
+          <div className="flex h-[85vh] w-[92vw] max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/90 shadow-2xl backdrop-blur pointer-events-auto">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-2 text-sm text-zinc-200">
               <span className="truncate">{previewEntry.name}</span>
             </div>
             <div className="relative flex-1 overflow-hidden">
               {isLoadingText && (
-                <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                <div className="flex h-full items-center justify-center text-sm text-zinc-400">
                   Loading preview...
                 </div>
               )}
