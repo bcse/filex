@@ -1,29 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
-const setupNavigationStore = async (viewMode?: string) => {
+const setupNavigationStore = async () => {
   vi.resetModules();
   localStorage.clear();
-  if (viewMode) {
-    localStorage.setItem("viewMode", viewMode);
-  }
   const mod = await import("./navigation");
   return mod.useNavigationStore;
 };
 
 describe("navigation store", () => {
-  it("initializes view mode from localStorage", async () => {
-    const useNavigationStore = await setupNavigationStore("grid");
-    expect(useNavigationStore.getState().viewMode).toBe("grid");
-  });
-
-  it("updates view mode and persists it", async () => {
-    const useNavigationStore = await setupNavigationStore();
-    useNavigationStore.getState().setViewMode("grid");
-
-    expect(useNavigationStore.getState().viewMode).toBe("grid");
-    expect(localStorage.getItem("viewMode")).toBe("grid");
-  });
-
   it("handles selection and toggling", async () => {
     const useNavigationStore = await setupNavigationStore();
     const state = useNavigationStore.getState();

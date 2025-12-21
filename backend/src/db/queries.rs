@@ -348,6 +348,13 @@ pub async fn vacuum(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
+/// Get the most recent `indexed_at` timestamp from the database.
+pub async fn get_last_indexed_at(pool: &SqlitePool) -> Result<Option<String>, sqlx::Error> {
+    sqlx::query_scalar("SELECT MAX(indexed_at) FROM indexed_files")
+        .fetch_one(pool)
+        .await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

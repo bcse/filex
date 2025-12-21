@@ -17,8 +17,6 @@ const navigationStore = vi.hoisted(() => ({
     currentPath: "/",
     selectedFiles: new Set<string>(),
     clearSelection: vi.fn(),
-    viewMode: "table" as const,
-    setViewMode: vi.fn(),
     deleteConfirmOpen: false,
     setDeleteConfirmOpen: vi.fn(),
   },
@@ -60,8 +58,6 @@ describe("Toolbar", () => {
       currentPath: "/",
       selectedFiles: new Set<string>(),
       clearSelection: vi.fn(),
-      viewMode: "table",
-      setViewMode: vi.fn(),
       deleteConfirmOpen: false,
       setDeleteConfirmOpen: vi.fn(),
     };
@@ -109,16 +105,6 @@ describe("Toolbar", () => {
         "/New Folder",
       );
     });
-  });
-
-  it("toggles the view mode", async () => {
-    const user = userEvent.setup();
-
-    render(<Toolbar />);
-
-    await user.click(screen.getByTitle("Switch to grid view"));
-
-    expect(navigationStore.state.setViewMode).toHaveBeenCalledWith("grid");
   });
 
   it("renames the selected item and clears selection", async () => {

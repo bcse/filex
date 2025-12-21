@@ -7,7 +7,6 @@ import {
   ChevronLast,
 } from "lucide-react";
 import { FileTable } from "@/components/table/FileTable";
-import { FileGrid } from "@/components/table/FileGrid";
 import { SearchResults } from "@/components/search/SearchResults";
 import { useNavigationStore } from "@/stores/navigation";
 import { useUploadWithProgress } from "@/hooks/useDirectory";
@@ -23,7 +22,6 @@ import { Button } from "@/components/ui/button";
 export function MainPanel() {
   const {
     currentPath,
-    viewMode,
     isSearching,
     searchQuery,
     directoryOffset,
@@ -109,15 +107,9 @@ export function MainPanel() {
         </div>
       )}
 
-      {/* File Table/Grid */}
+      {/* File Table */}
       <div className="flex-1 min-h-0 overflow-auto">
-        {isSearchActive ? (
-          <SearchResults />
-        ) : viewMode === "table" ? (
-          <FileTable />
-        ) : (
-          <FileGrid />
-        )}
+        {isSearchActive ? <SearchResults /> : <FileTable />}
       </div>
 
       <StatusBar

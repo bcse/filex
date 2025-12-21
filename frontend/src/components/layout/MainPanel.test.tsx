@@ -10,7 +10,6 @@ const mocks = vi.hoisted(() => ({
 const navigationStore = vi.hoisted(() => ({
   state: {
     currentPath: "/",
-    viewMode: "table" as const,
     isSearching: false,
     searchQuery: "",
     directoryOffset: 0,
@@ -39,10 +38,6 @@ vi.mock("@/components/table/FileTable", () => ({
   FileTable: () => <div>FileTable</div>,
 }));
 
-vi.mock("@/components/table/FileGrid", () => ({
-  FileGrid: () => <div>FileGrid</div>,
-}));
-
 vi.mock("@/components/search/SearchResults", () => ({
   SearchResults: () => <div>SearchResults</div>,
 }));
@@ -56,7 +51,6 @@ describe("MainPanel", () => {
     mocks.uploadFiles.mockReset();
     navigationStore.state = {
       currentPath: "/",
-      viewMode: "table",
       isSearching: false,
       searchQuery: "",
       directoryOffset: 0,

@@ -2,8 +2,6 @@ import { create } from "zustand";
 import type { FileEntry, SortConfig } from "@/types/file";
 import { DEFAULT_PAGE_SIZE } from "@/config/pagination";
 
-type ViewMode = "table" | "grid";
-
 type HistoryEntry =
   | { type: "path"; path: string; offset: number }
   | {
@@ -75,8 +73,6 @@ interface NavigationState {
   // UI state
   sidebarWidth: number;
   setSidebarWidth: (width: number) => void;
-  viewMode: ViewMode;
-  setViewMode: (mode: ViewMode) => void;
 
   // Preview
   previewEntry: FileEntry | null;
@@ -314,14 +310,6 @@ export const useNavigationStore = create<NavigationState>((set) => ({
   // UI state
   sidebarWidth: 250,
   setSidebarWidth: (width) => set({ sidebarWidth: width }),
-  viewMode:
-    (typeof window !== "undefined"
-      ? (localStorage.getItem("viewMode") as ViewMode)
-      : null) || "table",
-  setViewMode: (mode) => {
-    localStorage.setItem("viewMode", mode);
-    set({ viewMode: mode });
-  },
 
   // Preview
   previewEntry: null,

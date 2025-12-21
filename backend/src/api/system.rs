@@ -4,6 +4,7 @@ use std::sync::Arc;
 use tracing::{error, info};
 
 use crate::api::AppState;
+use crate::db;
 use crate::services::{IndexerService, MetadataService};
 use crate::version;
 
@@ -15,6 +16,8 @@ pub struct HealthResponse {
     pub built_at: &'static str,
     pub ffprobe_available: bool,
     pub database_status: DatabaseStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_indexed_at: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -45,6 +48,13 @@ pub async fn health(State(state): State<Arc<AppState>>) -> (StatusCode, Json<Hea
         },
     };
 
+    // Get last indexed timestamp
+    let last_indexed_at = if db_status.connected {
+        db::get_last_indexed_at(&state.pool).await.ok().flatten()
+    } else {
+        None
+    };
+
     let overall_status = if db_status.connected {
         "ok"
     } else {
@@ -65,6 +75,7 @@ pub async fn health(State(state): State<Arc<AppState>>) -> (StatusCode, Json<Hea
             built_at: version_info.built_at,
             ffprobe_available: MetadataService::is_available(),
             database_status: db_status,
+            last_indexed_at,
         }),
     )
 }
@@ -153,6 +164,8 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!(resp.status, "ok");
         assert!(resp.database_status.connected);
+        // No indexed files yet, so last_indexed_at should be None
+        assert!(resp.last_indexed_at.is_none());
     }
 
     #[tokio::test]

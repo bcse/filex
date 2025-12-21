@@ -6,8 +6,6 @@ import {
   Upload,
   TextCursorInput,
   Loader2,
-  LayoutGrid,
-  LayoutList,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -39,8 +37,6 @@ export function Toolbar() {
     currentPath,
     selectedFiles,
     clearSelection,
-    viewMode,
-    setViewMode,
     deleteConfirmOpen,
     setDeleteConfirmOpen,
   } = useNavigationStore();
@@ -273,24 +269,6 @@ export function Toolbar() {
             <Trash2 className="w-4 h-4" />
           )}
           <span className="sr-only">Delete</span>
-        </Button>
-
-        <div className="w-px h-6 bg-border mx-1" />
-
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => setViewMode(viewMode === "table" ? "grid" : "table")}
-          title={
-            viewMode === "table" ? "Switch to grid view" : "Switch to list view"
-          }
-        >
-          {viewMode === "table" ? (
-            <LayoutGrid className="w-4 h-4" />
-          ) : (
-            <LayoutList className="w-4 h-4" />
-          )}
         </Button>
       </div>
 
