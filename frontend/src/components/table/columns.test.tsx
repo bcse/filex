@@ -29,9 +29,9 @@ describe("columns", () => {
     expect(getByTextModified("2024-02-03 04:05")).toBeInTheDocument();
   });
 
-  it("renders dimensions and duration columns with fallbacks", () => {
-    const { getByText: getByTextDimensions } = renderColumn(baseEntry, 6);
-    expect(getByTextDimensions("1920×1080")).toBeInTheDocument();
+  it("renders resolution and duration columns with fallbacks", () => {
+    const { getByText: getByTextResolutions } = renderColumn(baseEntry, 6);
+    expect(getByTextResolutions("1920×1080")).toBeInTheDocument();
 
     const { getByText: getByTextDuration } = renderColumn(baseEntry, 7);
     expect(getByTextDuration("2:05")).toBeInTheDocument();

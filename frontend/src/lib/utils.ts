@@ -29,7 +29,7 @@ export function formatDuration(seconds?: number): string {
   return `${minutes}:${secs.toString().padStart(2, "0")}`;
 }
 
-export function formatDimensions(width?: number, height?: number): string {
+export function formatResolutions(width?: number, height?: number): string {
   if (!width || !height) return "-";
   return `${width}×${height}`;
 }

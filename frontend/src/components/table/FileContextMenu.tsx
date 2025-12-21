@@ -111,7 +111,7 @@ export function FileContextMenu({
           return "type";
         case "width":
         case "height":
-          return "dimensions";
+          return "resolutions";
         default:
           return field;
       }

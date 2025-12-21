@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildEntryPath,
-  formatDimensions,
+  formatResolutions,
   formatDuration,
   formatFileSize,
   getFileIcon,
@@ -23,10 +23,10 @@ describe("utils", () => {
     expect(formatDuration(3661)).toBe("1:01:01");
   });
 
-  it("formats dimensions", () => {
-    expect(formatDimensions()).toBe("-");
-    expect(formatDimensions(0, 100)).toBe("-");
-    expect(formatDimensions(1920, 1080)).toBe("1920×1080");
+  it("formats resolution", () => {
+    expect(formatResolutions()).toBe("-");
+    expect(formatResolutions(0, 100)).toBe("-");
+    expect(formatResolutions(1920, 1080)).toBe("1920×1080");
   });
 
   it("maps file icons", () => {

@@ -54,7 +54,7 @@ export type SortField =
   | "height"
   | "duration"
   | "type"
-  | "dimensions";
+  | "resolutions";
 export type SortOrder = "asc" | "desc";
 
 export interface SortConfig {

@@ -15,7 +15,7 @@ export function useSearch(query: string, options: { enabled?: boolean } = {}) {
         return "type";
       case "width":
       case "height":
-        return "dimensions";
+        return "resolutions";
       default:
         return field;
     }

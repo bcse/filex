@@ -116,7 +116,7 @@ impl MetadataService {
             }
         }
 
-        // Extract from streams (prefer video stream for dimensions)
+        // Extract from streams (prefer video stream for resolutions)
         if let Some(streams) = ffprobe_data.streams {
             for stream in streams {
                 if stream.codec_type.as_deref() == Some("video") {

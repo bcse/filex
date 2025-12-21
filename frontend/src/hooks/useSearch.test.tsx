@@ -55,7 +55,7 @@ describe("useSearch", () => {
         expect.objectContaining({
           offset: 5,
           limit: 50,
-          sort_by: "dimensions",
+          sort_by: "resolutions",
           sort_order: "asc",
         }),
       );

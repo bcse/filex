@@ -56,7 +56,7 @@ pub async fn search_files(
         SortField::Modified => SearchSortField::Modified,
         SortField::Created => SearchSortField::Created,
         SortField::Type => SearchSortField::Type,
-        SortField::Dimensions => SearchSortField::Dimensions,
+        SortField::Resolutions => SearchSortField::Resolutions,
         SortField::Duration => SearchSortField::Duration,
     };
 

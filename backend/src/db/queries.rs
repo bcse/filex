@@ -15,7 +15,7 @@ pub enum SearchSortField {
     Modified,
     Created,
     Type,
-    Dimensions,
+    Resolutions,
     Duration,
 }
 
@@ -81,7 +81,7 @@ pub async fn get_files_by_ids(
         SearchSortField::Modified => "COALESCE(modified_at, '')",
         SearchSortField::Created => "COALESCE(created_at, '')",
         SearchSortField::Type => "COALESCE(mime_type, '')",
-        SearchSortField::Dimensions => "COALESCE(width, 0) * COALESCE(height, 0)",
+        SearchSortField::Resolutions => "COALESCE(width, 0) * COALESCE(height, 0)",
         SearchSortField::Duration => "COALESCE(duration, 0)",
     };
 
@@ -157,7 +157,7 @@ pub async fn get_files_by_ids(
                 SearchSortField::Modified => a.modified_at.cmp(&b.modified_at),
                 SearchSortField::Created => a.created_at.cmp(&b.created_at),
                 SearchSortField::Type => a.mime_type.cmp(&b.mime_type),
-                SearchSortField::Dimensions => {
+                SearchSortField::Resolutions => {
                     let a_dim = a.width.unwrap_or(0) as i64 * a.height.unwrap_or(0) as i64;
                     let b_dim = b.width.unwrap_or(0) as i64 * b.height.unwrap_or(0) as i64;
                     a_dim.cmp(&b_dim)

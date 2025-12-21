@@ -9,7 +9,7 @@ pub enum SortField {
     Modified,
     Created,
     Type,
-    Dimensions,
+    Resolutions,
     Duration,
 }
 

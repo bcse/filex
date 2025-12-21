@@ -147,7 +147,7 @@ fn sort_entries(entries: &mut [FileEntry], sort_by: SortField, sort_order: SortO
                     .to_lowercase();
                 a_type.cmp(&b_type)
             }
-            SortField::Dimensions => {
+            SortField::Resolutions => {
                 let a_pixels = a.width.unwrap_or(0) as u64 * a.height.unwrap_or(0) as u64;
                 let b_pixels = b.width.unwrap_or(0) as u64 * b.height.unwrap_or(0) as u64;
                 a_pixels.cmp(&b_pixels)

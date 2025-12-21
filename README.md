@@ -2,17 +2,17 @@
 
 A self-hosted, web-based file manager with a familiar desktop-like interface.
 
-Filex is a minimal, opinionated file browser for managing files on remote servers through your web browser. Single binary + SQLite, with optional ffprobe for richer media metadata.
+Filex is a minimal, opinionated file browser for managing files on remote servers through your web browser. Single binary + SQLite, with optional ffprobe for basic media resolution/duration.
 
 ![Screenshot](/docs/screenshot.png?raw=true "Screenshot")
 
 ## Features
 
 - **Desktop-like UX** — Keyboard shortcuts, drag & drop, multi-select, context menus
-- **Fast browsing** — Handles huge folders without eating memory
+- **Fast browsing** — Virtualized lists keep the browser responsive in huge folders
 - **Search** — Search files and folders by path
 - **File operations** — Create, rename, delete, copy, move, upload, download
-- **Media-aware** — Image/video/audio metadata when ffprobe is available, dimensions, duration
+- **Media-aware** — Image/video/audio metadata when ffprobe is available, resolution, duration
 - **Dark mode** — Follows system preference with manual toggle
 
 ## Quick Start

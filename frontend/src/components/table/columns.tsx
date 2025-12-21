@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import type { FileEntry, SortField } from "@/types/file";
-import { formatFileSize, formatDuration, formatDimensions } from "@/lib/utils";
+import { formatFileSize, formatDuration, formatResolutions } from "@/lib/utils";
 import { FileIcon } from "./FileIcon";
 
 export interface Column {
@@ -108,12 +108,12 @@ export const columns: Column[] = [
   },
   {
     key: "width",
-    label: "Dimensions",
+    label: "Resolution",
     width: "100px",
     sortable: true,
     render: (entry) => (
       <span className="text-muted-foreground">
-        {formatDimensions(entry.width, entry.height)}
+        {formatResolutions(entry.width, entry.height)}
       </span>
     ),
   },
