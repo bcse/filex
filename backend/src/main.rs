@@ -22,12 +22,16 @@ use filex_backend::{
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Initialize logging
+    let enable_log_color = std::env::var("FM_LOG_COLOR")
+        .map(|v| v != "false" && v != "0")
+        .unwrap_or(true);
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| "filex_backend=debug,tower_http=debug".into()),
         )
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().with_ansi(enable_log_color))
         .init();
 
     // Load configuration
