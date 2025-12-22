@@ -125,7 +125,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/files/download", get(api::files::download))
         .route("/api/files/upload", post(api::files::upload_root))
         .route("/api/files/upload/", post(api::files::upload_root))
-        .route("/api/files/upload/*path", post(api::files::upload))
+        .route("/api/files/upload/{*path}", post(api::files::upload))
         .with_state(app_state.clone())
         .route_layer(middleware::from_fn_with_state(
             auth_state.clone(),

@@ -595,7 +595,7 @@ mod tests {
         let (state, _tmp, root) = test_state().await;
         // Build an app route for upload to drive the Multipart extractor
         let app = Router::new()
-            .route("/upload/*path", axum::routing::post(upload))
+            .route("/upload/{*path}", axum::routing::post(upload))
             .with_state(state.clone());
 
         // Target that doesn't exist
@@ -638,7 +638,7 @@ mod tests {
         fs::create_dir_all(root.join("dir")).unwrap();
 
         let app = Router::new()
-            .route("/upload/*path", axum::routing::post(upload))
+            .route("/upload/{*path}", axum::routing::post(upload))
             .with_state(state.clone());
 
         let boundary = "BOUNDARY789";
