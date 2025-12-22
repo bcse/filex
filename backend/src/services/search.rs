@@ -27,10 +27,9 @@ impl SearchService {
         info!("Rebuilding search index from database");
 
         // Fetch all indexed paths with IDs
-        let rows: Vec<(i64, String)> =
-            sqlx::query_as("SELECT id, path FROM indexed_files ORDER BY id")
-                .fetch_all(pool)
-                .await?;
+        let rows: Vec<(i64, String)> = sqlx::query_as("SELECT id, path FROM indexed_files")
+            .fetch_all(pool)
+            .await?;
 
         let count = rows.len();
 
