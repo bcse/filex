@@ -188,12 +188,13 @@ impl SearchIndex {
         };
 
         let elapsed = start.elapsed();
+        let elapsed_str = format!("{:.3}s", elapsed.as_secs_f64());
         info!(
             query = %query,
             terms = terms.len(),
             results = results.len(),
             index_size = self.len(),
-            elapsed_us = elapsed.as_micros(),
+            elapsed = %elapsed_str,
             "Search completed"
         );
 
