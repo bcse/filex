@@ -355,6 +355,15 @@ pub async fn get_last_indexed_at(pool: &SqlitePool) -> Result<Option<String>, sq
         .await
 }
 
+pub async fn get_indexed_totals(pool: &SqlitePool) -> Result<(i64, i64), sqlx::Error> {
+    sqlx::query_as(
+        "SELECT COUNT(*) as file_count, COALESCE(SUM(size), 0) as total_size \
+         FROM indexed_files WHERE is_dir = 0",
+    )
+    .fetch_one(pool)
+    .await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

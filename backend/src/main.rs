@@ -112,6 +112,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/browse", get(api::browse::list_directory))
         .route("/api/tree", get(api::browse::get_tree))
         .route("/api/search", get(api::search::search_files))
+        .route("/api/statistics", get(api::system::statistics))
         .route("/api/files/mkdir", post(api::files::create_directory))
         .route("/api/files/rename", post(api::files::rename))
         .route("/api/files/copy", post(api::files::copy_entry))

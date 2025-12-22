@@ -16,8 +16,14 @@ pub struct HealthResponse {
     pub built_at: &'static str,
     pub ffprobe_available: bool,
     pub database_status: DatabaseStatus,
+}
+
+#[derive(Debug, Serialize)]
+pub struct StatisticsResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_indexed_at: Option<String>,
+    pub total_files_count: i64,
+    pub total_size: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -48,13 +54,6 @@ pub async fn health(State(state): State<Arc<AppState>>) -> (StatusCode, Json<Hea
         },
     };
 
-    // Get last indexed timestamp
-    let last_indexed_at = if db_status.connected {
-        db::get_last_indexed_at(&state.pool).await.ok().flatten()
-    } else {
-        None
-    };
-
     let overall_status = if db_status.connected {
         "ok"
     } else {
@@ -75,9 +74,55 @@ pub async fn health(State(state): State<Arc<AppState>>) -> (StatusCode, Json<Hea
             built_at: version_info.built_at,
             ffprobe_available: MetadataService::is_available(),
             database_status: db_status,
-            last_indexed_at,
         }),
     )
+}
+
+/// Statistics endpoint
+pub async fn statistics(
+    State(state): State<Arc<AppState>>,
+) -> (StatusCode, Json<StatisticsResponse>) {
+    match (
+        db::get_last_indexed_at(&state.pool).await,
+        db::get_indexed_totals(&state.pool).await,
+    ) {
+        (Ok(last_indexed_at), Ok((total_files_count, total_size_bytes))) => (
+            StatusCode::OK,
+            Json(StatisticsResponse {
+                last_indexed_at,
+                total_files_count,
+                total_size: format_bytes(total_size_bytes),
+            }),
+        ),
+        (Err(e), _) | (_, Err(e)) => {
+            error!("Failed to fetch statistics: {}", e);
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(StatisticsResponse {
+                    last_indexed_at: None,
+                    total_files_count: 0,
+                    total_size: "0 B".to_string(),
+                }),
+            )
+        }
+    }
+}
+
+fn format_bytes(bytes: i64) -> String {
+    let units = ["B", "KB", "MB", "GB", "TB", "PB"];
+    let mut value = (bytes.max(0)) as f64;
+    let mut unit_index = 0;
+
+    while value >= 1000.0 && unit_index < units.len() - 1 {
+        value /= 1000.0;
+        unit_index += 1;
+    }
+
+    if unit_index == 0 {
+        format!("{} {}", value as i64, units[unit_index])
+    } else {
+        format!("{:.1} {}", value, units[unit_index])
+    }
 }
 
 /// Get indexer status
@@ -164,8 +209,29 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!(resp.status, "ok");
         assert!(resp.database_status.connected);
-        // No indexed files yet, so last_indexed_at should be None
+    }
+
+    #[tokio::test]
+    async fn statistics_reports_last_indexed_at() {
+        let tmp = tempdir().unwrap();
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        db::init_db(&pool).await.unwrap();
+
+        let state = Arc::new(AppState {
+            fs: FilesystemService::new(tmp.path().to_path_buf()),
+            pool: pool.clone(),
+            search: Arc::new(SearchService::new()),
+        });
+
+        let (status, Json(resp)) = statistics(State(state)).await;
+        assert_eq!(status, StatusCode::OK);
         assert!(resp.last_indexed_at.is_none());
+        assert_eq!(resp.total_files_count, 0);
+        assert_eq!(resp.total_size, "0 B");
     }
 
     #[tokio::test]
@@ -226,5 +292,13 @@ mod tests {
         .expect("indexing finished");
 
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn format_bytes_renders_human_readable_sizes() {
+        assert_eq!(format_bytes(0), "0 B");
+        assert_eq!(format_bytes(999), "999 B");
+        assert_eq!(format_bytes(1500), "1.5 KB");
+        assert_eq!(format_bytes(1_500_000), "1.5 MB");
     }
 }
