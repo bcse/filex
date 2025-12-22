@@ -2,9 +2,10 @@ use axum::{
     Json,
     body::Body,
     extract::{Multipart, Path, Query, State},
-    http::StatusCode,
-    response::Response,
+    http::{HeaderMap, HeaderValue, StatusCode, header},
+    response::{IntoResponse, Response},
 };
+use axum_extra::response::file_stream::FileStream;
 use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -280,6 +281,7 @@ pub async fn delete(
 pub async fn download(
     State(state): State<Arc<AppState>>,
     Query(query): Query<DownloadQuery>,
+    headers: HeaderMap,
 ) -> Result<Response<Body>, (StatusCode, Json<ErrorResponse>)> {
     let resolved = state.fs.resolve_path(&query.path).map_err(|e| {
         (
@@ -299,17 +301,17 @@ pub async fn download(
         ));
     }
 
-    let file = File::open(&resolved).await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: e.to_string(),
-            }),
-        )
-    })?;
-
-    let stream = ReaderStream::new(file);
-    let body = Body::from_stream(stream);
+    let file_size = tokio::fs::metadata(&resolved)
+        .await
+        .map(|metadata| metadata.len())
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: e.to_string(),
+                }),
+            )
+        })?;
 
     let filename = resolved
         .file_name()
@@ -321,15 +323,156 @@ pub async fn download(
         .first_or_octet_stream()
         .to_string();
 
-    Ok(Response::builder()
-        .status(StatusCode::OK)
-        .header("Content-Type", mime)
-        .header(
-            "Content-Disposition",
-            format!("attachment; filename*=UTF-8''{}", encoded_filename),
-        )
-        .body(body)
-        .unwrap())
+    let mut response = if let Some(range_header) = headers.get(header::RANGE) {
+        let range_header = range_header.to_str().map_err(|_| {
+            (
+                StatusCode::RANGE_NOT_SATISFIABLE,
+                Json(ErrorResponse {
+                    error: "Invalid Range header".to_string(),
+                }),
+            )
+        })?;
+        let (start, end) = parse_range_header(range_header, file_size)?;
+        FileStream::<ReaderStream<File>>::try_range_response(&resolved, start, end)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?
+    } else {
+        FileStream::from_path(&resolved)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?
+            .into_response()
+    };
+    let headers = response.headers_mut();
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_str(&mime)
+            .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
+    );
+    headers.insert(
+        header::CONTENT_DISPOSITION,
+        HeaderValue::from_str(&format!("attachment; filename*=UTF-8''{encoded_filename}"))
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(ErrorResponse {
+                        error: e.to_string(),
+                    }),
+                )
+            })?,
+    );
+
+    Ok(response)
+}
+
+fn parse_range_header(
+    range_header: &str,
+    file_size: u64,
+) -> Result<(u64, u64), (StatusCode, Json<ErrorResponse>)> {
+    if file_size == 0 {
+        return Err((
+            StatusCode::RANGE_NOT_SATISFIABLE,
+            Json(ErrorResponse {
+                error: "Range not satisfiable".to_string(),
+            }),
+        ));
+    }
+
+    let range_header = range_header.trim();
+    let Some(ranges) = range_header.strip_prefix("bytes=") else {
+        return Err((
+            StatusCode::RANGE_NOT_SATISFIABLE,
+            Json(ErrorResponse {
+                error: "Invalid Range header".to_string(),
+            }),
+        ));
+    };
+
+    if ranges.contains(',') {
+        return Err((
+            StatusCode::RANGE_NOT_SATISFIABLE,
+            Json(ErrorResponse {
+                error: "Multiple ranges are not supported".to_string(),
+            }),
+        ));
+    }
+
+    let mut parts = ranges.splitn(2, '-');
+    let start_part = parts.next().unwrap_or_default().trim();
+    let end_part = parts.next().unwrap_or_default().trim();
+
+    let (start, end) = if start_part.is_empty() {
+        let suffix_len = end_part.parse::<u64>().map_err(|_| {
+            (
+                StatusCode::RANGE_NOT_SATISFIABLE,
+                Json(ErrorResponse {
+                    error: "Invalid Range header".to_string(),
+                }),
+            )
+        })?;
+        if suffix_len == 0 {
+            return Err((
+                StatusCode::RANGE_NOT_SATISFIABLE,
+                Json(ErrorResponse {
+                    error: "Range not satisfiable".to_string(),
+                }),
+            ));
+        }
+        let end = file_size - 1;
+        let start = if suffix_len >= file_size {
+            0
+        } else {
+            file_size - suffix_len
+        };
+        (start, end)
+    } else {
+        let start = start_part.parse::<u64>().map_err(|_| {
+            (
+                StatusCode::RANGE_NOT_SATISFIABLE,
+                Json(ErrorResponse {
+                    error: "Invalid Range header".to_string(),
+                }),
+            )
+        })?;
+        let end = if end_part.is_empty() {
+            file_size - 1
+        } else {
+            end_part.parse::<u64>().map_err(|_| {
+                (
+                    StatusCode::RANGE_NOT_SATISFIABLE,
+                    Json(ErrorResponse {
+                        error: "Invalid Range header".to_string(),
+                    }),
+                )
+            })?
+        };
+
+        if start >= file_size || start > end {
+            return Err((
+                StatusCode::RANGE_NOT_SATISFIABLE,
+                Json(ErrorResponse {
+                    error: "Range not satisfiable".to_string(),
+                }),
+            ));
+        }
+
+        (start, end.min(file_size - 1))
+    };
+
+    Ok((start, end))
 }
 
 async fn upload_impl(
@@ -563,6 +706,7 @@ mod tests {
             Query(DownloadQuery {
                 path: "/".to_string(),
             }),
+            HeaderMap::new(),
         )
         .await
         .unwrap_err();
@@ -574,6 +718,7 @@ mod tests {
             Query(DownloadQuery {
                 path: "/file.txt".to_string(),
             }),
+            HeaderMap::new(),
         )
         .await
         .unwrap();
@@ -588,6 +733,29 @@ mod tests {
                 .unwrap()
                 .contains("filename*=UTF-8''file.txt")
         );
+    }
+
+    #[tokio::test]
+    async fn download_with_range_returns_partial_response() {
+        let (state, _tmp, root) = test_state().await;
+        let file_path = root.join("file.txt");
+        fs::write(&file_path, b"hello world").unwrap();
+
+        let mut headers = HeaderMap::new();
+        headers.insert(header::RANGE, HeaderValue::from_static("bytes=0-4"));
+
+        let response = download(
+            State(state.clone()),
+            Query(DownloadQuery {
+                path: "/file.txt".to_string(),
+            }),
+            headers,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+        assert!(response.headers().contains_key(header::CONTENT_RANGE));
     }
 
     #[tokio::test]

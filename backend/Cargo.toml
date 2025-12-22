@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 # Web framework
 axum = { version = "0.8", features = ["multipart"] }
-axum-extra = { version = "0.12", features = ["cookie", "typed-header"] }
+axum-extra = { version = "0.12", features = ["cookie", "file-stream", "typed-header"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["fs", "cors", "trace"] }
 
