@@ -362,6 +362,7 @@ pub async fn download(
         HeaderValue::from_str(&mime)
             .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
     );
+    headers.insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
     headers.insert(
         header::CONTENT_DISPOSITION,
         HeaderValue::from_str(&format!("attachment; filename*=UTF-8''{encoded_filename}"))
@@ -733,6 +734,7 @@ mod tests {
                 .unwrap()
                 .contains("filename*=UTF-8''file.txt")
         );
+        assert_eq!(headers.get(header::ACCEPT_RANGES).unwrap(), "bytes");
     }
 
     #[tokio::test]
@@ -755,7 +757,9 @@ mod tests {
         .unwrap();
 
         assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
-        assert!(response.headers().contains_key(header::CONTENT_RANGE));
+        let headers = response.headers();
+        assert!(headers.contains_key(header::CONTENT_RANGE));
+        assert_eq!(headers.get(header::ACCEPT_RANGES).unwrap(), "bytes");
     }
 
     #[tokio::test]
