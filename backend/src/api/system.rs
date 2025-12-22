@@ -1,6 +1,7 @@
 use axum::{Json, extract::State, http::StatusCode};
 use serde::Serialize;
 use std::sync::Arc;
+use std::time::Instant;
 use tracing::{error, info};
 
 use crate::api::AppState;
@@ -139,15 +140,18 @@ pub async fn trigger_index(
     // Spawn indexing in background
     let indexer_clone = indexer.clone();
     tokio::spawn(async move {
+        let started_at = Instant::now();
         match indexer_clone.run_full_index().await {
             Ok(stats) => {
+                let elapsed = started_at.elapsed().as_secs_f64();
                 info!(
-                    "Index complete: {} scanned, {} indexed, {} skipped, {} removed, {} errors",
+                    "Index complete: {} scanned, {} indexed, {} skipped, {} removed, {} errors, {:.3} seconds",
                     stats.files_scanned,
                     stats.files_indexed,
                     stats.files_skipped,
                     stats.files_removed,
-                    stats.errors
+                    stats.errors,
+                    elapsed
                 );
             }
             Err(e) => {

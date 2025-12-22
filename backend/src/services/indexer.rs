@@ -3,7 +3,7 @@ use ignore::WalkBuilder;
 use sqlx::sqlite::SqlitePool;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
@@ -57,15 +57,18 @@ impl IndexerService {
         );
 
         loop {
+            let started_at = Instant::now();
             match self.run_full_index().await {
                 Ok(stats) => {
+                    let elapsed = started_at.elapsed().as_secs_f64();
                     info!(
-                        "Index complete: {} scanned, {} indexed, {} skipped, {} removed, {} errors",
+                        "Index complete: {} scanned, {} indexed, {} skipped, {} removed, {} errors, {:.3} seconds",
                         stats.files_scanned,
                         stats.files_indexed,
                         stats.files_skipped,
                         stats.files_removed,
-                        stats.errors
+                        stats.errors,
+                        elapsed
                     );
                 }
                 Err(e) => {
