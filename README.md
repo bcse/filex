@@ -44,6 +44,7 @@ All configuration via environment variables:
 | `FM_AUTH_PASSWORD` | (none) | Password for authentication |
 | `FM_SESSION_TIMEOUT` | `86400` | Session timeout in seconds |
 | `FM_SESSION_COOKIE` | `fm_session` | Session cookie name |
+| `FM_LOG_COLOR` | `true` | Enable ANSI colors in log output (`false` or `0` to disable) |
 | `RUST_LOG` | `info` | Log level |
 | `PUID` | `1000` | User ID for file permissions (Docker) |
 | `PGID` | `1000` | Group ID for file permissions (Docker) |
