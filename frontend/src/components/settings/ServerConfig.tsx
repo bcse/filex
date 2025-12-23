@@ -20,8 +20,14 @@ export function ServerConfig({ onConnected }: ServerConfigProps) {
     setIsLoading(true);
 
     // Update the server URL config
-    setServerUrl(url);
-    resetApiBaseCache();
+    try {
+      setServerUrl(url);
+      resetApiBaseCache();
+    } catch {
+      setError("Server URL must start with http:// or https://");
+      setIsLoading(false);
+      return;
+    }
 
     try {
       // Test the connection
