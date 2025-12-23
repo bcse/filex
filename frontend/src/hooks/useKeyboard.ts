@@ -3,7 +3,13 @@ import { useNavigationStore } from "@/stores/navigation";
 import { useMove, useCopy } from "@/hooks/useDirectory";
 import { api } from "@/api/client";
 import { isTauri, resolveLocalPath } from "@/lib/config";
-import { openLocalPath } from "@/lib/tauri";
+import {
+  isMacOS,
+  openLocalPath,
+  quickLook,
+  quickLookRefresh,
+  quickLookIsVisible,
+} from "@/lib/tauri";
 import { isPreviewableFile } from "@/lib/filePreview";
 import type { FileEntry } from "@/types/file";
 
@@ -39,6 +45,94 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
     if (!anchor) return -1;
     return entries.findIndex((e) => e.path === anchor);
   }, [selectedFiles, entries, lastSelected]);
+
+  // Handle QuickLook navigation event from native side
+  const handleQuickLookNavigate = useCallback(
+    (direction: number) => {
+      const focusedIndex = getFocusedIndex();
+      let newIndex: number;
+
+      if (direction < 0) {
+        // Up arrow
+        newIndex = Math.max(focusedIndex - 1, 0);
+      } else {
+        // Down arrow
+        newIndex = Math.min(focusedIndex + 1, entries.length - 1);
+      }
+
+      if (newIndex >= 0 && entries[newIndex]) {
+        const entry = entries[newIndex];
+        selectFile(entry.path);
+
+        // Refresh QuickLook with new file
+        if (!entry.is_dir) {
+          const localPath = resolveLocalPath(entry.path);
+          if (localPath) {
+            void quickLookRefresh(localPath);
+          }
+        }
+      }
+    },
+    [entries, getFocusedIndex, selectFile],
+  );
+
+  // Listen for QuickLook navigation events from Tauri
+  useEffect(() => {
+    if (!isTauri() || !isMacOS()) {
+      return;
+    }
+
+    let unlisten: (() => void) | undefined;
+
+    const setupListener = async () => {
+      try {
+        const { listen } = await import("@tauri-apps/api/event");
+        unlisten = await listen<number>("quick-look-navigate", (event) => {
+          handleQuickLookNavigate(event.payload);
+        });
+      } catch {
+        // Ignore errors if Tauri is not available
+      }
+    };
+
+    void setupListener();
+
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, [handleQuickLookNavigate]);
+
+  // Update QuickLook when selection changes (e.g., via mouse click)
+  useEffect(() => {
+    if (!isTauri() || !isMacOS()) {
+      return;
+    }
+
+    const updateQuickLookIfVisible = async () => {
+      const isVisible = await quickLookIsVisible();
+      if (!isVisible) {
+        return;
+      }
+
+      // Find the selected entry
+      const selectedPath = lastSelected || Array.from(selectedFiles).pop();
+      if (!selectedPath) {
+        return;
+      }
+
+      const entry = entries.find((e) => e.path === selectedPath);
+      if (entry && !entry.is_dir) {
+        const localPath = resolveLocalPath(entry.path);
+        if (localPath) {
+          void quickLookRefresh(localPath);
+        }
+      }
+    };
+
+    void updateQuickLookIfVisible();
+  }, [lastSelected, selectedFiles, entries]);
 
   const handlePaste = useCallback(async () => {
     if (clipboard.files.length === 0) return;
@@ -156,6 +250,25 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
           break;
         }
 
+        case " ":
+        case "Spacebar": {
+          if (!isTauri() || !isMacOS()) {
+            break;
+          }
+
+          if (focusedIndex >= 0 && entries[focusedIndex]) {
+            const entry = entries[focusedIndex];
+            if (!entry.is_dir) {
+              const localPath = resolveLocalPath(entry.path);
+              if (localPath) {
+                e.preventDefault();
+                void quickLook(localPath);
+              }
+            }
+          }
+          break;
+        }
+
         case "Backspace":
         case "Delete": {
           if (selectedFiles.size > 0) {
@@ -230,6 +343,7 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
       setDeleteConfirmOpen,
       handlePaste,
       onRename,
+      openPreview,
     ],
   );
 
