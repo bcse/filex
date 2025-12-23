@@ -66,13 +66,16 @@ export function FileContextMenu({
   const localPath = !entry.is_dir ? resolveLocalPath(entry.path) : null;
   const canOpen = entry.is_dir || isPreviewable || (!!localPath && isTauri());
 
-  const handleOpen = () => {
+  const handleOpen = async () => {
     if (entry.is_dir) {
       setCurrentPath(entry.path);
       return;
     }
     if (localPath && isTauri()) {
-      void openLocalPath(localPath);
+      const opened = await openLocalPath(localPath);
+      if (!opened && isPreviewable) {
+        openPreview(entry);
+      }
       return;
     }
     if (isPreviewable) {

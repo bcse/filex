@@ -156,18 +156,21 @@ export function FileTable() {
   );
 
   const handleRowDoubleClick = useCallback(
-    (entry: FileEntry) => {
+    async (entry: FileEntry) => {
       const path = buildPath(entry);
       if (entry.is_dir) {
         setCurrentPath(path);
         return;
       }
+      const resolvedEntry = entry.path === path ? entry : { ...entry, path };
       const localPath = resolveLocalPath(path);
       if (localPath) {
-        void openLocalPath(localPath, api.getDownloadUrl(path));
+        const opened = await openLocalPath(localPath, api.getDownloadUrl(path));
+        if (!opened && isPreviewableFile(resolvedEntry)) {
+          openPreview(resolvedEntry);
+        }
         return;
       }
-      const resolvedEntry = entry.path === path ? entry : { ...entry, path };
       if (isPreviewableFile(resolvedEntry)) {
         openPreview(resolvedEntry);
         return;

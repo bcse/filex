@@ -138,7 +138,14 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
             } else {
               const localPath = resolveLocalPath(entry.path);
               if (localPath) {
-                void openLocalPath(localPath, api.getDownloadUrl(entry.path));
+                void openLocalPath(
+                  localPath,
+                  api.getDownloadUrl(entry.path),
+                ).then((opened) => {
+                  if (!opened && isPreviewableFile(entry)) {
+                    openPreview(entry);
+                  }
+                });
               } else if (isPreviewableFile(entry)) {
                 openPreview(entry);
               } else if (!isTauri()) {
