@@ -115,7 +115,7 @@ export function SearchResults() {
   );
 
   const handleRowDoubleClick = useCallback(
-    (row: ReturnType<typeof toRow>) => {
+    async (row: ReturnType<typeof toRow>) => {
       if (row.is_dir) {
         setIsSearching(false);
         setCurrentPath(row.path);
@@ -123,7 +123,13 @@ export function SearchResults() {
       }
       const localPath = resolveLocalPath(row.path);
       if (localPath) {
-        void openLocalPath(localPath, api.getDownloadUrl(row.path));
+        const opened = await openLocalPath(
+          localPath,
+          api.getDownloadUrl(row.path),
+        );
+        if (!opened && isPreviewableFile(row)) {
+          openPreview(row);
+        }
         return;
       }
       if (isPreviewableFile(row)) {
