@@ -18,7 +18,7 @@ import { useNavigationStore } from "@/stores/navigation";
 import { useAuthStore } from "@/stores/auth";
 import { getEffectiveTheme, useThemeStore } from "@/stores/theme";
 import { isTauri } from "@/lib/config";
-import { ServerSettingsDialog } from "@/components/settings/ServerSettingsDialog";
+import { SettingsDialog } from "@/components/settings/SettingsDialog";
 
 export function TopBar() {
   const {
@@ -134,7 +134,7 @@ export function TopBar() {
                 >
                   <Settings className="w-4 h-4" />
                 </Button>
-                <ServerSettingsDialog
+                <SettingsDialog
                   open={settingsOpen}
                   onOpenChange={setSettingsOpen}
                   onServerUpdated={() => window.location.reload()}

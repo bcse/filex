@@ -13,6 +13,8 @@ import { useKeyboard } from "@/hooks/useKeyboard";
 import { columns } from "./columns";
 import { FileContextMenu } from "./FileContextMenu";
 import { api } from "@/api/client";
+import { isTauri, resolveLocalPath } from "@/lib/config";
+import { openLocalPath } from "@/lib/tauri";
 import { RenameDialog } from "@/components/dialogs/RenameDialog";
 import type { FileEntry, SortField } from "@/types/file";
 import {
@@ -160,12 +162,19 @@ export function FileTable() {
         setCurrentPath(path);
         return;
       }
+      const localPath = resolveLocalPath(path);
+      if (localPath) {
+        void openLocalPath(localPath, api.getDownloadUrl(path));
+        return;
+      }
       const resolvedEntry = entry.path === path ? entry : { ...entry, path };
       if (isPreviewableFile(resolvedEntry)) {
         openPreview(resolvedEntry);
         return;
       }
-      window.open(api.getDownloadUrl(path), "_blank");
+      if (!isTauri()) {
+        window.open(api.getDownloadUrl(path), "_blank");
+      }
     },
     [buildPath, openPreview, setCurrentPath],
   );

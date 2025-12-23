@@ -4,6 +4,7 @@
   "description": "Default capabilities for Filex desktop",
   "windows": ["main"],
   "permissions": [
-    "core:default"
+    "core:default",
+    "shell:allow-open"
   ]
 }

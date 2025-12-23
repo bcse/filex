@@ -17,6 +17,8 @@ import { api } from "@/api/client";
 import { DEFAULT_PAGE_SIZE_FALLBACK } from "@/config/pagination";
 import { getParentPath } from "@/lib/utils";
 import { isPreviewableFile } from "@/lib/filePreview";
+import { isTauri, resolveLocalPath } from "@/lib/config";
+import { openLocalPath } from "@/lib/tauri";
 import type { FileEntry } from "@/types/file";
 
 interface FileContextMenuProps {
@@ -60,10 +62,16 @@ export function FileContextMenu({
   const canGoToParent = showGoToParent && selectedFiles.size <= 1;
 
   const isPreviewable = isPreviewableFile(entry);
+  const localPath = !entry.is_dir ? resolveLocalPath(entry.path) : null;
+  const canOpen = entry.is_dir || isPreviewable || (!!localPath && isTauri());
 
   const handleOpen = () => {
     if (entry.is_dir) {
       setCurrentPath(entry.path);
+      return;
+    }
+    if (localPath && isTauri()) {
+      void openLocalPath(localPath);
       return;
     }
     if (isPreviewable) {
@@ -206,7 +214,7 @@ export function FileContextMenu({
       >
         <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
         <ContextMenuContent className="w-56">
-          {(entry.is_dir || isPreviewable) && (
+          {canOpen && (
             <ContextMenuItem onClick={handleOpen}>
               <FolderOpen className="mr-2 h-4 w-4" />
               Open
@@ -221,7 +229,7 @@ export function FileContextMenu({
             </ContextMenuItem>
           )}
 
-          {!entry.is_dir && (
+          {!entry.is_dir && !isTauri() && (
             <ContextMenuItem onClick={handleDownload}>
               <Download className="mr-2 h-4 w-4" />
               Download
