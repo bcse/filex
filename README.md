@@ -27,6 +27,18 @@ docker run -d \
 
 Visit `http://localhost:3000`
 
+## Desktop Client (Tauri)
+
+Filex includes a Tauri-based desktop client in `frontend/`.
+
+```bash
+cd frontend
+npm install
+npm run tauri:dev
+```
+
+In the desktop app, open Settings to set the server URL and optional path mappings for local file opens.
+
 ## Configuration
 
 All configuration via environment variables:
