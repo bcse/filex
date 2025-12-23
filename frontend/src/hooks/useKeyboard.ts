@@ -46,9 +46,15 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
     return entries.findIndex((e) => e.path === anchor);
   }, [selectedFiles, entries, lastSelected]);
 
-  // Handle QuickLook navigation event from native side
+  // Handle QuickLook navigation event from native side (single-item mode only)
   const handleQuickLookNavigate = useCallback(
     (direction: number) => {
+      // Only handle navigation when a single item is selected
+      // Multi-item navigation is handled natively in Quick Look panel
+      if (selectedFiles.size !== 1) {
+        return;
+      }
+
       const focusedIndex = getFocusedIndex();
       let newIndex: number;
 
@@ -64,16 +70,14 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
         const entry = entries[newIndex];
         selectFile(entry.path);
 
-        // Refresh QuickLook with new file
-        if (!entry.is_dir) {
-          const localPath = resolveLocalPath(entry.path);
-          if (localPath) {
-            void quickLookRefresh(localPath);
-          }
+        // Refresh QuickLook with new item
+        const localPath = resolveLocalPath(entry.path);
+        if (localPath) {
+          void quickLookRefresh([localPath]);
         }
       }
     },
-    [entries, getFocusedIndex, selectFile],
+    [entries, getFocusedIndex, selectFile, selectedFiles.size],
   );
 
   // Listen for QuickLook navigation events from Tauri
@@ -116,18 +120,18 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
         return;
       }
 
-      // Find the selected entry
-      const selectedPath = lastSelected || Array.from(selectedFiles).pop();
-      if (!selectedPath) {
+      // Get all selected entries and resolve their local paths
+      const selectedPaths = Array.from(selectedFiles);
+      if (selectedPaths.length === 0) {
         return;
       }
 
-      const entry = entries.find((e) => e.path === selectedPath);
-      if (entry && !entry.is_dir) {
-        const localPath = resolveLocalPath(entry.path);
-        if (localPath) {
-          void quickLookRefresh(localPath);
-        }
+      const localPaths = selectedPaths
+        .map((path) => resolveLocalPath(path))
+        .filter((path): path is string => path !== null);
+
+      if (localPaths.length > 0) {
+        void quickLookRefresh(localPaths);
       }
     };
 
@@ -256,14 +260,21 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
             break;
           }
 
-          if (focusedIndex >= 0 && entries[focusedIndex]) {
-            const entry = entries[focusedIndex];
-            if (!entry.is_dir) {
-              const localPath = resolveLocalPath(entry.path);
-              if (localPath) {
-                e.preventDefault();
-                void quickLook(localPath);
-              }
+          // Get all selected items (files and folders)
+          const selectedPaths = Array.from(selectedFiles);
+          if (selectedPaths.length === 0 && focusedIndex >= 0 && entries[focusedIndex]) {
+            // No selection, use focused item
+            selectedPaths.push(entries[focusedIndex].path);
+          }
+
+          if (selectedPaths.length > 0) {
+            const localPaths = selectedPaths
+              .map((path) => resolveLocalPath(path))
+              .filter((path): path is string => path !== null);
+
+            if (localPaths.length > 0) {
+              e.preventDefault();
+              void quickLook(localPaths);
             }
           }
           break;

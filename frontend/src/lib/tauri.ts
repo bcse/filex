@@ -43,8 +43,8 @@ export const openLocalPath = async (
   }
 };
 
-export const quickLook = async (path: string): Promise<boolean> => {
-  if (!isTauri()) {
+export const quickLook = async (paths: string[]): Promise<boolean> => {
+  if (!isTauri() || paths.length === 0) {
     return false;
   }
 
@@ -53,15 +53,15 @@ export const quickLook = async (path: string): Promise<boolean> => {
 
   try {
     const { invoke } = await import("@tauri-apps/api/core");
-    return await invoke<boolean>("quick_look", { path });
+    return await invoke<boolean>("quick_look", { paths });
   } catch (error) {
-    toast.error(`Unable to open Quick Look: ${path} (${formatError(error)})`);
+    toast.error(`Unable to open Quick Look (${formatError(error)})`);
     return false;
   }
 };
 
 export const quickLookRefresh = async (
-  path: string | null,
+  paths: string[] | null,
 ): Promise<boolean> => {
   if (!isTauri()) {
     return false;
@@ -69,7 +69,7 @@ export const quickLookRefresh = async (
 
   try {
     const { invoke } = await import("@tauri-apps/api/core");
-    return await invoke<boolean>("quick_look_refresh", { path });
+    return await invoke<boolean>("quick_look_refresh", { paths });
   } catch {
     return false;
   }

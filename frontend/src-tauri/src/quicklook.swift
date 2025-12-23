@@ -7,17 +7,19 @@ typealias NavigationCallback = @convention(c) (Int32) -> Void
 class FilexQuickLookDataSource: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
     static let shared = FilexQuickLookDataSource()
 
-    var url: URL?
+    var urls: [URL] = []
+    var currentIndex: Int = 0
     var navigationCallback: NavigationCallback?
     var globalMonitor: Any?
     var localMonitor: Any?
 
     func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int {
-        url != nil ? 1 : 0
+        urls.count
     }
 
     func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> (any QLPreviewItem)! {
-        url as? any QLPreviewItem
+        guard index >= 0 && index < urls.count else { return nil }
+        return urls[index] as NSURL
     }
 
     func previewPanelDidClose(_ panel: QLPreviewPanel!) {
@@ -55,15 +57,31 @@ class FilexQuickLookDataSource: NSObject, QLPreviewPanelDataSource, QLPreviewPan
         let panel = QLPreviewPanel.shared()!
         guard panel.isVisible else { return false }
 
-        // Key codes: Up=126, Down=125, Space=49, Escape=53
+        // Key codes: Up=126, Down=125, Left=123, Right=124, Space=49, Escape=53
         switch event.keyCode {
-        case 126: // Up arrow
+        case 126, 123: // Up or Left arrow - previous item
+            if urls.count > 1 {
+                // Use built-in navigation for multiple items
+                let newIndex = currentIndex > 0 ? currentIndex - 1 : urls.count - 1
+                currentIndex = newIndex
+                panel.reloadData()
+                panel.currentPreviewItemIndex = newIndex
+            }
+            // Also notify frontend for single-item mode navigation
             if let callback = navigationCallback {
                 DispatchQueue.main.async { callback(-1) }
             }
             return true
 
-        case 125: // Down arrow
+        case 125, 124: // Down or Right arrow - next item
+            if urls.count > 1 {
+                // Use built-in navigation for multiple items
+                let newIndex = currentIndex < urls.count - 1 ? currentIndex + 1 : 0
+                currentIndex = newIndex
+                panel.reloadData()
+                panel.currentPreviewItemIndex = newIndex
+            }
+            // Also notify frontend for single-item mode navigation
             if let callback = navigationCallback {
                 DispatchQueue.main.async { callback(1) }
             }
@@ -83,35 +101,42 @@ class FilexQuickLookDataSource: NSObject, QLPreviewPanelDataSource, QLPreviewPan
     }
 }
 
-// Open QuickLook panel with a file and navigation callback
+// Open QuickLook panel with multiple files (JSON-encoded array of paths) and navigation callback
 @_cdecl("filex_quick_look_with_callback")
-func filexQuickLookWithCallback(path: UnsafePointer<CChar>?, callback: NavigationCallback?) -> Bool {
-    guard let path else { return false }
-    guard let pathString = String(validatingUTF8: path) else { return false }
+func filexQuickLookWithCallback(pathsJson: UnsafePointer<CChar>?, callback: NavigationCallback?) -> Bool {
+    guard let pathsJson else { return false }
+    guard let jsonString = String(validatingUTF8: pathsJson) else { return false }
+    guard let jsonData = jsonString.data(using: .utf8) else { return false }
 
-    let fileURL = URL(fileURLWithPath: pathString)
+    guard let paths = try? JSONDecoder().decode([String].self, from: jsonData) else { return false }
+    guard !paths.isEmpty else { return false }
+
+    let urls = paths.map { URL(fileURLWithPath: $0) }
+
     let dataSource = FilexQuickLookDataSource.shared
-    dataSource.url = fileURL
+    dataSource.urls = urls
+    dataSource.currentIndex = 0
     dataSource.navigationCallback = callback
 
     let panel = QLPreviewPanel.shared()!
     panel.dataSource = dataSource
     panel.delegate = dataSource
     panel.reloadData()
+    panel.currentPreviewItemIndex = 0
     panel.makeKeyAndOrderFront(nil)
 
     dataSource.startKeyboardMonitor()
     return true
 }
 
-// Update the preview with a new file path
+// Update the preview with new file paths (JSON-encoded array)
 @_cdecl("filex_quick_look_refresh")
-func filexQuickLookRefresh(path: UnsafePointer<CChar>?) -> Bool {
+func filexQuickLookRefresh(pathsJson: UnsafePointer<CChar>?) -> Bool {
     let panel = QLPreviewPanel.shared()!
     guard panel.isVisible else { return false }
 
-    guard let path else {
-        // Close panel if path is null
+    guard let pathsJson else {
+        // Close panel if paths is null
         panel.orderOut(nil)
         let dataSource = FilexQuickLookDataSource.shared
         dataSource.stopKeyboardMonitor()
@@ -119,12 +144,18 @@ func filexQuickLookRefresh(path: UnsafePointer<CChar>?) -> Bool {
         return true
     }
 
-    guard let pathString = String(validatingUTF8: path) else { return false }
+    guard let jsonString = String(validatingUTF8: pathsJson) else { return false }
+    guard let jsonData = jsonString.data(using: .utf8) else { return false }
+    guard let paths = try? JSONDecoder().decode([String].self, from: jsonData) else { return false }
+    guard !paths.isEmpty else { return false }
 
-    let fileURL = URL(fileURLWithPath: pathString)
+    let urls = paths.map { URL(fileURLWithPath: $0) }
+
     let dataSource = FilexQuickLookDataSource.shared
-    dataSource.url = fileURL
+    dataSource.urls = urls
+    dataSource.currentIndex = 0
     panel.reloadData()
+    panel.currentPreviewItemIndex = 0
     return true
 }
 
