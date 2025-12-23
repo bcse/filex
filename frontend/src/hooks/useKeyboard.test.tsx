@@ -201,7 +201,51 @@ describe("useKeyboard", () => {
 
     document.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
 
-    expect(mockedQuickLook).toHaveBeenCalledWith("/Users/test/a.txt");
+    expect(mockedQuickLook).toHaveBeenCalledWith(["/Users/test/a.txt"]);
+  });
+
+  it("opens Quick Look for folders on Space", () => {
+    mockedIsTauri.mockReturnValue(true);
+    mockedIsMacOS.mockReturnValue(true);
+    mockedResolveLocalPath.mockReturnValue("/Users/test/folder");
+
+    setupStore({
+      selectedFiles: new Set(["/folder"]),
+      lastSelected: "/folder",
+    });
+
+    renderHook(() =>
+      useKeyboard({
+        entries: [{ name: "folder", path: "/folder", is_dir: true }],
+      }),
+    );
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
+
+    expect(mockedQuickLook).toHaveBeenCalledWith(["/Users/test/folder"]);
+  });
+
+  it("opens Quick Look with multiple selected items", () => {
+    mockedIsTauri.mockReturnValue(true);
+    mockedIsMacOS.mockReturnValue(true);
+    mockedResolveLocalPath.mockImplementation((path) => `/Users/test${path}`);
+
+    setupStore({ selectedFiles: new Set(["/a.txt", "/b.txt"]) });
+
+    renderHook(() =>
+      useKeyboard({
+        entries: [
+          { name: "a.txt", path: "/a.txt", is_dir: false },
+          { name: "b.txt", path: "/b.txt", is_dir: false },
+        ],
+      }),
+    );
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
+
+    expect(mockedQuickLook).toHaveBeenCalledWith(
+      expect.arrayContaining(["/Users/test/a.txt", "/Users/test/b.txt"]),
+    );
   });
 
   it("copies selection on Ctrl+C", () => {
