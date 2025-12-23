@@ -1,6 +1,10 @@
 import { isTauri } from "@/lib/config";
 import { toast } from "sonner";
 
+export const isMacOS = (): boolean =>
+  typeof navigator !== "undefined" &&
+  /mac/i.test(navigator.platform || navigator.userAgent);
+
 export const openLocalPath = async (
   path: string,
   fallbackUrl?: string,
@@ -35,6 +39,64 @@ export const openLocalPath = async (
     }
   } catch (error) {
     toast.error(`Unable to open local file: ${path} (${formatError(error)})`);
+    return false;
+  }
+};
+
+export const quickLook = async (path: string): Promise<boolean> => {
+  if (!isTauri()) {
+    return false;
+  }
+
+  const formatError = (error: unknown) =>
+    error instanceof Error ? error.message : String(error);
+
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    return await invoke<boolean>("quick_look", { path });
+  } catch (error) {
+    toast.error(`Unable to open Quick Look: ${path} (${formatError(error)})`);
+    return false;
+  }
+};
+
+export const quickLookRefresh = async (
+  path: string | null,
+): Promise<boolean> => {
+  if (!isTauri()) {
+    return false;
+  }
+
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    return await invoke<boolean>("quick_look_refresh", { path });
+  } catch {
+    return false;
+  }
+};
+
+export const quickLookClose = async (): Promise<void> => {
+  if (!isTauri()) {
+    return;
+  }
+
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("quick_look_close");
+  } catch {
+    // Ignore errors
+  }
+};
+
+export const quickLookIsVisible = async (): Promise<boolean> => {
+  if (!isTauri()) {
+    return false;
+  }
+
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    return await invoke<boolean>("quick_look_is_visible");
+  } catch {
     return false;
   }
 };
