@@ -1,9 +1,11 @@
+import { useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
   ChevronRight,
   Home,
   Moon,
+  Settings,
   Sun,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +17,8 @@ import { UserMenu } from "@/components/auth/UserMenu";
 import { useNavigationStore } from "@/stores/navigation";
 import { useAuthStore } from "@/stores/auth";
 import { getEffectiveTheme, useThemeStore } from "@/stores/theme";
+import { isTauri } from "@/lib/config";
+import { ServerSettingsDialog } from "@/components/settings/ServerSettingsDialog";
 
 export function TopBar() {
   const {
@@ -29,12 +33,14 @@ export function TopBar() {
   } = useNavigationStore();
   const { authRequired, logout } = useAuthStore();
   const { theme, setTheme } = useThemeStore();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const effectiveTheme = getEffectiveTheme(theme);
   const isSearchActive = isSearching && searchQuery.length >= 2;
   const canGoBack = historyIndex > 0;
   const canGoForward = historyIndex < history.length - 1;
   const ThemeIcon = effectiveTheme === "dark" ? Moon : Sun;
+  const showSettings = isTauri();
 
   // Parse breadcrumb segments
   const segments = currentPath.split("/").filter(Boolean);
@@ -117,6 +123,24 @@ export function TopBar() {
             <div className="w-px h-6 bg-border" />
             <IndexerStatus />
             {ThemeToggleButton}
+            {showSettings && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setSettingsOpen(true)}
+                  title="Settings"
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+                <ServerSettingsDialog
+                  open={settingsOpen}
+                  onOpenChange={setSettingsOpen}
+                  onServerUpdated={() => window.location.reload()}
+                />
+              </>
+            )}
             {authRequired && logout && (
               <>
                 <div className="w-px h-6 bg-border" />
