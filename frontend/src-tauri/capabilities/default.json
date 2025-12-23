@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schemas.tauri.app/config/2/capability",
+  "identifier": "default",
+  "description": "Default capabilities for Filex desktop",
+  "windows": ["main"],
+  "permissions": [
+    "core:default"
+  ]
+}

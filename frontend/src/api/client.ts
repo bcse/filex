@@ -7,8 +7,7 @@ import type {
   SortField,
   SortOrder,
 } from "@/types/file";
-
-const API_BASE = "/api";
+import { getApiBase } from "@/lib/config";
 
 class ApiError extends Error {
   constructor(
@@ -48,7 +47,7 @@ export const api = {
     if (options.limit !== undefined) params.set("limit", String(options.limit));
     if (options.sort_by) params.set("sort_by", options.sort_by);
     if (options.sort_order) params.set("sort_order", options.sort_order);
-    const response = await fetch(`${API_BASE}/browse?${params}`, {
+    const response = await fetch(`${getApiBase()}/browse?${params}`, {
       signal: options.signal,
     });
     return handleResponse(response);
@@ -56,7 +55,7 @@ export const api = {
 
   async getTree(path: string = "/"): Promise<TreeNode[]> {
     const params = new URLSearchParams({ path });
-    const response = await fetch(`${API_BASE}/tree?${params}`);
+    const response = await fetch(`${getApiBase()}/tree?${params}`);
     return handleResponse(response);
   },
 
@@ -77,7 +76,7 @@ export const api = {
     if (options.limit !== undefined) params.set("limit", String(options.limit));
     if (options.sort_by) params.set("sort_by", options.sort_by);
     if (options.sort_order) params.set("sort_order", options.sort_order);
-    const response = await fetch(`${API_BASE}/search?${params}`, {
+    const response = await fetch(`${getApiBase()}/search?${params}`, {
       signal: options.signal,
     });
     return handleResponse(response);
@@ -85,7 +84,7 @@ export const api = {
 
   // File Operations
   async createDirectory(path: string): Promise<SuccessResponse> {
-    const response = await fetch(`${API_BASE}/files/mkdir`, {
+    const response = await fetch(`${getApiBase()}/files/mkdir`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path }),
@@ -94,7 +93,7 @@ export const api = {
   },
 
   async rename(path: string, newName: string): Promise<SuccessResponse> {
-    const response = await fetch(`${API_BASE}/files/rename`, {
+    const response = await fetch(`${getApiBase()}/files/rename`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path, new_name: newName }),
@@ -107,7 +106,7 @@ export const api = {
     to: string,
     overwrite = false,
   ): Promise<SuccessResponse> {
-    const response = await fetch(`${API_BASE}/files/move`, {
+    const response = await fetch(`${getApiBase()}/files/move`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ from, to, overwrite }),
@@ -120,7 +119,7 @@ export const api = {
     to: string,
     overwrite = false,
   ): Promise<SuccessResponse> {
-    const response = await fetch(`${API_BASE}/files/copy`, {
+    const response = await fetch(`${getApiBase()}/files/copy`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ from, to, overwrite }),
@@ -129,7 +128,7 @@ export const api = {
   },
 
   async delete(path: string): Promise<SuccessResponse> {
-    const response = await fetch(`${API_BASE}/files/delete`, {
+    const response = await fetch(`${getApiBase()}/files/delete`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path }),
@@ -139,7 +138,7 @@ export const api = {
 
   getDownloadUrl(path: string): string {
     const params = new URLSearchParams({ path });
-    return `${API_BASE}/files/download?${params}`;
+    return `${getApiBase()}/files/download?${params}`;
   },
 
   async getTextContent(
@@ -162,7 +161,7 @@ export const api = {
       formData.append("files", file);
     }
 
-    const response = await fetch(`${API_BASE}/files/upload${targetPath}`, {
+    const response = await fetch(`${getApiBase()}/files/upload${targetPath}`, {
       method: "POST",
       body: formData,
     });
@@ -217,14 +216,14 @@ export const api = {
         reject(new ApiError(0, "Upload cancelled"));
       });
 
-      xhr.open("POST", `${API_BASE}/files/upload${targetPath}`);
+      xhr.open("POST", `${getApiBase()}/files/upload${targetPath}`);
       xhr.send(formData);
     });
   },
 
   // Authentication
   async login(password: string): Promise<{ success: boolean; error?: string }> {
-    const response = await fetch(`${API_BASE}/auth/login`, {
+    const response = await fetch(`${getApiBase()}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password }),
@@ -233,7 +232,7 @@ export const api = {
   },
 
   async logout(): Promise<{ success: boolean }> {
-    const response = await fetch(`${API_BASE}/auth/logout`, {
+    const response = await fetch(`${getApiBase()}/auth/logout`, {
       method: "POST",
     });
     return handleResponse(response);
@@ -243,7 +242,7 @@ export const api = {
     authenticated: boolean;
     auth_required: boolean;
   }> {
-    const response = await fetch(`${API_BASE}/auth/status`);
+    const response = await fetch(`${getApiBase()}/auth/status`);
     return handleResponse(response);
   },
 
@@ -253,17 +252,17 @@ export const api = {
     version: string;
     ffprobe_available: boolean;
   }> {
-    const response = await fetch(`${API_BASE}/health`);
+    const response = await fetch(`${getApiBase()}/health`);
     return handleResponse(response);
   },
 
   async getIndexStatus(): Promise<{ is_running: boolean }> {
-    const response = await fetch(`${API_BASE}/index/status`);
+    const response = await fetch(`${getApiBase()}/index/status`);
     return handleResponse(response);
   },
 
   async triggerIndex(): Promise<{ is_running: boolean }> {
-    const response = await fetch(`${API_BASE}/index/trigger`, {
+    const response = await fetch(`${getApiBase()}/index/trigger`, {
       method: "POST",
     });
     return handleResponse(response);

@@ -6,14 +6,20 @@ import { TopBar } from "@/components/layout/TopBar";
 import { MainPanel } from "@/components/layout/MainPanel";
 import { UploadProgress } from "@/components/layout/UploadProgress";
 import { LoginPage } from "@/components/auth/LoginPage";
+import { ServerConfig } from "@/components/settings/ServerConfig";
 import { FilePreviewOverlay } from "@/components/preview/FilePreviewOverlay";
 import { api } from "@/api/client";
 import { useAuthStore } from "@/stores/auth";
+import { isTauri, hasServerConfig } from "@/lib/config";
 import { Loader2 } from "lucide-react";
 
 type AuthState = "loading" | "authenticated" | "unauthenticated";
 
 function App() {
+  // In Tauri mode, check if server is configured; in web mode, always true
+  const [serverConnected, setServerConnected] = useState(
+    !isTauri() || hasServerConfig(),
+  );
   const [authState, setAuthState] = useState<AuthState>("loading");
   const [queryClient] = useState(
     () =>
@@ -44,8 +50,11 @@ function App() {
   }, [setAuthRequired]);
 
   useEffect(() => {
-    checkAuthStatus();
-  }, [checkAuthStatus]);
+    // Only check auth status when server is connected
+    if (serverConnected) {
+      checkAuthStatus();
+    }
+  }, [checkAuthStatus, serverConnected]);
 
   useEffect(() => {
     // Set up the logout handler
@@ -60,6 +69,17 @@ function App() {
     // Clear any stale query cache
     queryClient.clear();
   };
+
+  const handleServerConnected = () => {
+    setServerConnected(true);
+    // Reset auth state to trigger a fresh check
+    setAuthState("loading");
+  };
+
+  // Show server configuration in Tauri mode if not connected
+  if (!serverConnected) {
+    return <ServerConfig onConnected={handleServerConnected} />;
+  }
 
   if (authState === "loading") {
     return (
