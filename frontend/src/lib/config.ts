@@ -3,6 +3,7 @@
  */
 
 const CONFIG_KEY = "filex-server-url";
+const PATH_MAPPINGS_KEY = "filex-path-mappings";
 let cachedApiBase: string | null = null;
 
 /**
@@ -75,6 +76,71 @@ export const hasServerConfig = (): boolean => {
 export const clearServerUrl = (): void => {
   localStorage.removeItem(CONFIG_KEY);
   cachedApiBase = null;
+};
+
+export type PathMapping = {
+  prefix: string;
+  target: string;
+};
+
+const normalizePrefix = (prefix: string): string => {
+  let normalized = prefix.trim();
+  if (!normalized.startsWith("/")) {
+    normalized = `/${normalized}`;
+  }
+  if (!normalized.endsWith("/")) {
+    normalized = `${normalized}/`;
+  }
+  return normalized;
+};
+
+const normalizeTarget = (target: string): string => {
+  const trimmed = target.trim();
+  if (trimmed === "/") return "/";
+  return trimmed.replace(/\/+$/, "");
+};
+
+export const getPathMappings = (): PathMapping[] => {
+  const stored = localStorage.getItem(PATH_MAPPINGS_KEY);
+  if (!stored) return [];
+  try {
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (entry) =>
+          entry &&
+          typeof entry.prefix === "string" &&
+          typeof entry.target === "string",
+      )
+      .map((entry) => ({
+        prefix: entry.prefix,
+        target: entry.target,
+      }));
+  } catch {
+    return [];
+  }
+};
+
+export const setPathMappings = (mappings: PathMapping[]): void => {
+  localStorage.setItem(PATH_MAPPINGS_KEY, JSON.stringify(mappings));
+};
+
+export const resolveLocalPath = (path: string): string | null => {
+  if (!isTauri()) return null;
+  const mappings = getPathMappings()
+    .filter((mapping) => mapping.prefix && mapping.target)
+    .sort((a, b) => b.prefix.length - a.prefix.length);
+  for (const mapping of mappings) {
+    const normalizedPrefix = normalizePrefix(mapping.prefix);
+    if (!path.startsWith(normalizedPrefix)) continue;
+    const remainder = path.slice(normalizedPrefix.length);
+    const normalizedTarget = normalizeTarget(mapping.target);
+    if (!remainder) return normalizedTarget;
+    if (normalizedTarget === "/") return `/${remainder}`;
+    return `${normalizedTarget}/${remainder}`;
+  }
+  return null;
 };
 
 /**

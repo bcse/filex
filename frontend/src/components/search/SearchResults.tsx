@@ -7,6 +7,8 @@ import { useSearch } from "@/hooks/useSearch";
 import { useMove, useCopy, useRename } from "@/hooks/useDirectory";
 import { useKeyboard } from "@/hooks/useKeyboard";
 import { api } from "@/api/client";
+import { isTauri, resolveLocalPath } from "@/lib/config";
+import { openLocalPath } from "@/lib/tauri";
 import type { SortField } from "@/types/file";
 import { searchColumns } from "@/components/table/columns";
 import { FileTableView } from "@/components/table/FileTableView";
@@ -119,11 +121,18 @@ export function SearchResults() {
         setCurrentPath(row.path);
         return;
       }
+      const localPath = resolveLocalPath(row.path);
+      if (localPath) {
+        void openLocalPath(localPath, api.getDownloadUrl(row.path));
+        return;
+      }
       if (isPreviewableFile(row)) {
         openPreview(row);
         return;
       }
-      window.open(api.getDownloadUrl(row.path), "_blank");
+      if (!isTauri()) {
+        window.open(api.getDownloadUrl(row.path), "_blank");
+      }
     },
     [openPreview, setCurrentPath, setIsSearching],
   );

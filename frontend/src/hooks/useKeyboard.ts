@@ -2,6 +2,9 @@ import { useEffect, useCallback } from "react";
 import { useNavigationStore } from "@/stores/navigation";
 import { useMove, useCopy } from "@/hooks/useDirectory";
 import { api } from "@/api/client";
+import { isTauri, resolveLocalPath } from "@/lib/config";
+import { openLocalPath } from "@/lib/tauri";
+import { isPreviewableFile } from "@/lib/filePreview";
 import type { FileEntry } from "@/types/file";
 
 interface UseKeyboardOptions {
@@ -18,6 +21,7 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
     selectFile,
     selectRange,
     clearSelection,
+    openPreview,
     copyFiles,
     cutFiles,
     clipboard,
@@ -132,7 +136,14 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
             if (entry.is_dir) {
               setCurrentPath(entry.path);
             } else {
-              window.open(api.getDownloadUrl(entry.path), "_blank");
+              const localPath = resolveLocalPath(entry.path);
+              if (localPath) {
+                void openLocalPath(localPath, api.getDownloadUrl(entry.path));
+              } else if (isPreviewableFile(entry)) {
+                openPreview(entry);
+              } else if (!isTauri()) {
+                window.open(api.getDownloadUrl(entry.path), "_blank");
+              }
             }
           }
           break;

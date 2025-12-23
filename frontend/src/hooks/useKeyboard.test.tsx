@@ -43,6 +43,7 @@ describe("useKeyboard", () => {
       selectFile: vi.fn(),
       selectRange: vi.fn(),
       clearSelection: vi.fn(),
+      openPreview: vi.fn(),
       copyFiles: vi.fn(),
       cutFiles: vi.fn(),
       clipboard: { files: [], operation: null },
@@ -124,7 +125,16 @@ describe("useKeyboard", () => {
     mockedApi.getDownloadUrl.mockReturnValue("/download/a.txt");
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 
-    renderHook(() => useKeyboard({ entries }));
+    setupStore({
+      selectedFiles: new Set(["/a.bin"]),
+      lastSelected: "/a.bin",
+    });
+
+    renderHook(() =>
+      useKeyboard({
+        entries: [{ name: "a.bin", path: "/a.bin", is_dir: false }],
+      }),
+    );
 
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
