@@ -6,6 +6,15 @@ const CONFIG_KEY = "filex-server-url";
 const PATH_MAPPINGS_KEY = "filex-path-mappings";
 let cachedApiBase: string | null = null;
 
+const normalizeServerUrl = (url: string): string => {
+  const parsed = new URL(url);
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("invalid protocol");
+  }
+  const normalized = `${parsed.origin}${parsed.pathname}`.replace(/\/+$/, "");
+  return normalized || parsed.origin;
+};
+
 /**
  * Check if running in Tauri desktop environment
  * Tauri v2 uses __TAURI_INTERNALS__ instead of __TAURI__
@@ -33,8 +42,13 @@ export const getApiBase = (): string => {
   // In Tauri mode, check localStorage for configured server
   const stored = localStorage.getItem(CONFIG_KEY);
   if (stored) {
-    cachedApiBase = stored;
-    return cachedApiBase;
+    try {
+      cachedApiBase = normalizeServerUrl(stored);
+      return cachedApiBase;
+    } catch {
+      localStorage.removeItem(CONFIG_KEY);
+      cachedApiBase = null;
+    }
   }
 
   // Default fallback for Tauri
@@ -47,7 +61,7 @@ export const getApiBase = (): string => {
  * Normalizes the URL to ensure it ends with /api
  */
 export const setServerUrl = (url: string): void => {
-  const base = url.replace(/\/+$/, ""); // Remove trailing slashes
+  const base = normalizeServerUrl(url);
   const apiBase = base.endsWith("/api") ? base : `${base}/api`;
   localStorage.setItem(CONFIG_KEY, apiBase);
   cachedApiBase = apiBase;
@@ -60,7 +74,12 @@ export const getServerUrl = (): string | null => {
   const stored = localStorage.getItem(CONFIG_KEY);
   if (!stored) return null;
   // Remove /api suffix if present
-  return stored.replace(/\/api$/, "");
+  try {
+    return normalizeServerUrl(stored.replace(/\/api$/, ""));
+  } catch {
+    localStorage.removeItem(CONFIG_KEY);
+    return null;
+  }
 };
 
 /**

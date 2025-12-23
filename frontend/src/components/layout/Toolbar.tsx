@@ -31,6 +31,7 @@ import {
 import { api } from "@/api/client";
 import { buildEntryPath } from "@/lib/utils";
 import { isTauri } from "@/lib/config";
+import { toSafeHttpUrl } from "@/lib/url";
 import type { FileEntry } from "@/types/file";
 
 export function Toolbar() {
@@ -161,7 +162,10 @@ export function Toolbar() {
   // Download
   const handleDownload = () => {
     for (const path of downloadablePaths) {
-      const url = api.getDownloadUrl(path);
+      const url = toSafeHttpUrl(api.getDownloadUrl(path));
+      if (!url) {
+        continue;
+      }
       const a = document.createElement("a");
       a.href = url;
       a.download = path.split("/").pop() || "download";

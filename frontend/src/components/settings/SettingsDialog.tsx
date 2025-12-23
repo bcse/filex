@@ -53,7 +53,13 @@ export function SettingsDialog({
     setError(null);
     setIsLoading(true);
 
-    setServerUrl(url);
+    try {
+      setServerUrl(url);
+    } catch {
+      setError("Server URL must start with http:// or https://");
+      setIsLoading(false);
+      return;
+    }
     const sanitizedMappings = mappings
       .map((mapping) => ({
         prefix: mapping.prefix.trim(),

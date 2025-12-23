@@ -13,6 +13,7 @@ import { Maximize2, Square, X, ZoomIn, ZoomOut } from "lucide-react";
 import { api } from "@/api/client";
 import { isImageFile, isTextFile, isVideoFile } from "@/lib/filePreview";
 import { cn } from "@/lib/utils";
+import { toSafeHttpUrl } from "@/lib/url";
 import { useNavigationStore } from "@/stores/navigation";
 
 const ZOOM_STEP = 1.2;
@@ -231,7 +232,8 @@ export function FilePreviewOverlay() {
 
   const handleMouseUp = () => setIsDragging(false);
 
-  const src = api.getDownloadUrl(previewEntry.path);
+  const src =
+    toSafeHttpUrl(api.getDownloadUrl(previewEntry.path)) ?? "about:blank";
 
   return (
     <div

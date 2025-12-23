@@ -19,6 +19,7 @@ import { getParentPath } from "@/lib/utils";
 import { isPreviewableFile } from "@/lib/filePreview";
 import { isTauri, resolveLocalPath } from "@/lib/config";
 import { openLocalPath } from "@/lib/tauri";
+import { toSafeHttpUrl } from "@/lib/url";
 import type { FileEntry } from "@/types/file";
 
 interface FileContextMenuProps {
@@ -86,7 +87,10 @@ export function FileContextMenu({
 
   const handleDownload = () => {
     for (const path of downloadablePaths) {
-      const url = api.getDownloadUrl(path);
+      const url = toSafeHttpUrl(api.getDownloadUrl(path));
+      if (!url) {
+        continue;
+      }
       const a = document.createElement("a");
       a.href = url;
       a.download = path.split("/").pop() || "download";
