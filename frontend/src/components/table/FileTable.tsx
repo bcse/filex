@@ -15,6 +15,7 @@ import { FileContextMenu } from "./FileContextMenu";
 import { api } from "@/api/client";
 import { isTauri, resolveLocalPath } from "@/lib/config";
 import { openLocalPath } from "@/lib/tauri";
+import { toast } from "sonner";
 import { RenameDialog } from "@/components/dialogs/RenameDialog";
 import type { FileEntry, SortField } from "@/types/file";
 import {
@@ -165,8 +166,16 @@ export function FileTable() {
       const resolvedEntry = entry.path === path ? entry : { ...entry, path };
       const localPath = resolveLocalPath(path);
       if (localPath) {
-        const opened = await openLocalPath(localPath, api.getDownloadUrl(path));
-        if (!opened && isPreviewableFile(resolvedEntry)) {
+        const result = await openLocalPath(
+          localPath,
+          api.getDownloadUrl(path),
+          { suppressMissingToast: isPreviewableFile(resolvedEntry) },
+        );
+        if (
+          !result.opened &&
+          (result.reason !== "missing" || isPreviewableFile(resolvedEntry)) &&
+          isPreviewableFile(resolvedEntry)
+        ) {
           openPreview(resolvedEntry);
         }
         return;
@@ -177,7 +186,11 @@ export function FileTable() {
       }
       if (!isTauri()) {
         window.open(api.getDownloadUrl(path), "_blank");
+        return;
       }
+      toast.error(
+        "Unable to open file. Add a path mapping in Settings to enable local opening.",
+      );
     },
     [buildPath, openPreview, setCurrentPath],
   );

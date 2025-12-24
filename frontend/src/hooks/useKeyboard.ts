@@ -2,6 +2,7 @@ import { useEffect, useCallback } from "react";
 import { useNavigationStore } from "@/stores/navigation";
 import { useMove, useCopy } from "@/hooks/useDirectory";
 import { api } from "@/api/client";
+import { toast } from "sonner";
 import { isTauri, resolveLocalPath } from "@/lib/config";
 import {
   isMacOS,
@@ -239,8 +240,14 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
                 void openLocalPath(
                   localPath,
                   api.getDownloadUrl(entry.path),
-                ).then((opened) => {
-                  if (!opened && isPreviewableFile(entry)) {
+                  { suppressMissingToast: isPreviewableFile(entry) },
+                ).then((result) => {
+                  if (
+                    !result.opened &&
+                    (result.reason !== "missing" ||
+                      isPreviewableFile(entry)) &&
+                    isPreviewableFile(entry)
+                  ) {
                     openPreview(entry);
                   }
                 });
@@ -248,6 +255,10 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
                 openPreview(entry);
               } else if (!isTauri()) {
                 window.open(api.getDownloadUrl(entry.path), "_blank");
+              } else {
+                toast.error(
+                  "Unable to open file. Add a path mapping in Settings to enable local opening.",
+                );
               }
             }
           }

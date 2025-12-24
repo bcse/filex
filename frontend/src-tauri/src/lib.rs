@@ -107,11 +107,17 @@ fn quick_look_is_visible() -> bool {
     }
 }
 
+#[tauri::command]
+fn local_path_exists(path: String) -> bool {
+    std::path::Path::new(&path).exists()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
+            local_path_exists,
             quick_look,
             quick_look_refresh,
             quick_look_close,
