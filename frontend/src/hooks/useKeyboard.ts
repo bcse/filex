@@ -262,7 +262,11 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
 
           // Get all selected items (files and folders)
           const selectedPaths = Array.from(selectedFiles);
-          if (selectedPaths.length === 0 && focusedIndex >= 0 && entries[focusedIndex]) {
+          if (
+            selectedPaths.length === 0 &&
+            focusedIndex >= 0 &&
+            entries[focusedIndex]
+          ) {
             // No selection, use focused item
             selectedPaths.push(entries[focusedIndex].path);
           }
