@@ -5,41 +5,74 @@ export const isMacOS = (): boolean =>
   typeof navigator !== "undefined" &&
   /mac/i.test(navigator.platform || navigator.userAgent);
 
+type OpenLocalPathResult =
+  | { opened: true }
+  | { opened: false; reason: "missing" | "error" | "not-tauri" };
+
 export const openLocalPath = async (
   path: string,
   fallbackUrl?: string,
-): Promise<boolean> => {
+  options: { suppressMissingToast?: boolean } = {},
+): Promise<OpenLocalPathResult> => {
   if (!isTauri()) {
     if (fallbackUrl) {
       window.open(fallbackUrl, "_blank");
     }
-    return false;
+    return { opened: false, reason: "not-tauri" };
   }
 
   const formatError = (error: unknown) =>
     error instanceof Error ? error.message : String(error);
+  const pathForCheck = path.startsWith("file://")
+    ? decodeURI(path.replace(/^file:\/\//, ""))
+    : path;
+  const formatOpenFailure = (error: unknown) => {
+    const message = formatError(error);
+    const normalized = message.toLowerCase();
+    if (
+      normalized.includes("no such file") ||
+      normalized.includes("not found") ||
+      normalized.includes("does not exist")
+    ) {
+      return `Local path not found: ${path}`;
+    }
+    return `Unable to open local file: ${path} (${message})`;
+  };
 
   try {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const exists = await invoke<boolean>("local_path_exists", {
+        path: pathForCheck,
+      });
+      if (!exists) {
+        if (!options.suppressMissingToast) {
+          toast.error(`Local path not found: ${pathForCheck}`);
+        }
+        return { opened: false, reason: "missing" };
+      }
+    } catch {
+      // If the check fails, proceed to try opening the path.
+    }
     const { open } = await import("@tauri-apps/plugin-shell");
     const fileUrl = path.startsWith("file://")
       ? path
       : `file://${path.startsWith("/") ? "" : "/"}${encodeURI(path)}`;
     try {
       await open(fileUrl);
-      return true;
+      return { opened: true };
     } catch (error) {
       try {
         await open(path);
-        return true;
+        return { opened: true };
       } catch (secondError) {
-        const message = formatError(secondError || error);
-        toast.error(`Unable to open local file: ${path} (${message})`);
-        return false;
+        toast.error(formatOpenFailure(secondError || error));
+        return { opened: false, reason: "error" };
       }
     }
   } catch (error) {
-    toast.error(`Unable to open local file: ${path} (${formatError(error)})`);
-    return false;
+    toast.error(formatOpenFailure(error));
+    return { opened: false, reason: "error" };
   }
 };
 

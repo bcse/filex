@@ -72,14 +72,24 @@ export function FileContextMenu({
       return;
     }
     if (localPath && isTauri()) {
-      const opened = await openLocalPath(localPath);
-      if (!opened && isPreviewable) {
+      const result = await openLocalPath(localPath, undefined, {
+        suppressMissingToast: isPreviewable,
+      });
+      if (
+        !result.opened &&
+        (result.reason !== "missing" || isPreviewable) &&
+        isPreviewable
+      ) {
         openPreview(entry);
       }
       return;
     }
     if (isPreviewable) {
       openPreview(entry);
+    } else if (isTauri()) {
+      toast.error(
+        "Unable to open file. Add a path mapping in Settings to enable local opening.",
+      );
     }
   };
 
