@@ -237,15 +237,12 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
             } else {
               const localPath = resolveLocalPath(entry.path);
               if (localPath) {
-                void openLocalPath(
-                  localPath,
-                  api.getDownloadUrl(entry.path),
-                  { suppressMissingToast: isPreviewableFile(entry) },
-                ).then((result) => {
+                void openLocalPath(localPath, api.getDownloadUrl(entry.path), {
+                  suppressMissingToast: isPreviewableFile(entry),
+                }).then((result) => {
                   if (
                     !result.opened &&
-                    (result.reason !== "missing" ||
-                      isPreviewableFile(entry)) &&
+                    (result.reason !== "missing" || isPreviewableFile(entry)) &&
                     isPreviewableFile(entry)
                   ) {
                     openPreview(entry);

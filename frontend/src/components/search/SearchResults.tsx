@@ -123,11 +123,16 @@ export function SearchResults() {
       }
       const localPath = resolveLocalPath(row.path);
       if (localPath) {
-        const opened = await openLocalPath(
+        const result = await openLocalPath(
           localPath,
           api.getDownloadUrl(row.path),
+          { suppressMissingToast: isPreviewableFile(row) },
         );
-        if (!opened && isPreviewableFile(row)) {
+        if (
+          !result.opened &&
+          (result.reason !== "missing" || isPreviewableFile(row)) &&
+          isPreviewableFile(row)
+        ) {
           openPreview(row);
         }
         return;
