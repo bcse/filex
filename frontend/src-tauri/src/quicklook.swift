@@ -64,8 +64,10 @@ class FilexQuickLookDataSource: NSObject, QLPreviewPanelDataSource, QLPreviewPan
                 // Use built-in navigation for multiple items
                 let newIndex = currentIndex > 0 ? currentIndex - 1 : urls.count - 1
                 currentIndex = newIndex
-                panel.reloadData()
-                panel.currentPreviewItemIndex = newIndex
+                DispatchQueue.main.async {
+                    panel.reloadData()
+                    panel.currentPreviewItemIndex = newIndex
+                }
             }
             // Also notify frontend for single-item mode navigation
             if let callback = navigationCallback {
@@ -78,8 +80,10 @@ class FilexQuickLookDataSource: NSObject, QLPreviewPanelDataSource, QLPreviewPan
                 // Use built-in navigation for multiple items
                 let newIndex = currentIndex < urls.count - 1 ? currentIndex + 1 : 0
                 currentIndex = newIndex
-                panel.reloadData()
-                panel.currentPreviewItemIndex = newIndex
+                DispatchQueue.main.async {
+                    panel.reloadData()
+                    panel.currentPreviewItemIndex = newIndex
+                }
             }
             // Also notify frontend for single-item mode navigation
             if let callback = navigationCallback {
