@@ -34,14 +34,22 @@ export function SettingsDialog({
   onServerUpdated,
 }: SettingsDialogProps) {
   const [url, setUrl] = useState("http://localhost:3000");
-  const [mappings, setMappings] = useState<PathMapping[]>([]);
+  const [mappings, setMappings] = useState<Array<PathMapping & { id: string }>>(
+    [],
+  );
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const createMappingRow = (mapping?: PathMapping) => ({
+    id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+    prefix: mapping?.prefix ?? "",
+    target: mapping?.target ?? "",
+  });
 
   useEffect(() => {
     if (!open) return;
     setUrl(getServerUrl() || "http://localhost:3000");
-    setMappings(getPathMappings());
+    setMappings(getPathMappings().map((mapping) => createMappingRow(mapping)));
     setError(null);
   }, [open]);
 
@@ -89,13 +97,13 @@ export function SettingsDialog({
   };
 
   const updateMapping = (
-    index: number,
+    id: string,
     field: "prefix" | "target",
     value: string,
   ) => {
     setMappings((current) =>
-      current.map((mapping, currentIndex) =>
-        currentIndex === index
+      current.map((mapping) =>
+        mapping.id === id
           ? {
               ...mapping,
               [field]: value,
@@ -106,13 +114,11 @@ export function SettingsDialog({
   };
 
   const addMapping = () => {
-    setMappings((current) => [...current, { prefix: "", target: "" }]);
+    setMappings((current) => [...current, createMappingRow()]);
   };
 
-  const removeMapping = (index: number) => {
-    setMappings((current) =>
-      current.filter((_, currentIndex) => currentIndex !== index),
-    );
+  const removeMapping = (id: string) => {
+    setMappings((current) => current.filter((mapping) => mapping.id !== id));
   };
 
   return (
@@ -176,16 +182,13 @@ export function SettingsDialog({
               </div>
             ) : (
               <div className="space-y-2">
-                {mappings.map((mapping, index) => (
-                  <div
-                    key={`${mapping.prefix}-${index}`}
-                    className="flex gap-2"
-                  >
+                {mappings.map((mapping) => (
+                  <div key={mapping.id} className="flex gap-2">
                     <Input
                       placeholder="/remote_dir/"
                       value={mapping.prefix}
                       onChange={(e) =>
-                        updateMapping(index, "prefix", e.target.value)
+                        updateMapping(mapping.id, "prefix", e.target.value)
                       }
                       disabled={isLoading}
                     />
@@ -193,7 +196,7 @@ export function SettingsDialog({
                       placeholder="/local_dir/"
                       value={mapping.target}
                       onChange={(e) =>
-                        updateMapping(index, "target", e.target.value)
+                        updateMapping(mapping.id, "target", e.target.value)
                       }
                       disabled={isLoading}
                     />
@@ -201,7 +204,7 @@ export function SettingsDialog({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      onClick={() => removeMapping(index)}
+                      onClick={() => removeMapping(mapping.id)}
                       disabled={isLoading}
                       title="Remove mapping"
                     >
