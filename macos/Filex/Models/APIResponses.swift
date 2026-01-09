@@ -1,7 +1,7 @@
 import Foundation
 
 /// Response from GET /api/browse
-struct ListResponse: Codable, Sendable {
+nonisolated struct ListResponse: Codable, Sendable {
     let path: String?
     let entries: [FileEntry]
     let offset: Int
@@ -35,7 +35,7 @@ struct ListResponse: Codable, Sendable {
 }
 
 /// Response from GET /api/search
-struct SearchResponse: Codable, Sendable {
+nonisolated struct SearchResponse: Codable, Sendable {
     let query: String
     let entries: [FileEntry]
     let offset: Int
@@ -69,7 +69,7 @@ struct SearchResponse: Codable, Sendable {
 }
 
 /// Generic success response from file operations
-struct SuccessResponse: Codable, Sendable {
+nonisolated struct SuccessResponse: Codable, Sendable {
     let success: Bool
     let path: String?
     let message: String?
@@ -77,12 +77,12 @@ struct SuccessResponse: Codable, Sendable {
 }
 
 /// Error response from the server
-struct ErrorResponse: Codable, Sendable {
+nonisolated struct ErrorResponse: Codable, Sendable {
     let error: String
 }
 
 /// Response from GET /api/auth/status
-struct AuthStatus: Codable, Sendable {
+nonisolated struct AuthStatus: Codable, Sendable {
     let authenticated: Bool
     let authRequired: Bool
 
@@ -93,13 +93,13 @@ struct AuthStatus: Codable, Sendable {
 }
 
 /// Response from POST /api/auth/login
-struct AuthResponse: Codable, Sendable {
+nonisolated struct AuthResponse: Codable, Sendable {
     let success: Bool
     let error: String?
 }
 
 /// Response from GET /api/health
-struct HealthResponse: Codable, Sendable {
+nonisolated struct HealthResponse: Codable, Sendable {
     let status: String
     let version: String?
     let gitCommit: String?
@@ -115,7 +115,7 @@ struct HealthResponse: Codable, Sendable {
         case databaseStatus = "database_status"
     }
 
-    struct DatabaseStatus: Codable, Sendable {
+    nonisolated struct DatabaseStatus: Codable, Sendable {
         let connected: Bool
         let error: String?
     }
@@ -126,7 +126,7 @@ struct HealthResponse: Codable, Sendable {
 }
 
 /// Response from GET /api/statistics
-struct StatisticsResponse: Codable, Sendable {
+nonisolated struct StatisticsResponse: Codable, Sendable {
     let lastIndexedAt: String?
     let totalFilesCount: Int?
     let totalSize: String?
@@ -139,7 +139,7 @@ struct StatisticsResponse: Codable, Sendable {
 }
 
 /// Response from GET /api/index/status
-struct IndexStatus: Codable, Sendable {
+nonisolated struct IndexStatus: Codable, Sendable {
     let isRunning: Bool
 
     enum CodingKeys: String, CodingKey {

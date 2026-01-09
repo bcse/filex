@@ -1,7 +1,7 @@
 import Foundation
 
 /// Represents a node in the directory tree for the sidebar
-struct TreeNode: Codable, Identifiable, Hashable, Sendable {
+nonisolated struct TreeNode: Codable, Identifiable, Hashable, Sendable {
     let name: String
     let path: String
     let hasChildren: Bool
