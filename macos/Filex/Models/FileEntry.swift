@@ -1,7 +1,7 @@
 import Foundation
 
 /// Represents a file or directory entry from the Filex server
-struct FileEntry: Codable, Identifiable, Hashable, Sendable {
+nonisolated struct FileEntry: Codable, Identifiable, Hashable, Sendable {
     /// Database ID (may be nil for non-indexed files)
     var dbId: Int?
     let name: String

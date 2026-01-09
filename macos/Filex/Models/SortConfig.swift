@@ -13,7 +13,7 @@ enum SortField: String, CaseIterable, Sendable {
     case duration
 
     /// Value used in API requests
-    var apiValue: String {
+    nonisolated var apiValue: String {
         switch self {
         case .mimeType: return "type"
         case .width, .height: return "resolutions"
