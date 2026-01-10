@@ -7,8 +7,20 @@
 
 import SwiftUI
 
+// MARK: - App Delegate
+
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        true
+    }
+}
+
 @main
 struct FilexApp: App {
+    // MARK: - App Delegate
+
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
     // MARK: - State
 
     @State private var serverConfig = ServerConfiguration()
