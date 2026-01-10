@@ -78,33 +78,6 @@ The app maps remote server paths to local filesystem paths via `ServerConfigurat
 - Quick Look preview using local files
 - Configured in Settings → Path Mappings tab
 
-## Verification Workflow
-
-**IMPORTANT**: After implementing a feature or fixing a bug, always run the test server and the app to verify the work. Do not assume changes are correct without manual verification. Use Peekaboo to automate UI testing.
-
-```bash
-# 1. Start the backend test server (from backend directory)
-cd ../backend && FM_ROOT_PATH=../testdata FM_DATABASE_PATH=./data/filex.db FM_PORT=3434 cargo run &
-
-# 2. Build and run the macOS app
-xcodebuild -project Filex.xcodeproj -scheme Filex -configuration Debug -derivedDataPath ./.build build
-open ./.build/Build/Products/Debug/Filex.app
-
-# 3. Use Peekaboo to verify UI behavior
-peekaboo app switch --to Filex
-peekaboo see --app Filex --annotate --path /tmp/filex-test.png
-peekaboo click --app Filex --on <element_id>
-peekaboo press <key> --app Filex
-```
-
-### Peekaboo Testing Tips
-
-- Always use `peekaboo see --annotate` to capture UI state and get element IDs
-- Use `--app Filex` to target the app specifically
-- Use `peekaboo press` for keyboard input (space, arrow keys, escape, etc.)
-- View annotated screenshots with the Read tool to inspect UI state
-- Verify features work before claiming they are fixed
-
 ## Key Patterns
 
 - ViewModels use `Task` for async operations with cancellation support
