@@ -41,8 +41,6 @@ struct FilexToolbarContent: ToolbarContent {
             }
             .help("Upload Files")
 
-            Divider()
-
             Button(action: {
                 NotificationCenter.default.post(name: .renameRequested, object: nil)
             }) {
