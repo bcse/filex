@@ -2,15 +2,6 @@ import { useEffect, useCallback } from "react";
 import { useNavigationStore } from "@/stores/navigation";
 import { useMove, useCopy } from "@/hooks/useDirectory";
 import { api } from "@/api/client";
-import { toast } from "sonner";
-import { isTauri, resolveLocalPath } from "@/lib/config";
-import {
-  isMacOS,
-  openLocalPath,
-  quickLook,
-  quickLookRefresh,
-  quickLookIsVisible,
-} from "@/lib/tauri";
 import { isPreviewableFile } from "@/lib/filePreview";
 import type { FileEntry } from "@/types/file";
 
@@ -46,98 +37,6 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
     if (!anchor) return -1;
     return entries.findIndex((e) => e.path === anchor);
   }, [selectedFiles, entries, lastSelected]);
-
-  // Handle QuickLook navigation event from native side (single-item mode only)
-  const handleQuickLookNavigate = useCallback(
-    (direction: number) => {
-      // Only handle navigation when a single item is selected
-      // Multi-item navigation is handled natively in Quick Look panel
-      if (selectedFiles.size !== 1) {
-        return;
-      }
-
-      const focusedIndex = getFocusedIndex();
-      let newIndex: number;
-
-      if (direction < 0) {
-        // Up arrow
-        newIndex = Math.max(focusedIndex - 1, 0);
-      } else {
-        // Down arrow
-        newIndex = Math.min(focusedIndex + 1, entries.length - 1);
-      }
-
-      if (newIndex >= 0 && entries[newIndex]) {
-        const entry = entries[newIndex];
-        selectFile(entry.path);
-
-        // Refresh QuickLook with new item
-        const localPath = resolveLocalPath(entry.path);
-        if (localPath) {
-          void quickLookRefresh([localPath]);
-        }
-      }
-    },
-    [entries, getFocusedIndex, selectFile, selectedFiles.size],
-  );
-
-  // Listen for QuickLook navigation events from Tauri
-  useEffect(() => {
-    if (!isTauri() || !isMacOS()) {
-      return;
-    }
-
-    let unlisten: (() => void) | undefined;
-
-    const setupListener = async () => {
-      try {
-        const { listen } = await import("@tauri-apps/api/event");
-        unlisten = await listen<number>("quick-look-navigate", (event) => {
-          handleQuickLookNavigate(event.payload);
-        });
-      } catch {
-        // Ignore errors if Tauri is not available
-      }
-    };
-
-    void setupListener();
-
-    return () => {
-      if (unlisten) {
-        unlisten();
-      }
-    };
-  }, [handleQuickLookNavigate]);
-
-  // Update QuickLook when selection changes (e.g., via mouse click)
-  useEffect(() => {
-    if (!isTauri() || !isMacOS()) {
-      return;
-    }
-
-    const updateQuickLookIfVisible = async () => {
-      const isVisible = await quickLookIsVisible();
-      if (!isVisible) {
-        return;
-      }
-
-      // Get all selected entries and resolve their local paths
-      const selectedPaths = Array.from(selectedFiles);
-      if (selectedPaths.length === 0) {
-        return;
-      }
-
-      const localPaths = selectedPaths
-        .map((path) => resolveLocalPath(path))
-        .filter((path): path is string => path !== null);
-
-      if (localPaths.length > 0) {
-        void quickLookRefresh(localPaths);
-      }
-    };
-
-    void updateQuickLookIfVisible();
-  }, [lastSelected, selectedFiles, entries]);
 
   const handlePaste = useCallback(async () => {
     if (clipboard.files.length === 0) return;
@@ -234,59 +133,10 @@ export function useKeyboard({ entries, onRename }: UseKeyboardOptions) {
             const entry = entries[focusedIndex];
             if (entry.is_dir) {
               setCurrentPath(entry.path);
+            } else if (isPreviewableFile(entry)) {
+              openPreview(entry);
             } else {
-              const localPath = resolveLocalPath(entry.path);
-              if (localPath) {
-                void openLocalPath(localPath, api.getDownloadUrl(entry.path), {
-                  suppressMissingToast: isPreviewableFile(entry),
-                }).then((result) => {
-                  if (
-                    !result.opened &&
-                    (result.reason !== "missing" || isPreviewableFile(entry)) &&
-                    isPreviewableFile(entry)
-                  ) {
-                    openPreview(entry);
-                  }
-                });
-              } else if (isPreviewableFile(entry)) {
-                openPreview(entry);
-              } else if (!isTauri()) {
-                window.open(api.getDownloadUrl(entry.path), "_blank");
-              } else {
-                toast.error(
-                  "Unable to open file. Add a path mapping in Settings to enable local opening.",
-                );
-              }
-            }
-          }
-          break;
-        }
-
-        case " ":
-        case "Spacebar": {
-          if (!isTauri() || !isMacOS()) {
-            break;
-          }
-
-          // Get all selected items (files and folders)
-          const selectedPaths = Array.from(selectedFiles);
-          if (
-            selectedPaths.length === 0 &&
-            focusedIndex >= 0 &&
-            entries[focusedIndex]
-          ) {
-            // No selection, use focused item
-            selectedPaths.push(entries[focusedIndex].path);
-          }
-
-          if (selectedPaths.length > 0) {
-            const localPaths = selectedPaths
-              .map((path) => resolveLocalPath(path))
-              .filter((path): path is string => path !== null);
-
-            if (localPaths.length > 0) {
-              e.preventDefault();
-              void quickLook(localPaths);
+              window.open(api.getDownloadUrl(entry.path), "_blank");
             }
           }
           break;

@@ -13,9 +13,6 @@ import { useKeyboard } from "@/hooks/useKeyboard";
 import { columns } from "./columns";
 import { FileContextMenu } from "./FileContextMenu";
 import { api } from "@/api/client";
-import { isTauri, resolveLocalPath } from "@/lib/config";
-import { openLocalPath } from "@/lib/tauri";
-import { toast } from "sonner";
 import { RenameDialog } from "@/components/dialogs/RenameDialog";
 import type { FileEntry, SortField } from "@/types/file";
 import {
@@ -164,33 +161,11 @@ export function FileTable() {
         return;
       }
       const resolvedEntry = entry.path === path ? entry : { ...entry, path };
-      const localPath = resolveLocalPath(path);
-      if (localPath) {
-        const result = await openLocalPath(
-          localPath,
-          api.getDownloadUrl(path),
-          { suppressMissingToast: isPreviewableFile(resolvedEntry) },
-        );
-        if (
-          !result.opened &&
-          (result.reason !== "missing" || isPreviewableFile(resolvedEntry)) &&
-          isPreviewableFile(resolvedEntry)
-        ) {
-          openPreview(resolvedEntry);
-        }
-        return;
-      }
       if (isPreviewableFile(resolvedEntry)) {
         openPreview(resolvedEntry);
         return;
       }
-      if (!isTauri()) {
-        window.open(api.getDownloadUrl(path), "_blank");
-        return;
-      }
-      toast.error(
-        "Unable to open file. Add a path mapping in Settings to enable local opening.",
-      );
+      window.open(api.getDownloadUrl(path), "_blank");
     },
     [buildPath, openPreview, setCurrentPath],
   );

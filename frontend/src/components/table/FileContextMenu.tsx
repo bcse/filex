@@ -17,8 +17,6 @@ import { api } from "@/api/client";
 import { DEFAULT_PAGE_SIZE_FALLBACK } from "@/config/pagination";
 import { getParentPath } from "@/lib/utils";
 import { isPreviewableFile } from "@/lib/filePreview";
-import { isTauri, resolveLocalPath } from "@/lib/config";
-import { openLocalPath } from "@/lib/tauri";
 import { toSafeHttpUrl } from "@/lib/url";
 import type { FileEntry } from "@/types/file";
 
@@ -63,33 +61,15 @@ export function FileContextMenu({
   const canGoToParent = showGoToParent && selectedFiles.size <= 1;
 
   const isPreviewable = isPreviewableFile(entry);
-  const localPath = !entry.is_dir ? resolveLocalPath(entry.path) : null;
-  const canOpen = entry.is_dir || isPreviewable || (!!localPath && isTauri());
+  const canOpen = entry.is_dir || isPreviewable;
 
   const handleOpen = async () => {
     if (entry.is_dir) {
       setCurrentPath(entry.path);
       return;
     }
-    if (localPath && isTauri()) {
-      const result = await openLocalPath(localPath, undefined, {
-        suppressMissingToast: isPreviewable,
-      });
-      if (
-        !result.opened &&
-        (result.reason !== "missing" || isPreviewable) &&
-        isPreviewable
-      ) {
-        openPreview(entry);
-      }
-      return;
-    }
     if (isPreviewable) {
       openPreview(entry);
-    } else if (isTauri()) {
-      toast.error(
-        "Unable to open file. Add a path mapping in Settings to enable local opening.",
-      );
     }
   };
 
@@ -246,7 +226,7 @@ export function FileContextMenu({
             </ContextMenuItem>
           )}
 
-          {!entry.is_dir && !isTauri() && (
+          {!entry.is_dir && (
             <ContextMenuItem onClick={handleDownload}>
               <Download className="mr-2 h-4 w-4" />
               Download

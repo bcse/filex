@@ -3,8 +3,6 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { useKeyboard } from "./useKeyboard";
 import { useNavigationStore } from "@/stores/navigation";
 import { api } from "@/api/client";
-import { isTauri, resolveLocalPath } from "@/lib/config";
-import { isMacOS, quickLook } from "@/lib/tauri";
 import type { FileEntry } from "@/types/file";
 
 const moveMock = vi.fn();
@@ -21,34 +19,12 @@ vi.mock("@/api/client", () => ({
   },
 }));
 
-vi.mock("@/lib/config", async () => {
-  const actual =
-    await vi.importActual<typeof import("@/lib/config")>("@/lib/config");
-  return {
-    ...actual,
-    isTauri: vi.fn(),
-    resolveLocalPath: vi.fn(),
-  };
-});
-
-vi.mock("@/lib/tauri", () => ({
-  openLocalPath: vi.fn(),
-  quickLook: vi.fn(),
-  quickLookRefresh: vi.fn(),
-  quickLookIsVisible: vi.fn().mockResolvedValue(false),
-  isMacOS: vi.fn(),
-}));
-
 vi.mock("@/stores/navigation", () => ({
   useNavigationStore: vi.fn(),
 }));
 
 const mockedUseNavigationStore = vi.mocked(useNavigationStore);
 const mockedApi = vi.mocked(api);
-const mockedIsTauri = vi.mocked(isTauri);
-const mockedResolveLocalPath = vi.mocked(resolveLocalPath);
-const mockedIsMacOS = vi.mocked(isMacOS);
-const mockedQuickLook = vi.mocked(quickLook);
 
 describe("useKeyboard", () => {
   const entries: FileEntry[] = [
@@ -79,14 +55,14 @@ describe("useKeyboard", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockedIsTauri.mockReturnValue(false);
-    mockedResolveLocalPath.mockReturnValue(null);
-    mockedIsMacOS.mockReturnValue(false);
     setupStore({});
   });
 
   afterEach(() => {
-    document.body.innerHTML = "";
+    // Clean up DOM after each test
+    while (document.body.firstChild) {
+      document.body.removeChild(document.body.firstChild);
+    }
   });
 
   it("selects next entry on ArrowDown", () => {
@@ -186,66 +162,6 @@ describe("useKeyboard", () => {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
 
     expect(setCurrentPath).toHaveBeenCalledWith("/dir");
-  });
-
-  it("opens Quick Look on Space in macOS Tauri mode", () => {
-    mockedIsTauri.mockReturnValue(true);
-    mockedIsMacOS.mockReturnValue(true);
-    mockedResolveLocalPath.mockReturnValue("/Users/test/a.txt");
-
-    renderHook(() =>
-      useKeyboard({
-        entries: [{ name: "a.txt", path: "/a.txt", is_dir: false }],
-      }),
-    );
-
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
-
-    expect(mockedQuickLook).toHaveBeenCalledWith(["/Users/test/a.txt"]);
-  });
-
-  it("opens Quick Look for folders on Space", () => {
-    mockedIsTauri.mockReturnValue(true);
-    mockedIsMacOS.mockReturnValue(true);
-    mockedResolveLocalPath.mockReturnValue("/Users/test/folder");
-
-    setupStore({
-      selectedFiles: new Set(["/folder"]),
-      lastSelected: "/folder",
-    });
-
-    renderHook(() =>
-      useKeyboard({
-        entries: [{ name: "folder", path: "/folder", is_dir: true }],
-      }),
-    );
-
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
-
-    expect(mockedQuickLook).toHaveBeenCalledWith(["/Users/test/folder"]);
-  });
-
-  it("opens Quick Look with multiple selected items", () => {
-    mockedIsTauri.mockReturnValue(true);
-    mockedIsMacOS.mockReturnValue(true);
-    mockedResolveLocalPath.mockImplementation((path) => `/Users/test${path}`);
-
-    setupStore({ selectedFiles: new Set(["/a.txt", "/b.txt"]) });
-
-    renderHook(() =>
-      useKeyboard({
-        entries: [
-          { name: "a.txt", path: "/a.txt", is_dir: false },
-          { name: "b.txt", path: "/b.txt", is_dir: false },
-        ],
-      }),
-    );
-
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
-
-    expect(mockedQuickLook).toHaveBeenCalledWith(
-      expect.arrayContaining(["/Users/test/a.txt", "/Users/test/b.txt"]),
-    );
   });
 
   it("copies selection on Ctrl+C", () => {

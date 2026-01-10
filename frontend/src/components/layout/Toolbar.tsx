@@ -30,7 +30,6 @@ import {
 } from "@/hooks/useDirectory";
 import { api } from "@/api/client";
 import { buildEntryPath } from "@/lib/utils";
-import { isTauri } from "@/lib/config";
 import { toSafeHttpUrl } from "@/lib/url";
 import type { FileEntry } from "@/types/file";
 
@@ -80,7 +79,6 @@ export function Toolbar() {
     [entryLookup, selectedArray],
   );
   const hasDownloadableSelection = downloadablePaths.length > 0;
-  const showDownload = !isTauri();
 
   // New Folder
   const handleNewFolder = () => {
@@ -249,19 +247,17 @@ export function Toolbar() {
           <span className="sr-only">Rename</span>
         </Button>
 
-        {showDownload && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={handleDownload}
-            disabled={!hasDownloadableSelection || isLoading}
-            title="Download"
-          >
-            <Download className="w-4 h-4" />
-            <span className="sr-only">Download</span>
-          </Button>
-        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={handleDownload}
+          disabled={!hasDownloadableSelection || isLoading}
+          title="Download"
+        >
+          <Download className="w-4 h-4" />
+          <span className="sr-only">Download</span>
+        </Button>
 
         <Button
           variant="ghost"
