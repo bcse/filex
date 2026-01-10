@@ -26,6 +26,9 @@ private final class FilePreviewItem: NSObject, QLPreviewItem {
 // MARK: - Custom NSTableView with Quick Look Support
 
 private final class QuickLookTableView: NSTableView {
+    /// Callback to trigger rename mode
+    var onReturnKey: (() -> Void)?
+
     override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool {
         MainActor.assumeIsolated {
             guard delegate is QLPreviewPanelDataSource,
@@ -59,6 +62,12 @@ private final class QuickLookTableView: NSTableView {
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 49 { // Space key
             toggleQuickLook()
+        } else if event.keyCode == 36 { // Return key
+            // Only trigger rename if we have a single selection
+            // When a text field is editing, it will be first responder and this won't be called
+            if selectedRowIndexes.count == 1 {
+                onReturnKey?()
+            }
         } else {
             super.keyDown(with: event)
         }
@@ -84,6 +93,7 @@ struct NSFileTableView: NSViewRepresentable {
     let onDoubleClick: (FileEntry) -> Void
     let onRename: (FileEntry, String) -> Void
     let onSort: (SortField, SortOrder) -> Void
+    let onReturnKey: () -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -150,6 +160,11 @@ struct NSFileTableView: NSViewRepresentable {
         tableView.dataSource = context.coordinator
         tableView.target = context.coordinator
         tableView.doubleAction = #selector(Coordinator.handleDoubleClick(_:))
+
+        let coordinator = context.coordinator
+        tableView.onReturnKey = { [weak coordinator] in
+            coordinator?.parent.onReturnKey()
+        }
 
         scrollView.documentView = tableView
         context.coordinator.tableView = tableView
@@ -529,15 +544,11 @@ struct FileTableView: View {
             },
             onSort: { field, order in
                 handleSort(field: field, order: order)
+            },
+            onReturnKey: {
+                startRenaming()
             }
         )
-        .onKeyPress(.return) {
-            if navigationState.hasSingleSelection {
-                startRenaming()
-                return .handled
-            }
-            return .ignored
-        }
         .contextMenu(forSelectionType: String.self) { paths in
             FileContextMenu(selectedPaths: paths)
         }
