@@ -111,3 +111,9 @@ peekaboo press <key> --app Filex
 - `@MainActor` isolation on all ViewModels and NavigationState
 - Custom EnvironmentKeys for each observable type
 - Server-side sorting via API parameters (not client-side)
+
+## Git Workflow
+
+- Do NOT stage changes (`git add`) unless the user explicitly asks
+- Do NOT commit unless the user explicitly asks
+- Only use `/commit` skill when the user requests a commit

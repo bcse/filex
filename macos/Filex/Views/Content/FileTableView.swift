@@ -94,6 +94,17 @@ struct NSFileTableView: NSViewRepresentable {
     let onRename: (FileEntry, String) -> Void
     let onSort: (SortField, SortOrder) -> Void
     let onReturnKey: () -> Void
+    let onContextMenuAction: (ContextMenuAction, Set<String>) -> Void
+
+    enum ContextMenuAction {
+        case open
+        case quickLook
+        case copy
+        case cut
+        case paste
+        case rename
+        case delete
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -166,6 +177,11 @@ struct NSFileTableView: NSViewRepresentable {
             coordinator?.parent.onReturnKey()
         }
 
+        // Set up context menu
+        let menu = NSMenu()
+        menu.delegate = context.coordinator
+        tableView.menu = menu
+
         scrollView.documentView = tableView
         context.coordinator.tableView = tableView
 
@@ -196,7 +212,7 @@ struct NSFileTableView: NSViewRepresentable {
 
     // MARK: - Coordinator
 
-    class Coordinator: NSObject, NSTableViewDelegate, NSTableViewDataSource, NSTextFieldDelegate {
+    class Coordinator: NSObject, NSTableViewDelegate, NSTableViewDataSource, NSTextFieldDelegate, NSMenuDelegate {
         var parent: NSFileTableView
         var entries: [FileEntry] = []
         weak var tableView: NSTableView?
@@ -204,6 +220,130 @@ struct NSFileTableView: NSViewRepresentable {
         init(_ parent: NSFileTableView) {
             self.parent = parent
             self.entries = parent.entries
+        }
+
+        // MARK: - NSMenuDelegate
+
+        func menuNeedsUpdate(_ menu: NSMenu) {
+            menu.removeAllItems()
+
+            guard let tableView = tableView else { return }
+
+            // Get clicked row - if clicking on unselected row, select it first
+            let clickedRow = tableView.clickedRow
+            if clickedRow >= 0 && !tableView.selectedRowIndexes.contains(clickedRow) {
+                tableView.selectRowIndexes(IndexSet(integer: clickedRow), byExtendingSelection: false)
+            }
+
+            // Get selected paths
+            var selectedPaths = Set<String>()
+            for index in tableView.selectedRowIndexes {
+                if index < entries.count {
+                    selectedPaths.insert(entries[index].path)
+                }
+            }
+
+            guard !selectedPaths.isEmpty else { return }
+
+            // Open
+            let openItem = NSMenuItem(title: "Open", action: #selector(contextMenuOpen(_:)), keyEquivalent: "")
+            openItem.target = self
+            openItem.representedObject = selectedPaths
+            openItem.image = NSImage(systemSymbolName: "arrow.up.forward.square", accessibilityDescription: "Open")
+            menu.addItem(openItem)
+
+            // Open With submenu (single file selection only, with local path)
+            if selectedPaths.count == 1,
+               let path = selectedPaths.first,
+               let entry = entries.first(where: { $0.path == path }),
+               !entry.isDir,
+               let localURL = parent.pathResolver(path) {
+                let openWithItem = NSMenuItem(title: "Open With", action: nil, keyEquivalent: "")
+                openWithItem.image = NSImage(systemSymbolName: "arrow.up.forward.app", accessibilityDescription: "Open With")
+
+                let submenu = NSMenu()
+                let appURLs = NSWorkspace.shared.urlsForApplications(toOpen: localURL)
+
+                if appURLs.isEmpty {
+                    let noAppsItem = NSMenuItem(title: "No Applications", action: nil, keyEquivalent: "")
+                    noAppsItem.isEnabled = false
+                    submenu.addItem(noAppsItem)
+                } else {
+                    for appURL in appURLs.prefix(15) { // Limit to 15 apps
+                        let appName = FileManager.default.displayName(atPath: appURL.path)
+                        let appItem = NSMenuItem(title: appName, action: #selector(contextMenuOpenWith(_:)), keyEquivalent: "")
+                        appItem.target = self
+                        appItem.representedObject = ["fileURL": localURL, "appURL": appURL]
+
+                        // Get app icon
+                        let appIcon = NSWorkspace.shared.icon(forFile: appURL.path)
+                        appIcon.size = NSSize(width: 16, height: 16)
+                        appItem.image = appIcon
+
+                        submenu.addItem(appItem)
+                    }
+                }
+
+                openWithItem.submenu = submenu
+                menu.addItem(openWithItem)
+            }
+
+            // Quick Look
+            let quickLookItem = NSMenuItem(title: "Quick Look", action: #selector(contextMenuQuickLook(_:)), keyEquivalent: "")
+            quickLookItem.target = self
+            quickLookItem.representedObject = selectedPaths
+            quickLookItem.image = NSImage(systemSymbolName: "eye", accessibilityDescription: "Quick Look")
+            menu.addItem(quickLookItem)
+
+            menu.addItem(NSMenuItem.separator())
+
+            // Rename (single selection only)
+            if selectedPaths.count == 1 {
+                let renameItem = NSMenuItem(title: "Rename", action: #selector(contextMenuRename(_:)), keyEquivalent: "")
+                renameItem.target = self
+                renameItem.representedObject = selectedPaths
+                renameItem.image = NSImage(systemSymbolName: "pencil", accessibilityDescription: "Rename")
+                menu.addItem(renameItem)
+            }
+
+            // Delete
+            let deleteItem = NSMenuItem(title: "Delete", action: #selector(contextMenuDelete(_:)), keyEquivalent: "")
+            deleteItem.target = self
+            deleteItem.representedObject = selectedPaths
+            deleteItem.image = NSImage(systemSymbolName: "trash", accessibilityDescription: "Delete")
+            menu.addItem(deleteItem)
+        }
+
+        @objc private func contextMenuOpen(_ sender: NSMenuItem) {
+            guard let paths = sender.representedObject as? Set<String> else { return }
+            parent.onContextMenuAction(.open, paths)
+        }
+
+        @objc private func contextMenuOpenWith(_ sender: NSMenuItem) {
+            guard let info = sender.representedObject as? [String: URL],
+                  let fileURL = info["fileURL"],
+                  let appURL = info["appURL"] else { return }
+
+            NSWorkspace.shared.open(
+                [fileURL],
+                withApplicationAt: appURL,
+                configuration: NSWorkspace.OpenConfiguration()
+            )
+        }
+
+        @objc private func contextMenuQuickLook(_ sender: NSMenuItem) {
+            guard let paths = sender.representedObject as? Set<String> else { return }
+            parent.onContextMenuAction(.quickLook, paths)
+        }
+
+        @objc private func contextMenuRename(_ sender: NSMenuItem) {
+            guard let paths = sender.representedObject as? Set<String> else { return }
+            parent.onContextMenuAction(.rename, paths)
+        }
+
+        @objc private func contextMenuDelete(_ sender: NSMenuItem) {
+            guard let paths = sender.representedObject as? Set<String> else { return }
+            parent.onContextMenuAction(.delete, paths)
         }
 
         // MARK: - NSTableViewDataSource
@@ -544,11 +684,11 @@ struct FileTableView: View {
             },
             onReturnKey: {
                 startRenaming()
+            },
+            onContextMenuAction: { action, paths in
+                handleContextMenuAction(action, paths: paths)
             }
         )
-        .contextMenu(forSelectionType: String.self) { paths in
-            FileContextMenu(selectedPaths: paths)
-        }
     }
 
     // MARK: - Private Methods
@@ -588,6 +728,58 @@ struct FileTableView: View {
         )
     }
 
+    private func handleContextMenuAction(_ action: NSFileTableView.ContextMenuAction, paths: Set<String>) {
+        switch action {
+        case .open:
+            if let path = paths.first, let entry = directoryVM.entry(for: path) {
+                handleDoubleClick(entry)
+            }
+        case .quickLook:
+            if let panel = QLPreviewPanel.shared() {
+                if panel.isVisible {
+                    panel.orderOut(nil)
+                } else {
+                    panel.orderFront(nil)
+                }
+            }
+        case .copy:
+            navigationState.selectedPaths = paths
+            navigationState.copySelectedFiles()
+        case .cut:
+            navigationState.selectedPaths = paths
+            navigationState.cutSelectedFiles()
+        case .paste:
+            Task { await pasteFiles() }
+        case .rename:
+            NotificationCenter.default.post(name: .renameRequested, object: nil)
+        case .delete:
+            NotificationCenter.default.post(name: .deleteRequested, object: nil)
+        }
+    }
+
+    private func pasteFiles() async {
+        let paths = navigationState.clipboard.paths
+        let isCut = navigationState.clipboard.isCut
+
+        for path in paths {
+            do {
+                if isCut {
+                    _ = try await APIClient.shared.move(from: path, to: navigationState.currentPath)
+                } else {
+                    _ = try await APIClient.shared.copy(from: path, to: navigationState.currentPath)
+                }
+            } catch {
+                print("Paste failed for \(path): \(error)")
+            }
+        }
+
+        if isCut {
+            navigationState.clearClipboard()
+        }
+
+        loadDirectory()
+    }
+
     private func startRenaming() {
         guard navigationState.hasSingleSelection,
               let path = navigationState.selectedPaths.first,
@@ -624,112 +816,6 @@ struct FileTableView: View {
         }
 
         return nil
-    }
-}
-
-// MARK: - File Context Menu
-
-struct FileContextMenu: View {
-    let selectedPaths: Set<String>
-    @Environment(NavigationState.self) private var navigationState
-    @Environment(DirectoryViewModel.self) private var directoryVM
-    @Environment(ServerConfiguration.self) private var serverConfig
-
-    var body: some View {
-        if let path = selectedPaths.first,
-           selectedPaths.count == 1,
-           let entry = directoryVM.entry(for: path) {
-            if entry.isDir {
-                Button("Open") {
-                    navigationState.navigate(to: entry.path)
-                }
-            } else {
-                Button("Open") {
-                    NotificationCenter.default.post(name: .openFileRequested, object: entry.path)
-                }
-
-                Button("Quick Look") {
-                    toggleQuickLook()
-                }
-                .keyboardShortcut(" ", modifiers: [])
-            }
-            Divider()
-        }
-
-        if selectedPaths.count > 1 {
-            Button("Quick Look") {
-                toggleQuickLook()
-            }
-            .keyboardShortcut(" ", modifiers: [])
-            Divider()
-        }
-
-        Button("Copy") {
-            navigationState.copySelectedFiles()
-        }
-        .disabled(selectedPaths.isEmpty)
-
-        Button("Cut") {
-            navigationState.cutSelectedFiles()
-        }
-        .disabled(selectedPaths.isEmpty)
-
-        if navigationState.hasClipboardContent {
-            Button("Paste") {
-                Task { await pasteFiles() }
-            }
-        }
-
-        Divider()
-
-        if selectedPaths.count == 1 {
-            Button("Rename") {
-                NotificationCenter.default.post(name: .renameRequested, object: nil)
-            }
-        }
-
-        Button("Delete", role: .destructive) {
-            NotificationCenter.default.post(name: .deleteRequested, object: nil)
-        }
-        .disabled(selectedPaths.isEmpty)
-    }
-
-    private func toggleQuickLook() {
-        guard let panel = QLPreviewPanel.shared() else { return }
-        if panel.isVisible {
-            panel.orderOut(nil)
-        } else {
-            panel.orderFront(nil)
-        }
-    }
-
-    private func pasteFiles() async {
-        let paths = navigationState.clipboard.paths
-        let isCut = navigationState.clipboard.isCut
-
-        for path in paths {
-            do {
-                if isCut {
-                    _ = try await APIClient.shared.move(from: path, to: navigationState.currentPath)
-                } else {
-                    _ = try await APIClient.shared.copy(from: path, to: navigationState.currentPath)
-                }
-            } catch {
-                print("Paste failed for \(path): \(error)")
-            }
-        }
-
-        if isCut {
-            navigationState.clearClipboard()
-        }
-
-        directoryVM.loadDirectory(
-            path: navigationState.currentPath,
-            offset: navigationState.directoryOffset,
-            limit: navigationState.directoryLimit,
-            sortBy: navigationState.sortConfig.field,
-            sortOrder: navigationState.sortConfig.order
-        )
     }
 }
 
