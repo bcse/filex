@@ -8,7 +8,6 @@ import SwiftUI
 struct SearchResultsView: View {
     @Environment(NavigationState.self) private var navigationState
     @Environment(SearchViewModel.self) private var searchVM
-    @Environment(PreviewViewModel.self) private var previewVM
 
     var body: some View {
         Group {
@@ -133,7 +132,7 @@ struct SearchResultsView: View {
             navigationState.clearSearch()
             navigationState.navigate(to: entry.path)
         } else {
-            previewVM.open(entry)
+            NotificationCenter.default.post(name: .openFileRequested, object: entry.path)
         }
     }
 }
@@ -144,7 +143,6 @@ struct SearchContextMenu: View {
     let selectedPaths: Set<String>
     @Environment(NavigationState.self) private var navigationState
     @Environment(SearchViewModel.self) private var searchVM
-    @Environment(PreviewViewModel.self) private var previewVM
 
     var body: some View {
         if let path = selectedPaths.first,
@@ -157,7 +155,7 @@ struct SearchContextMenu: View {
                 }
             } else {
                 Button("Open") {
-                    previewVM.open(entry)
+                    NotificationCenter.default.post(name: .openFileRequested, object: entry.path)
                 }
             }
 
@@ -182,5 +180,4 @@ struct SearchContextMenu: View {
     SearchResultsView()
         .environment(NavigationState())
         .environment(SearchViewModel())
-        .environment(PreviewViewModel())
 }
