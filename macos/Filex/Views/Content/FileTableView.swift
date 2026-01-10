@@ -272,35 +272,41 @@ struct NSFileTableView: NSViewRepresentable {
                let path = selectedPaths.first,
                let entry = entries.first(where: { $0.path == path }),
                !entry.isDir,
-               let localURL = parent.pathResolver(path) {
+               let localURL = parent.pathResolver(path),
+               let appURLs = NSWorkspace.shared.urlsForApplications(toOpen: localURL) as [URL]?,
+               !appURLs.isEmpty {
                 let openWithItem = NSMenuItem(title: "Open With", action: nil, keyEquivalent: "")
-                openWithItem.image = NSImage(systemSymbolName: "arrow.up.forward.app", accessibilityDescription: "Open With")
-
                 let submenu = NSMenu()
-                let appURLs = NSWorkspace.shared.urlsForApplications(toOpen: localURL)
+                
+                for appURL in appURLs.prefix(15) { // Limit to 15 apps
+                    let appName = FileManager.default.displayName(atPath: appURL.path)
+                    let appItem = NSMenuItem(title: appName, action: #selector(contextMenuOpenWith(_:)), keyEquivalent: "")
+                    appItem.target = self
+                    appItem.representedObject = ["fileURL": localURL, "appURL": appURL]
 
-                if appURLs.isEmpty {
-                    let noAppsItem = NSMenuItem(title: "No Applications", action: nil, keyEquivalent: "")
-                    noAppsItem.isEnabled = false
-                    submenu.addItem(noAppsItem)
-                } else {
-                    for appURL in appURLs.prefix(15) { // Limit to 15 apps
-                        let appName = FileManager.default.displayName(atPath: appURL.path)
-                        let appItem = NSMenuItem(title: appName, action: #selector(contextMenuOpenWith(_:)), keyEquivalent: "")
-                        appItem.target = self
-                        appItem.representedObject = ["fileURL": localURL, "appURL": appURL]
+                    // Get app icon
+                    let appIcon = NSWorkspace.shared.icon(forFile: appURL.path)
+                    appIcon.size = NSSize(width: 16, height: 16)
+                    appItem.image = appIcon
 
-                        // Get app icon
-                        let appIcon = NSWorkspace.shared.icon(forFile: appURL.path)
-                        appIcon.size = NSSize(width: 16, height: 16)
-                        appItem.image = appIcon
-
-                        submenu.addItem(appItem)
-                    }
+                    submenu.addItem(appItem)
                 }
-
+                
                 openWithItem.submenu = submenu
                 menu.addItem(openWithItem)
+            }
+            
+            menu.addItem(NSMenuItem.separator())
+            
+            // Reveal in Finder (single selection only, with local path)
+            if selectedPaths.count == 1,
+               let path = selectedPaths.first,
+               let localURL = parent.pathResolver(path) {
+                let revealItem = NSMenuItem(title: "Reveal in Finder", action: #selector(contextMenuRevealInFinder(_:)), keyEquivalent: "")
+                revealItem.target = self
+                revealItem.representedObject = localURL
+                revealItem.image = NSImage(systemSymbolName: "finder", accessibilityDescription: "Reveal in Finder")
+                menu.addItem(revealItem)
             }
 
             // Quick Look
@@ -349,6 +355,11 @@ struct NSFileTableView: NSViewRepresentable {
         @objc private func contextMenuQuickLook(_ sender: NSMenuItem) {
             guard let paths = sender.representedObject as? Set<String> else { return }
             parent.onContextMenuAction(.quickLook, paths)
+        }
+
+        @objc private func contextMenuRevealInFinder(_ sender: NSMenuItem) {
+            guard let localURL = sender.representedObject as? URL else { return }
+            NSWorkspace.shared.activateFileViewerSelecting([localURL])
         }
 
         @objc private func contextMenuRename(_ sender: NSMenuItem) {
