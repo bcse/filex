@@ -127,31 +127,64 @@ enum FileUtils {
             return "yellow"
         }
 
-        if entry.isImage {
-            return "green"
-        }
-        if entry.isVideo {
-            return "purple"
-        }
-        if entry.isAudio {
-            return "pink"
-        }
-        if entry.isText {
-            return "orange"
-        }
-        if entry.isCode {
-            return "blue"
+        // Check by MIME type first
+        if let mime = entry.mimeType {
+            if mime.hasPrefix("image/") {
+                return "green"
+            }
+            if mime.hasPrefix("video/") {
+                return "purple"
+            }
+            if mime.hasPrefix("audio/") {
+                return "pink"
+            }
+            if mime.hasPrefix("text/") || mime == "application/json" || mime == "application/xml" {
+                return "orange"
+            }
+            if mime == "application/pdf" {
+                return "red"
+            }
+            if mime.contains("zip") || mime.contains("tar") || mime.contains("archive") || mime.contains("compressed") {
+                return "orange"
+            }
         }
 
-        // Check by extension
+        // Check by extension as fallback
         if let ext = entry.fileExtension?.lowercased() {
             switch ext {
+            // Images
+            case "jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "bmp", "tiff", "svg", "ico":
+                return "green"
+
+            // Videos
+            case "mp4", "mov", "avi", "mkv", "webm", "m4v", "wmv", "flv":
+                return "purple"
+
+            // Audio
+            case "mp3", "wav", "aac", "flac", "m4a", "ogg", "wma", "aiff":
+                return "pink"
+
+            // Code
+            case "swift", "rs", "ts", "tsx", "js", "jsx", "py", "rb", "go", "java", "kt", "c", "cpp", "h", "hpp", "cs",
+                 "html", "css", "scss", "sass", "less", "sh", "bash", "zsh", "fish":
+                return "blue"
+
+            // Documents
             case "pdf":
                 return "red"
-            case "zip", "tar", "gz", "rar", "7z":
+
+            // Text/Config
+            case "txt", "md", "rtf", "log", "json", "xml", "yaml", "yml", "toml":
                 return "orange"
+
+            // Archives
+            case "zip", "tar", "gz", "rar", "7z", "bz2", "xz":
+                return "orange"
+
+            // Other
             case "dmg", "iso", "img":
                 return "gray"
+
             default:
                 break
             }

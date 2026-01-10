@@ -382,30 +382,27 @@ struct NSFileTableView: NSViewRepresentable {
         // MARK: - Helpers
 
         private func iconForEntry(_ entry: FileEntry) -> NSImage {
-            if entry.isDir {
-                return NSImage(systemSymbolName: "folder.fill", accessibilityDescription: "Folder")!
+            let symbolName = FileUtils.symbolName(for: entry)
+            let colorName = FileUtils.symbolColor(for: entry)
+
+            guard let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: entry.name) else {
+                return NSImage(systemSymbolName: "doc.fill", accessibilityDescription: "File")!
             }
 
-            let mimeType = entry.mimeType ?? ""
-            let symbolName: String
-
-            if mimeType.hasPrefix("image/") {
-                symbolName = "photo"
-            } else if mimeType.hasPrefix("video/") {
-                symbolName = "film"
-            } else if mimeType.hasPrefix("audio/") {
-                symbolName = "music.note"
-            } else if mimeType.hasPrefix("text/") || mimeType.contains("json") || mimeType.contains("xml") {
-                symbolName = "doc.text"
-            } else if mimeType.contains("pdf") {
-                symbolName = "doc.richtext"
-            } else if mimeType.contains("zip") || mimeType.contains("tar") || mimeType.contains("compressed") {
-                symbolName = "doc.zipper"
-            } else {
-                symbolName = "doc"
+            // Apply tint color
+            let color: NSColor
+            switch colorName {
+            case "yellow": color = .systemYellow
+            case "green": color = .systemGreen
+            case "purple": color = .systemPurple
+            case "pink": color = .systemPink
+            case "orange": color = .systemOrange
+            case "blue": color = .systemBlue
+            case "red": color = .systemRed
+            default: color = .secondaryLabelColor
             }
 
-            return NSImage(systemSymbolName: symbolName, accessibilityDescription: entry.name) ?? NSImage(systemSymbolName: "doc", accessibilityDescription: "File")!
+            return image.withSymbolConfiguration(.init(paletteColors: [color]))!
         }
 
         /// Get selected entries that have valid local paths for preview
