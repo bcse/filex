@@ -31,6 +31,15 @@ private final class FilePreviewItem: NSObject, QLPreviewItem {
     }
 }
 
+// MARK: - Custom NSTextField that ignores right-click for editing
+
+private final class EditableTextField: NSTextField {
+    override func rightMouseDown(with event: NSEvent) {
+        // Don't start editing on right-click, just pass to next responder
+        nextResponder?.rightMouseDown(with: event)
+    }
+}
+
 // MARK: - Custom NSTableView with Quick Look Support
 
 private final class QuickLookTableView: NSTableView {
@@ -515,7 +524,8 @@ struct NSFileTableView: NSViewRepresentable {
                 cellView = NSTableCellView()
                 cellView?.identifier = identifier
 
-                let textField = NSTextField()
+                // Use EditableTextField for name column to prevent right-click from triggering edit
+                let textField: NSTextField = (columnID == "name") ? EditableTextField() : NSTextField()
                 textField.isBordered = false
                 textField.drawsBackground = false
                 textField.isEditable = (columnID == "name")
