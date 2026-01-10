@@ -1,20 +1,85 @@
 //
-//  NSFileTableView.swift
+//  FileTableView.swift
 //  Filex
 //
-//  NSViewRepresentable wrapper for NSTableView with in-place editing support
+//  NSViewRepresentable wrapper for NSTableView with in-place editing and Quick Look support
 //
 
 import AppKit
+import Quartz
 import SwiftUI
 
-struct NSFileTableView: NSViewRepresentable {
-    @Environment(NavigationState.self) private var navigationState
-    @Environment(DirectoryViewModel.self) private var directoryVM
-    @Environment(ServerConfiguration.self) private var serverConfig
+// MARK: - Quick Look Preview Item
 
+private final class FilePreviewItem: NSObject, QLPreviewItem {
+    let url: URL
+
+    init(_ url: URL) {
+        self.url = url
+    }
+
+    var previewItemURL: URL! {
+        url
+    }
+}
+
+// MARK: - Custom NSTableView with Quick Look Support
+
+private final class QuickLookTableView: NSTableView {
+    override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool {
+        MainActor.assumeIsolated {
+            guard delegate is QLPreviewPanelDataSource,
+                  delegate is QLPreviewPanelDelegate else {
+                return false
+            }
+            return true
+        }
+    }
+
+    override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
+        MainActor.assumeIsolated {
+            guard let dataSource = delegate as? QLPreviewPanelDataSource,
+                  let delegate = delegate as? QLPreviewPanelDelegate else {
+                panel.dataSource = nil
+                panel.delegate = nil
+                return
+            }
+            panel.dataSource = dataSource
+            panel.delegate = delegate
+        }
+    }
+
+    override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
+        MainActor.assumeIsolated {
+            panel.dataSource = nil
+            panel.delegate = nil
+        }
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 49 { // Space key
+            toggleQuickLook()
+        } else {
+            super.keyDown(with: event)
+        }
+    }
+
+    private func toggleQuickLook() {
+        guard let panel = QLPreviewPanel.shared() else { return }
+        if panel.isVisible {
+            panel.orderOut(nil)
+        } else {
+            panel.orderFront(nil)
+        }
+    }
+}
+
+// MARK: - NSFileTableView
+
+struct NSFileTableView: NSViewRepresentable {
     let entries: [FileEntry]
     let selectedPaths: Set<String>
+    let pathResolver: (String) -> URL?
     let onSelectionChanged: (Set<String>) -> Void
     let onDoubleClick: (FileEntry) -> Void
     let onRename: (FileEntry, String) -> Void
@@ -31,7 +96,7 @@ struct NSFileTableView: NSViewRepresentable {
         scrollView.autohidesScrollers = true
         scrollView.borderType = .noBorder
 
-        let tableView = NSTableView()
+        let tableView = QuickLookTableView()
         tableView.style = .inset
         tableView.usesAlternatingRowBackgroundColors = true
         tableView.allowsMultipleSelection = true
@@ -86,9 +151,6 @@ struct NSFileTableView: NSViewRepresentable {
         tableView.target = context.coordinator
         tableView.doubleAction = #selector(Coordinator.handleDoubleClick(_:))
 
-        // Enable Return key for rename
-        tableView.action = #selector(Coordinator.handleClick(_:))
-
         scrollView.documentView = tableView
         context.coordinator.tableView = tableView
 
@@ -123,7 +185,6 @@ struct NSFileTableView: NSViewRepresentable {
         var parent: NSFileTableView
         var entries: [FileEntry] = []
         weak var tableView: NSTableView?
-        private var editingRow: Int?
 
         init(_ parent: NSFileTableView) {
             self.parent = parent
@@ -242,6 +303,10 @@ struct NSFileTableView: NSViewRepresentable {
                     selectedPaths.insert(entries[index].path)
                 }
             }
+
+            // Reload Quick Look panel data when selection changes
+            QLPreviewPanel.shared()?.reloadData()
+
             parent.onSelectionChanged(selectedPaths)
         }
 
@@ -286,10 +351,6 @@ struct NSFileTableView: NSViewRepresentable {
             parent.onDoubleClick(entries[row])
         }
 
-        @objc func handleClick(_ sender: NSTableView) {
-            // This is called on single click - we don't need to do anything here
-        }
-
         func startEditing(at row: Int) {
             guard let tableView = tableView,
                   row >= 0, row < entries.count else { return }
@@ -331,17 +392,62 @@ struct NSFileTableView: NSViewRepresentable {
 
             return NSImage(systemSymbolName: symbolName, accessibilityDescription: entry.name) ?? NSImage(systemSymbolName: "doc", accessibilityDescription: "File")!
         }
+
+        /// Get selected entries that have valid local paths for preview
+        private func selectedPreviewItems() -> [FilePreviewItem] {
+            guard let tableView = tableView else { return [] }
+
+            return tableView.selectedRowIndexes.compactMap { index -> FilePreviewItem? in
+                guard index < entries.count else { return nil }
+                let entry = entries[index]
+                guard !entry.isDir,
+                      let url = parent.pathResolver(entry.path),
+                      FileManager.default.fileExists(atPath: url.path) else {
+                    return nil
+                }
+                return FilePreviewItem(url)
+            }
+        }
     }
 }
 
-// MARK: - FileTableView (Updated to use NSFileTableView)
+// MARK: - Quick Look Data Source & Delegate
+
+extension NSFileTableView.Coordinator: QLPreviewPanelDataSource, QLPreviewPanelDelegate {
+    func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int {
+        selectedPreviewItems().count
+    }
+
+    func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> (any QLPreviewItem)! {
+        let items = selectedPreviewItems()
+        guard index >= 0, index < items.count else { return nil }
+        return items[index]
+    }
+
+    func previewPanel(_ panel: QLPreviewPanel!, handle event: NSEvent!) -> Bool {
+        guard let tableView = tableView else { return false }
+
+        // Forward arrow key events to the table view for navigation
+        if event.type == .keyDown {
+            switch event.keyCode {
+            case 125, 126: // Down arrow, Up arrow
+                tableView.keyDown(with: event)
+                return true
+            default:
+                break
+            }
+        }
+
+        return false
+    }
+}
+
+// MARK: - FileTableView (SwiftUI Wrapper)
 
 struct FileTableView: View {
     @Environment(NavigationState.self) private var navigationState
     @Environment(DirectoryViewModel.self) private var directoryVM
     @Environment(ServerConfiguration.self) private var serverConfig
-
-    @State private var tableCoordinator: NSFileTableView.Coordinator?
 
     var body: some View {
         Group {
@@ -408,6 +514,10 @@ struct FileTableView: View {
         NSFileTableView(
             entries: directoryVM.entries,
             selectedPaths: navigationState.selectedPaths,
+            pathResolver: { remotePath in
+                guard let localPath = serverConfig.resolveLocalPath(remotePath) else { return nil }
+                return URL(fileURLWithPath: localPath)
+            },
             onSelectionChanged: { paths in
                 navigationState.selectedPaths = paths
             },
@@ -424,16 +534,6 @@ struct FileTableView: View {
         .onKeyPress(.return) {
             if navigationState.hasSingleSelection {
                 startRenaming()
-                return .handled
-            }
-            return .ignored
-        }
-        .onKeyPress(.space) {
-            if navigationState.hasSelection {
-                NotificationCenter.default.post(
-                    name: .quickLookRequested,
-                    object: Array(navigationState.selectedPaths)
-                )
                 return .handled
             }
             return .ignored
@@ -541,7 +641,7 @@ struct FileContextMenu: View {
                 }
 
                 Button("Quick Look") {
-                    NotificationCenter.default.post(name: .quickLookRequested, object: [entry.path])
+                    toggleQuickLook()
                 }
                 .keyboardShortcut(" ", modifiers: [])
             }
@@ -550,7 +650,7 @@ struct FileContextMenu: View {
 
         if selectedPaths.count > 1 {
             Button("Quick Look") {
-                NotificationCenter.default.post(name: .quickLookRequested, object: Array(selectedPaths))
+                toggleQuickLook()
             }
             .keyboardShortcut(" ", modifiers: [])
             Divider()
@@ -584,6 +684,15 @@ struct FileContextMenu: View {
             NotificationCenter.default.post(name: .deleteRequested, object: nil)
         }
         .disabled(selectedPaths.isEmpty)
+    }
+
+    private func toggleQuickLook() {
+        guard let panel = QLPreviewPanel.shared() else { return }
+        if panel.isVisible {
+            panel.orderOut(nil)
+        } else {
+            panel.orderFront(nil)
+        }
     }
 
     private func pasteFiles() async {
