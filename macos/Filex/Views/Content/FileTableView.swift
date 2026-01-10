@@ -255,7 +255,17 @@ struct NSFileTableView: NSViewRepresentable {
 
             // Get clicked row - if clicking on unselected row, select it first
             let clickedRow = tableView.clickedRow
-            if clickedRow >= 0 && !tableView.selectedRowIndexes.contains(clickedRow) {
+
+            // Right-click on empty space - show "New Folder" option
+            if clickedRow < 0 {
+                let newFolderItem = NSMenuItem(title: "New Folder", action: #selector(contextMenuNewFolder(_:)), keyEquivalent: "")
+                newFolderItem.target = self
+                newFolderItem.image = NSImage(systemSymbolName: "folder.badge.plus", accessibilityDescription: "New Folder")
+                menu.addItem(newFolderItem)
+                return
+            }
+
+            if !tableView.selectedRowIndexes.contains(clickedRow) {
                 tableView.selectRowIndexes(IndexSet(integer: clickedRow), byExtendingSelection: false)
             }
 
@@ -379,6 +389,10 @@ struct NSFileTableView: NSViewRepresentable {
         @objc private func contextMenuDelete(_ sender: NSMenuItem) {
             guard let paths = sender.representedObject as? Set<String> else { return }
             parent.onContextMenuAction(.delete, paths)
+        }
+
+        @objc private func contextMenuNewFolder(_ sender: NSMenuItem) {
+            NotificationCenter.default.post(name: .newFolderRequested, object: nil)
         }
 
         // MARK: - NSTableViewDataSource
