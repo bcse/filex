@@ -105,6 +105,7 @@ private final class QuickLookTableView: NSTableView {
 struct NSFileTableView: NSViewRepresentable {
     let entries: [FileEntry]
     let selectedPaths: Set<String>
+    let currentPath: String
     let pathResolver: (String) -> URL?
     let onSelectionChanged: (Set<String>) -> Void
     let onDoubleClick: (FileEntry) -> Void
@@ -114,6 +115,7 @@ struct NSFileTableView: NSViewRepresentable {
     let onContextMenuAction: (ContextMenuAction, Set<String>) -> Void
     let onMove: ([String], String) -> Void  // source paths, destination folder path
     let onCopy: ([String], String) -> Void  // source paths, destination folder path
+    let onUpload: ([URL], String) -> Void   // file URLs, destination folder path
 
     enum ContextMenuAction {
         case open
@@ -454,7 +456,20 @@ struct NSFileTableView: NSViewRepresentable {
         // MARK: - Drop Target
 
         func tableView(_ tableView: NSTableView, validateDrop info: any NSDraggingInfo, proposedRow row: Int, proposedDropOperation dropOperation: NSTableView.DropOperation) -> NSDragOperation {
-            // Only accept drops ON rows (folders), not between rows
+            let pasteboard = info.draggingPasteboard
+
+            // Check if this is an external file drop (from Finder)
+            let externalFileURLs = getExternalFileURLs(from: pasteboard)
+            if !externalFileURLs.isEmpty {
+                // External files can be dropped anywhere (empty space = current dir, on folder = that folder)
+                if dropOperation == .on && row >= 0 && row < entries.count {
+                    // Dropping on a row - only allow if it's a folder
+                    guard entries[row].isDir else { return [] }
+                }
+                return .copy
+            }
+
+            // Internal drag - only accept drops ON folders
             guard dropOperation == .on, row >= 0, row < entries.count else {
                 return []
             }
@@ -467,7 +482,7 @@ struct NSFileTableView: NSViewRepresentable {
             }
 
             // Get the paths being dragged
-            let draggedPaths = getDraggedPaths(from: info.draggingPasteboard)
+            let draggedPaths = getDraggedPaths(from: pasteboard)
 
             // Can't drop onto self or parent
             for path in draggedPaths {
@@ -485,12 +500,29 @@ struct NSFileTableView: NSViewRepresentable {
         }
 
         func tableView(_ tableView: NSTableView, acceptDrop info: any NSDraggingInfo, row: Int, dropOperation: NSTableView.DropOperation) -> Bool {
+            let pasteboard = info.draggingPasteboard
+
+            // Check if this is an external file drop (from Finder)
+            let externalFileURLs = getExternalFileURLs(from: pasteboard)
+            if !externalFileURLs.isEmpty {
+                // Determine target path
+                let targetPath: String
+                if dropOperation == .on && row >= 0 && row < entries.count && entries[row].isDir {
+                    targetPath = entries[row].path
+                } else {
+                    targetPath = parent.currentPath
+                }
+                parent.onUpload(externalFileURLs, targetPath)
+                return true
+            }
+
+            // Internal drag - move/copy within the app
             guard row >= 0, row < entries.count else { return false }
 
             let targetEntry = entries[row]
             guard targetEntry.isDir else { return false }
 
-            let draggedPaths = getDraggedPaths(from: info.draggingPasteboard)
+            let draggedPaths = getDraggedPaths(from: pasteboard)
             guard !draggedPaths.isEmpty else { return false }
 
             let isCopy = NSEvent.modifierFlags.contains(.option)
@@ -515,6 +547,28 @@ struct NSFileTableView: NSViewRepresentable {
                 }
             }
             return paths
+        }
+
+        private func getExternalFileURLs(from pasteboard: NSPasteboard) -> [URL] {
+            // Check if this is an internal drag (has .filexPaths type)
+            guard let items = pasteboard.pasteboardItems else { return [] }
+
+            // If any item has .filexPaths, this is an internal drag, not external
+            for item in items {
+                if item.string(forType: .filexPaths) != nil {
+                    return []
+                }
+            }
+
+            // Get file URLs from pasteboard
+            var urls: [URL] = []
+            for item in items {
+                if let urlString = item.string(forType: .fileURL),
+                   let url = URL(string: urlString) {
+                    urls.append(url)
+                }
+            }
+            return urls
         }
 
         // MARK: - NSTableViewDelegate
@@ -735,6 +789,7 @@ struct FileTableView: View {
     @Environment(NavigationState.self) private var navigationState
     @Environment(DirectoryViewModel.self) private var directoryVM
     @Environment(ServerConfiguration.self) private var serverConfig
+    @Environment(UploadViewModel.self) private var uploadVM
 
     var body: some View {
         Group {
@@ -801,6 +856,7 @@ struct FileTableView: View {
         NSFileTableView(
             entries: directoryVM.entries,
             selectedPaths: navigationState.selectedPaths,
+            currentPath: navigationState.currentPath,
             pathResolver: { remotePath in
                 guard let localPath = serverConfig.resolveLocalPath(remotePath) else { return nil }
                 return URL(fileURLWithPath: localPath)
@@ -828,6 +884,9 @@ struct FileTableView: View {
             },
             onCopy: { sourcePaths, destinationFolder in
                 handleCopy(sourcePaths: sourcePaths, to: destinationFolder)
+            },
+            onUpload: { urls, targetPath in
+                handleUpload(urls: urls, to: targetPath)
             }
         )
     }
@@ -875,6 +934,14 @@ struct FileTableView: View {
                     print("Copy failed for \(path): \(error)")
                 }
             }
+            loadDirectory()
+        }
+    }
+
+    private func handleUpload(urls: [URL], to targetPath: String) {
+        uploadVM.addFiles(urls, targetPath: targetPath)
+        // Reload directory after a short delay to show uploaded files
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             loadDirectory()
         }
     }
@@ -993,4 +1060,5 @@ struct FileTableView: View {
         .environment(NavigationState())
         .environment(DirectoryViewModel())
         .environment(ServerConfiguration())
+        .environment(UploadViewModel())
 }
