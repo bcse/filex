@@ -47,13 +47,6 @@ struct FilexApp: App {
                     NotificationCenter.default.post(name: .uploadRequested, object: nil)
                 }
                 .keyboardShortcut("o", modifiers: [.command, .shift])
-
-                Divider()
-
-                Button("Quick Look") {
-                    NotificationCenter.default.post(name: .quickLookRequested, object: nil)
-                }
-                .keyboardShortcut(" ", modifiers: [])
             }
 
             // Edit menu additions
@@ -142,7 +135,6 @@ extension Notification.Name {
     static let deleteRequested = Notification.Name("deleteRequested")
     static let refreshRequested = Notification.Name("refreshRequested")
     static let openFileRequested = Notification.Name("openFileRequested")
-    static let quickLookRequested = Notification.Name("quickLookRequested")
     static let showSettingsRequested = Notification.Name("showSettingsRequested")
 }
 

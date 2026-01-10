@@ -80,9 +80,6 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .openFileRequested)) { notification in
             handleOpenFile(notification)
         }
-        .onReceive(NotificationCenter.default.publisher(for: .quickLookRequested)) { notification in
-            handleQuickLook(notification)
-        }
         .onReceive(NotificationCenter.default.publisher(for: .showSettingsRequested)) { _ in
             showSettings = true
         }
@@ -166,35 +163,6 @@ struct ContentView: View {
         } else {
             alertFilePath = remotePath
             showNoMappingAlert = true
-        }
-    }
-
-    private func handleQuickLook(_ notification: Notification) {
-        // Get paths from notification or fall back to current selection
-        let remotePaths: [String]
-        if let paths = notification.object as? [String] {
-            remotePaths = paths
-        } else {
-            remotePaths = Array(navigationState.selectedPaths)
-        }
-
-        guard !remotePaths.isEmpty else { return }
-
-        let localURLs = remotePaths.compactMap { remotePath -> URL? in
-            guard let localPath = serverConfig.resolveLocalPath(remotePath),
-                  FileManager.default.fileExists(atPath: localPath) else {
-                return nil
-            }
-            return URL(fileURLWithPath: localPath)
-        }
-
-        if localURLs.isEmpty {
-            if let firstPath = remotePaths.first {
-                alertFilePath = firstPath
-                showNoMappingAlert = true
-            }
-        } else {
-            QuickLookController.shared.toggleQuickLook(for: localURLs)
         }
     }
 }

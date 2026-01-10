@@ -9,14 +9,17 @@ Filex macOS is a native macOS desktop client for the Filex file manager server. 
 ## Build Commands
 
 ```bash
-# Build from command line
-xcodebuild -project Filex.xcodeproj -scheme Filex -configuration Debug build
+# Build from command line (output to .build folder)
+xcodebuild -project Filex.xcodeproj -scheme Filex -configuration Debug -derivedDataPath ./.build build
 
 # Run tests
-xcodebuild -project Filex.xcodeproj -scheme Filex test
+xcodebuild -project Filex.xcodeproj -scheme Filex -derivedDataPath ./.build test
 
 # Build for release
-xcodebuild -project Filex.xcodeproj -scheme Filex -configuration Release build
+xcodebuild -project Filex.xcodeproj -scheme Filex -configuration Release -derivedDataPath ./.build build
+
+# Launch the built app
+open ./.build/Build/Products/Debug/Filex.app
 ```
 
 Open `Filex.xcodeproj` in Xcode for GUI-based development.
@@ -49,7 +52,7 @@ FilexApp (WindowGroup + commands)
 └── ContentView (NavigationSplitView)
     ├── SidebarView (tree navigation)
     └── ContentAreaView
-        ├── FileTableView (directory listing with Table)
+        ├── FileTableView (NSTableView wrapper with in-place editing and Quick Look)
         └── SearchResultsView
 ```
 
@@ -57,29 +60,50 @@ FilexApp (WindowGroup + commands)
 
 Views communicate via NotificationCenter for menu-triggered actions:
 - `.newFolderRequested`, `.uploadRequested`, `.renameRequested`, `.deleteRequested`
-- `.refreshRequested`, `.openFileRequested`, `.quickLookRequested`
+- `.refreshRequested`, `.openFileRequested`
+
+### Quick Look Integration
+
+Quick Look is integrated directly into the NSTableView:
+- Space key toggles Quick Look panel (handled in `QuickLookTableView.keyDown`)
+- Table view subclass implements `acceptsPreviewPanelControl`, `beginPreviewPanelControl`, `endPreviewPanelControl`
+- Coordinator implements `QLPreviewPanelDataSource` and `QLPreviewPanelDelegate`
+- Selection changes automatically reload Quick Look data
+- Uses path mappings to resolve remote paths to local file URLs
 
 ### Path Mapping
 
 The app maps remote server paths to local filesystem paths via `ServerConfiguration.pathMappings`. This enables:
 - Opening files locally with default apps
-- QuickLook preview using local files
+- Quick Look preview using local files
 - Configured in Settings → Path Mappings tab
 
 ## Verification Workflow
 
-**IMPORTANT**: After implementing a feature or fixing a bug, always run the test server and the app to verify the work. Do not assume changes are correct without manual verification.
+**IMPORTANT**: After implementing a feature or fixing a bug, always run the test server and the app to verify the work. Do not assume changes are correct without manual verification. Use Peekaboo to automate UI testing.
 
 ```bash
 # 1. Start the backend test server (from backend directory)
-cd ../backend && FM_ROOT_PATH=../testdata FM_DATABASE_PATH=./data/filex.db FM_PORT=3434 cargo run
+cd ../backend && FM_ROOT_PATH=../testdata FM_DATABASE_PATH=./data/filex.db FM_PORT=3434 cargo run &
 
 # 2. Build and run the macOS app
-xcodebuild -project Filex.xcodeproj -scheme Filex -configuration Debug build
-# Or open Filex.xcodeproj in Xcode and run (Cmd+R)
+xcodebuild -project Filex.xcodeproj -scheme Filex -configuration Debug -derivedDataPath ./.build build
+open ./.build/Build/Products/Debug/Filex.app
 
-# 3. Configure app to connect to localhost:3434
+# 3. Use Peekaboo to verify UI behavior
+peekaboo app switch --to Filex
+peekaboo see --app Filex --annotate --path /tmp/filex-test.png
+peekaboo click --app Filex --on <element_id>
+peekaboo press <key> --app Filex
 ```
+
+### Peekaboo Testing Tips
+
+- Always use `peekaboo see --annotate` to capture UI state and get element IDs
+- Use `--app Filex` to target the app specifically
+- Use `peekaboo press` for keyboard input (space, arrow keys, escape, etc.)
+- View annotated screenshots with the Read tool to inspect UI state
+- Verify features work before claiming they are fixed
 
 ## Key Patterns
 
