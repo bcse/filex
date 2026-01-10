@@ -8,6 +8,14 @@
 import AppKit
 import Quartz
 import SwiftUI
+import UniformTypeIdentifiers
+
+// MARK: - Drag and Drop Types
+
+private extension NSPasteboard.PasteboardType {
+    /// Custom pasteboard type for internal file path drag operations
+    static let filexPaths = NSPasteboard.PasteboardType("com.filex.paths")
+}
 
 // MARK: - Quick Look Preview Item
 
@@ -95,6 +103,8 @@ struct NSFileTableView: NSViewRepresentable {
     let onSort: (SortField, SortOrder) -> Void
     let onReturnKey: () -> Void
     let onContextMenuAction: (ContextMenuAction, Set<String>) -> Void
+    let onMove: ([String], String) -> Void  // source paths, destination folder path
+    let onCopy: ([String], String) -> Void  // source paths, destination folder path
 
     enum ContextMenuAction {
         case open
@@ -181,6 +191,11 @@ struct NSFileTableView: NSViewRepresentable {
         let menu = NSMenu()
         menu.delegate = context.coordinator
         tableView.menu = menu
+
+        // Register for drag and drop
+        tableView.setDraggingSourceOperationMask([.copy, .move], forLocal: true)
+        tableView.setDraggingSourceOperationMask(.copy, forLocal: false)
+        tableView.registerForDraggedTypes([.filexPaths, .fileURL])
 
         scrollView.documentView = tableView
         context.coordinator.tableView = tableView
@@ -381,6 +396,91 @@ struct NSFileTableView: NSViewRepresentable {
             if !trimmedName.isEmpty && trimmedName != entry.name {
                 parent.onRename(entry, trimmedName)
             }
+        }
+
+        // MARK: - Drag Source
+
+        func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> (any NSPasteboardWriting)? {
+            guard row < entries.count else { return nil }
+            let entry = entries[row]
+
+            let item = NSPasteboardItem()
+
+            // Write the path for internal drag operations
+            item.setString(entry.path, forType: .filexPaths)
+
+            // If we have a local file URL, also provide it for external drags
+            if let localURL = parent.pathResolver(entry.path) {
+                item.setString(localURL.absoluteString, forType: .fileURL)
+            }
+
+            return item
+        }
+
+        // MARK: - Drop Target
+
+        func tableView(_ tableView: NSTableView, validateDrop info: any NSDraggingInfo, proposedRow row: Int, proposedDropOperation dropOperation: NSTableView.DropOperation) -> NSDragOperation {
+            // Only accept drops ON rows (folders), not between rows
+            guard dropOperation == .on, row >= 0, row < entries.count else {
+                return []
+            }
+
+            let targetEntry = entries[row]
+
+            // Can only drop onto folders
+            guard targetEntry.isDir else {
+                return []
+            }
+
+            // Get the paths being dragged
+            let draggedPaths = getDraggedPaths(from: info.draggingPasteboard)
+
+            // Can't drop onto self or parent
+            for path in draggedPaths {
+                if path == targetEntry.path || targetEntry.path.hasPrefix(path + "/") {
+                    return []
+                }
+            }
+
+            // Option key = copy, otherwise move
+            if info.draggingSourceOperationMask.contains(.copy) && NSEvent.modifierFlags.contains(.option) {
+                return .copy
+            } else {
+                return .move
+            }
+        }
+
+        func tableView(_ tableView: NSTableView, acceptDrop info: any NSDraggingInfo, row: Int, dropOperation: NSTableView.DropOperation) -> Bool {
+            guard row >= 0, row < entries.count else { return false }
+
+            let targetEntry = entries[row]
+            guard targetEntry.isDir else { return false }
+
+            let draggedPaths = getDraggedPaths(from: info.draggingPasteboard)
+            guard !draggedPaths.isEmpty else { return false }
+
+            let isCopy = NSEvent.modifierFlags.contains(.option)
+
+            if isCopy {
+                parent.onCopy(draggedPaths, targetEntry.path)
+            } else {
+                parent.onMove(draggedPaths, targetEntry.path)
+            }
+
+            return true
+        }
+
+        private func getDraggedPaths(from pasteboard: NSPasteboard) -> [String] {
+            // Read paths from all pasteboard items (supports multi-item drag)
+            guard let items = pasteboard.pasteboardItems else { return [] }
+
+            var paths: [String] = []
+            for item in items {
+                if let path = item.string(forType: .filexPaths) {
+                    paths.append(path)
+                }
+            }
+            return paths
         }
 
         // MARK: - NSTableViewDelegate
@@ -687,6 +787,12 @@ struct FileTableView: View {
             },
             onContextMenuAction: { action, paths in
                 handleContextMenuAction(action, paths: paths)
+            },
+            onMove: { sourcePaths, destinationFolder in
+                handleMove(sourcePaths: sourcePaths, to: destinationFolder)
+            },
+            onCopy: { sourcePaths, destinationFolder in
+                handleCopy(sourcePaths: sourcePaths, to: destinationFolder)
             }
         )
     }
@@ -709,6 +815,32 @@ struct FileTableView: View {
             } catch {
                 print("Rename failed: \(error)")
             }
+        }
+    }
+
+    private func handleMove(sourcePaths: [String], to destinationFolder: String) {
+        Task {
+            for path in sourcePaths {
+                do {
+                    _ = try await APIClient.shared.move(from: path, to: destinationFolder)
+                } catch {
+                    print("Move failed for \(path): \(error)")
+                }
+            }
+            loadDirectory()
+        }
+    }
+
+    private func handleCopy(sourcePaths: [String], to destinationFolder: String) {
+        Task {
+            for path in sourcePaths {
+                do {
+                    _ = try await APIClient.shared.copy(from: path, to: destinationFolder)
+                } catch {
+                    print("Copy failed for \(path): \(error)")
+                }
+            }
+            loadDirectory()
         }
     }
 
